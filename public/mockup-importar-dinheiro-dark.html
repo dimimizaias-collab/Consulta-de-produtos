@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="pt-BR" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Importar Dinheiro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FFFCEC; --text: #1A1A0E; --muted: rgba(26,26,10,0.45); --faint: rgba(26,26,10,0.28); --ghost: rgba(26,26,10,0.18);
+    --hdr: #FBF35E; --hdr-border: #D9CF45; --hdr-text: #1A1A0E; --chip: rgba(26,26,10,0.09);
+    --modal: #FDFAF0; --mhdr: #FFE500; --mhdr-border: #D4C000; --micon: rgba(26,26,10,0.09); --micon-c: #1A1A0E;
+    --card: #FFFFFF; --card-border: #E0D8BF; --field: #FFFFFF; --field-hover: #CFC4A2;
+    --line: #EFE8D2; --soft: #FAF7EE; --sub: #FDFBF4; --menu: #FFFFFF; --menu-hover: #FFF8D0;
+    --grid: #A8A290; --row-hover: #FFF8D0; --th: #FFEC4D; --th-line: #B8A31F; --th-bottom: #8F7E10; --th-text: rgba(26,26,10,0.55);
+    --foot: #FFF7B0; --foot-border: #DDD000;
+    --close-bg: rgba(26,26,10,0.08); --close-c: rgba(26,26,10,0.45);
+    --cancel-bg: rgba(26,26,10,0.08); --cancel-c: rgba(26,26,10,0.55); --cancel-b: rgba(26,26,10,0.14);
+    --green: #0A7A55; --red: #D81E1E; --amber: #92400E; --amber-bg: #FFFBEB; --amber-border: rgba(251,191,36,0.55);
+    --ok-bg: rgba(10,122,85,0.08);
+    --tabshadow: inset 0 6px 8px -5px rgba(26,26,10,0.35);
+    --rail: 64px; --hh: 44px;
+  }
+  html.dark {
+    --bg: #161612; --text: #F2F0E3; --muted: rgba(242,240,227,0.42); --faint: rgba(242,240,227,0.25); --ghost: rgba(242,240,227,0.16);
+    --hdr: #252520; --hdr-border: rgba(242,240,227,0.08); --hdr-text: #F2F0E3; --chip: rgba(216,30,30,0.13);
+    --modal: #1E1E18; --mhdr: #252520; --mhdr-border: rgba(242,240,227,0.07); --micon: rgba(216,30,30,0.13); --micon-c: #D81E1E;
+    --card: #252520; --card-border: rgba(242,240,227,0.08); --field: #252520; --field-hover: rgba(242,240,227,0.20);
+    --line: rgba(242,240,227,0.06); --soft: #1E1E18; --sub: #22221C; --menu: #2E2E28; --menu-hover: rgba(255,229,0,0.08);
+    --grid: rgba(242,240,227,0.16); --row-hover: rgba(242,240,227,0.03); --th-text: rgba(26,26,10,0.58);
+    --foot: #252520; --foot-border: rgba(242,240,227,0.06);
+    --close-bg: rgba(242,240,227,0.06); --close-c: rgba(242,240,227,0.35);
+    --cancel-bg: rgba(242,240,227,0.07); --cancel-c: rgba(242,240,227,0.50); --cancel-b: rgba(242,240,227,0.10);
+    --green: #34D399; --amber: #FCD34D; --amber-bg: rgba(251,191,36,0.07); --amber-border: rgba(251,191,36,0.40);
+    --ok-bg: rgba(52,211,153,0.08);
+    --tabshadow: inset 0 6px 8px -5px rgba(0,0,0,0.55);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+  button, select, input { font-family: inherit; }
+  .mono { font-family: 'DM Mono', monospace; font-variant-numeric: tabular-nums; }
+
+  .anno { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 100; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: center; padding: 8px 10px; border-radius: 14px; background: #1A1A0E; color: #F2F0E3; font-size: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.35); max-width: calc(100vw - 24px); }
+  .anno b { color: #FFE500; margin-right: 4px; }
+  .anno button { border: 1px solid rgba(242,240,227,.18); background: transparent; color: #F2F0E3; padding: 5px 10px; border-radius: 999px; cursor: pointer; font-weight: 700; font-size: 11px; }
+  .anno button.on { background: #FFE500; color: #1A1A0E; border-color: #FFE500; }
+  .anno a { color: rgba(242,240,227,.6); font-size: 11px; margin-left: 4px; }
+
+  /* Shell */
+  .hdr { position: fixed; top: 0; left: 0; right: 0; z-index: 10; height: var(--hh); display: flex; align-items: stretch; background: var(--hdr); border-bottom: 1px solid var(--hdr-border); }
+  .logo { width: var(--rail); display: grid; place-items: center; border-right: 1px solid var(--hdr-border); }
+  .logo span { width: 32px; height: 32px; display: grid; place-items: center; background: #fff; color: #D81E1E; font-size: 8.5px; font-weight: 900; border: 1px solid rgba(26,26,10,0.12); }
+  .ttl { display: flex; align-items: center; gap: 9px; padding: 0 16px; }
+  .ttl h1 { margin: 0; font-size: 15px; font-weight: 900; color: var(--hdr-text); }
+  .rail { position: fixed; left: 0; top: var(--hh); bottom: 0; width: var(--rail); z-index: 9; background: var(--hdr); border-right: 1px solid var(--hdr-border); }
+  main { margin-left: var(--rail); padding-top: var(--hh); }
+  .tabs { display: flex; width: max-content; }
+  .tab { height: 32px; min-width: 120px; padding: 0 14px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--hdr-border); border-top: 0; margin-left: -1px; background: var(--hdr); color: var(--hdr-text); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; box-shadow: var(--tabshadow); }
+  .tab:first-child { margin-left: 0; border-left: 0; }
+  .tab span { opacity: .55; } .tab.on { box-shadow: var(--tabshadow), inset 0 -3px 0 #D81E1E; } .tab.on span { opacity: 1; }
+  .page { padding: 14px 28px; }
+  .tool { display: flex; align-items: center; gap: 6px; }
+  .tbtn { height: 30px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid var(--card-border); background: var(--card); color: var(--text); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; cursor: pointer; position: relative; }
+  .tbtn.pri { background: #D81E1E; border-color: #D81E1E; color: #fff; }
+  .tbtn.hl { box-shadow: 0 0 0 3px rgba(216,30,30,.25); }
+  .ddm { position: absolute; top: 34px; left: 0; z-index: 5; width: 300px; background: var(--menu); border: 1px solid var(--card-border); box-shadow: 0 12px 28px rgba(26,26,10,.18); padding: 4px; text-transform: none; letter-spacing: 0; animation: pop .13s cubic-bezier(.23,1,.32,1); transform-origin: top left; }
+  .ddm div { display: flex; gap: 10px; align-items: flex-start; padding: 9px 10px; cursor: pointer; }
+  .ddm div:hover, .ddm div.hot { background: var(--menu-hover); }
+  .ddm .i { width: 28px; height: 28px; flex-shrink: 0; display: grid; place-items: center; background: var(--micon); color: var(--micon-c); font-size: 13px; font-weight: 900; }
+  .ddm b { display: block; font-size: 12.5px; font-weight: 800; }
+  .ddm small { display: block; font-size: 11px; font-weight: 500; color: var(--muted); margin-top: 1px; }
+  .ddm .new { font-size: 8px; padding: 1px 4px; background: #D81E1E; color: #fff; margin-left: 5px; vertical-align: 2px; letter-spacing: .04em; }
+  .ghosttbl { margin-top: 10px; height: 420px; border: 1px solid var(--card-border); background: repeating-linear-gradient(var(--card) 0 36px, var(--soft) 36px 72px); opacity: .6; }
+
+  /* Modal */
+  .ov { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.55); backdrop-filter: blur(3px); display: grid; place-items: center; padding: 20px; }
+  .modal { width: min(1120px, 100%); max-height: calc(100vh - 40px); display: flex; flex-direction: column; background: var(--modal); box-shadow: 0 25px 50px -12px rgba(0,0,0,.4); animation: mopen .2s cubic-bezier(.23,1,.32,1); }
+  .modal.sm { width: min(620px, 100%); }
+  @keyframes mopen { from { opacity: 0; transform: scale(.97); } }
+  @keyframes pop { from { opacity: 0; transform: scale(.97) translateY(-4px); } }
+  .mh { display: flex; align-items: center; gap: 10px; height: 54px; padding: 0 16px; background: var(--mhdr); border-bottom: 1px solid var(--mhdr-border); flex-shrink: 0; }
+  .mh .i { width: 32px; height: 32px; display: grid; place-items: center; background: var(--micon); color: var(--micon-c); font-weight: 900; font-size: 13px; }
+  .mh h2 { margin: 0; font-size: 15px; font-weight: 900; }
+  .mh p { margin: 1px 0 0; font-size: 11px; color: var(--muted); font-weight: 600; }
+  html.dark .mh h2 { color: #F2F0E3; }
+  .steps { margin-left: auto; display: flex; align-items: center; gap: 0; }
+  .st { display: flex; align-items: center; gap: 6px; padding: 0 10px; font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .st i { font-style: normal; width: 18px; height: 18px; display: grid; place-items: center; border: 1.5px solid currentColor; font-size: 10px; }
+  .st.on { color: var(--text); } .st.on i { background: #D81E1E; border-color: #D81E1E; color: #fff; }
+  .st.done { color: var(--green); }
+  .st + .st::before { content: ''; width: 14px; height: 1px; background: var(--card-border); margin-right: 10px; }
+  .x { width: 30px; height: 30px; margin-left: 10px; border: 1px solid var(--close-c); border-color: transparent; background: var(--close-bg); color: var(--close-c); cursor: pointer; font-size: 15px; font-weight: 900; }
+  .x:hover { color: #D81E1E; } .x:active { transform: scale(.93); }
+  .mb { padding: 16px; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
+  .mf { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: var(--foot); border-top: 1px solid var(--foot-border); flex-shrink: 0; }
+  .mf .info { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .mf .info b { color: var(--text); font-weight: 900; }
+  .btn { height: 34px; padding: 0 16px; border: 1px solid var(--cancel-b); background: var(--cancel-bg); color: var(--cancel-c); font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; cursor: pointer; transition: transform .15s; }
+  .btn:active { transform: scale(.97); }
+  .btn.pri { background: #D81E1E; border-color: #D81E1E; color: #fff; }
+  .btn.pri:disabled { opacity: .4; cursor: default; }
+  .ml { margin-left: auto; }
+
+  .lbl { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin-bottom: 5px; display: block; }
+  .drop { border: 1.5px dashed var(--card-border); background: var(--card); padding: 30px; display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--faint); cursor: pointer; transition: border-color .15s, color .15s; }
+  .drop:hover { border-color: #D81E1E; color: #D81E1E; }
+  .drop b { font-size: 13px; color: var(--text); }
+  .drop small { font-size: 11px; font-weight: 600; }
+  .file { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid rgba(10,122,85,.35); background: var(--ok-bg); }
+  .file .ic { width: 34px; height: 34px; display: grid; place-items: center; background: var(--green); color: #fff; font-size: 10px; font-weight: 900; }
+  .file b { display: block; font-size: 12.5px; font-weight: 800; }
+  .file small { display: block; font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 1px; }
+  .file .tr { margin-left: auto; font-size: 10.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; cursor: pointer; }
+  .detect { display: grid; grid-template-columns: repeat(4, 1fr); border-left: 1px solid var(--card-border); border-top: 1px solid var(--card-border); background: var(--card); }
+  .detect div { padding: 9px 12px; border-right: 1px solid var(--card-border); border-bottom: 1px solid var(--card-border); }
+  .detect b { display: block; font-size: 13.5px; font-weight: 900; margin-top: 2px; }
+  .detect small { font-size: 10.5px; color: var(--muted); font-weight: 600; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .box { background: var(--card); border: 1px solid var(--card-border); }
+  .box .bh { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; background: var(--th); box-shadow: inset 0 -1.5px 0 var(--th-bottom); font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: var(--th-text); }
+  .box .bh span { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 700; font-size: 10.5px; }
+  .map { display: grid; grid-template-columns: 1fr 16px 1.1fr; align-items: center; gap: 8px; padding: 7px 12px; border-bottom: 1px solid var(--line); }
+  .map:last-child { border-bottom: 0; }
+  .map .from b { display: block; font-size: 12.5px; font-weight: 800; }
+  .map .from small { display: block; font-size: 10.5px; color: var(--muted); font-weight: 600; }
+  .map .ar { color: var(--faint); font-weight: 900; text-align: center; }
+  .sel { height: 30px; width: 100%; border: 1px solid var(--card-border); background: var(--field); color: var(--text); padding: 0 8px; font-size: 12px; font-weight: 700; outline: none; cursor: pointer; }
+  .sel:focus { border-color: #D81E1E; }
+  .sel.miss { border-color: var(--amber-border); color: var(--amber); }
+  .tagopt { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .note { font-size: 11px; color: var(--muted); padding: 8px 12px; border-top: 1px solid var(--line); line-height: 1.45; }
+  .warn { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border: 1px solid var(--amber-border); background: var(--amber-bg); color: var(--amber); font-size: 12px; }
+  .okbar { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border: 1px solid rgba(10,122,85,.30); background: var(--ok-bg); color: var(--green); font-size: 12px; }
+
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); border-left: 1px solid var(--card-border); border-top: 1px solid var(--card-border); background: var(--card); }
+  .kpi { padding: 9px 12px; border-right: 1px solid var(--card-border); border-bottom: 1px solid var(--card-border); }
+  .kpi .l { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .kpi .v { margin-top: 2px; font-size: 16px; font-weight: 900; }
+  .kpi .s { font-size: 10.5px; color: var(--faint); font-weight: 700; margin-top: 1px; }
+  .pos { color: var(--green); } .neg { color: var(--red); }
+
+  .tbl { background: var(--card); border: 1px solid var(--card-border); overflow: auto; max-height: 360px; }
+  table { width: 100%; min-width: 980px; table-layout: fixed; border-collapse: collapse; font-size: 12.5px; }
+  th { position: sticky; top: 0; z-index: 2; height: 30px; padding: 0 10px; background: var(--th); text-align: right; box-shadow: inset -1px 0 0 var(--th-line), inset 0 -1.5px 0 var(--th-bottom); font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: var(--th-text); white-space: nowrap; }
+  th.l, td.l { text-align: left; }
+  td { height: 34px; padding: 0 10px; border-right: 1px solid var(--grid); border-bottom: 1px solid var(--grid); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+  td:last-child { border-right: 0; }
+  tr.r { cursor: pointer; transition: background .12s; }
+  tr.r:nth-child(4n+1), tr.r:nth-child(4n+3) { }
+  tr.ev { background: var(--card); } tr.od { background: var(--soft); }
+  tr.r:hover { background: var(--row-hover); }
+  tr.sub td { background: var(--sub); font-size: 12px; color: var(--muted); height: 30px; }
+  tr.tot td { background: var(--foot); font-weight: 900; border-top: 1.5px solid var(--th-bottom); position: sticky; bottom: 0; }
+  .v { font-family: 'DM Mono', monospace; font-variant-numeric: tabular-nums; }
+  .z { color: var(--ghost); }
+  .chev { display: inline-block; width: 12px; font-size: 8px; color: var(--muted); transition: transform .18s cubic-bezier(.23,1,.32,1); }
+  .chev.open { transform: rotate(90deg); }
+  .pill { display: inline-block; font-size: 8.5px; font-weight: 900; padding: 0 5px; line-height: 15px; letter-spacing: .05em; text-transform: uppercase; border: 1px solid currentColor; }
+  .pill.ok { color: var(--green); } .pill.op { color: var(--amber); } .pill.up { color: #2563EB; } .pill.sk { color: var(--faint); }
+  html.dark .pill.up { color: #60A5FA; }
+  .vd { color: var(--faint); font-size: 11px; }
+  .tg { display: inline-flex; align-items: center; gap: 5px; }
+  .tip { font-size: 10.5px; color: var(--faint); padding: 0 2px; }
+
+  .done { padding: 26px 16px 8px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; }
+  .done .big { width: 52px; height: 52px; display: grid; place-items: center; background: var(--ok-bg); color: var(--green); font-size: 24px; font-weight: 900; border: 1px solid rgba(10,122,85,.3); }
+  .done h3 { margin: 8px 0 0; font-size: 18px; font-weight: 900; }
+  .done p { margin: 0; font-size: 12.5px; color: var(--muted); max-width: 440px; line-height: 1.5; }
+  .reslist { margin: 10px 16px 0; display: grid; grid-template-columns: 1fr 1fr; border-left: 1px solid var(--card-border); border-top: 1px solid var(--card-border); background: var(--card); }
+  .reslist div { display: flex; justify-content: space-between; gap: 8px; padding: 9px 12px; border-right: 1px solid var(--card-border); border-bottom: 1px solid var(--card-border); font-size: 12px; color: var(--muted); font-weight: 600; }
+  .reslist b { color: var(--text); font-weight: 900; }
+</style><style>
+  .mixbox .bh { background: var(--amber-bg); box-shadow: inset 0 -1.5px 0 var(--amber-border); color: var(--amber); }
+  .mixbox .bh b { font-weight: 900; }
+  .inp { height: 28px; width: 100%; border: 1px solid var(--card-border); background: var(--field); color: var(--text); padding: 0 8px; font-family: 'DM Mono', monospace; font-size: 12px; text-align: right; outline: none; caret-color: #D81E1E; transition: border-color .13s, box-shadow .13s; }
+  .inp:focus { border-color: #D81E1E; box-shadow: 0 0 0 3px rgba(216,30,30,.15); }
+  .inp.empty { border-color: var(--amber-border); }
+  .inp.bad { border-color: #D81E1E; color: #D81E1E; }
+  .qb { height: 24px; padding: 0 7px; border: 1px solid var(--card-border); background: var(--card); color: var(--muted); font-size: 9.5px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; cursor: pointer; }
+  .qb:hover { color: var(--text); border-color: var(--field-hover); }
+  .mixtbl table { min-width: 860px; }
+  .mixtbl td { height: 38px; }
+  .pg { display: inline-flex; gap: 3px; flex-wrap: nowrap; }
+  .pg span { font-size: 9px; font-weight: 900; padding: 0 5px; line-height: 16px; border: 1px solid var(--card-border); color: var(--muted); letter-spacing: .03em; }
+  .pg span.cash { border-color: rgba(10,122,85,.4); color: var(--green); }
+  .split { display: grid; grid-template-columns: 1fr; gap: 12px; }
+</style>
+</head>
+<body>
+  <header class="hdr"><div class="logo"><span>CR</span></div><div class="ttl"><h1>Controle Financeiro</h1></div></header>
+  <nav class="rail"></nav>
+  <main>
+    <div class="tabs"><div class="tab on"><span>Controle Financeiro</span></div><div class="tab"><span>Fluxo de Caixa</span></div><div class="tab"><span>Favorecidos</span></div><div class="tab"><span>Contas</span></div></div>
+    <div class="page"><div class="tool" id="tool"></div><div class="ghosttbl"></div></div>
+  </main>
+  <div id="modal"></div>
+  <div class="anno" id="anno"></div>
+
+<script>
+const DATA = {"days":[{"d":"2026-09-01","n":61,"v":819.9,"nfce":140.1,"orc":679.8,"c1":771.9,"c2":48,"mn":0},{"d":"2026-09-02","n":79,"v":1460.85,"nfce":327.8,"orc":1133.05,"c1":1337.55,"c2":123.3,"mn":2},{"d":"2026-09-03","n":53,"v":995,"nfce":38,"orc":957,"c1":905.2,"c2":89.8,"mn":0},{"d":"2026-09-04","n":57,"v":929.3,"nfce":6,"orc":923.3,"c1":905.3,"c2":24,"mn":0},{"d":"2026-09-05","n":76,"v":1588.9,"nfce":332.8,"orc":1256.1,"c1":1400.1,"c2":188.8,"mn":0},{"d":"2026-09-06","n":63,"v":1292,"nfce":227.2,"orc":1064.8,"c1":1082,"c2":210,"mn":0},{"d":"2026-09-07","n":42,"v":648.4,"nfce":123.8,"orc":524.6,"c1":436.8,"c2":211.6,"mn":1},{"d":"2026-09-08","n":96,"v":1421.49,"nfce":90.5,"orc":1330.99,"c1":1225.99,"c2":195.5,"mn":1},{"d":"2026-09-09","n":73,"v":1387.6,"nfce":95,"orc":1292.6,"c1":1130.1,"c2":257.5,"mn":0},{"d":"2026-09-10","n":39,"v":836.8,"nfce":28,"orc":808.8,"c1":811.7,"c2":25.1,"mn":0},{"d":"2026-09-11","n":94,"v":1939.53,"nfce":166.5,"orc":1773.03,"c1":1702.34,"c2":237.19,"mn":5},{"d":"2026-09-12","n":82,"v":1492.55,"nfce":156.3,"orc":1336.25,"c1":1330.85,"c2":161.7,"mn":1},{"d":"2026-09-13","n":24,"v":521.4,"nfce":125.5,"orc":395.9,"c1":521.4,"c2":0,"mn":0},{"d":"2026-09-14","n":68,"v":1372.3,"nfce":82.8,"orc":1289.5,"c1":1208.4,"c2":163.9,"mn":0},{"d":"2026-09-15","n":80,"v":1453.95,"nfce":137.7,"orc":1316.25,"c1":1253.25,"c2":200.7,"mn":0},{"d":"2026-09-16","n":93,"v":1923.9,"nfce":330,"orc":1593.9,"c1":1499.8,"c2":424.1,"mn":0},{"d":"2026-09-17","n":66,"v":1429.8,"nfce":74.6,"orc":1355.2,"c1":1341.6,"c2":88.2,"mn":1},{"d":"2026-09-18","n":55,"v":1320.5,"nfce":321,"orc":999.5,"c1":1125.8,"c2":194.7,"mn":1},{"d":"2026-09-19","n":83,"v":1813.3,"nfce":202.8,"orc":1610.5,"c1":1522.6,"c2":290.7,"mn":0},{"d":"2026-09-20","n":54,"v":1586.3,"nfce":129,"orc":1457.3,"c1":1586.3,"c2":0,"mn":0},{"d":"2026-09-21","n":93,"v":1981.7,"nfce":80.3,"orc":1901.4,"c1":1884.2,"c2":97.5,"mn":1},{"d":"2026-09-22","n":25,"v":368.2,"nfce":32.3,"orc":335.9,"c1":368.2,"c2":0,"mn":0},{"d":"2026-09-23","n":93,"v":1330.5,"nfce":198.5,"orc":1132,"c1":1185.1,"c2":145.4,"mn":0},{"d":"2026-09-24","n":52,"v":1075.8,"nfce":92.9,"orc":982.9,"c1":1075.8,"c2":0,"mn":0},{"d":"2026-09-25","n":92,"v":1775.75,"nfce":155.9,"orc":1619.85,"c1":1530.65,"c2":245.1,"mn":0},{"d":"2026-09-26","n":67,"v":1847.8,"nfce":82.5,"orc":1765.3,"c1":1801.3,"c2":46.5,"mn":0},{"d":"2026-09-27","n":16,"v":430.15,"nfce":39.5,"orc":390.65,"c1":412.65,"c2":17.5,"mn":0},{"d":"2026-09-28","n":58,"v":774,"nfce":27.5,"orc":746.5,"c1":731.7,"c2":42.3,"mn":0},{"d":"2026-09-29","n":67,"v":1393.9,"nfce":69,"orc":1324.9,"c1":1321.4,"c2":72.5,"mn":0},{"d":"2026-09-30","n":80,"v":1782.05,"nfce":3.5,"orc":1778.55,"c1":1621.05,"c2":161,"mn":0}],"mix":[{"d":"2026-09-02","h":"10:56","nf":4207,"tp":"Orçamento","pag":"VALE TROCA | DINHEIRO","cx":1,"v":40},{"d":"2026-09-02","h":"12:04","nf":5759,"tp":"NFC-e","pag":"CRÉDITO | DINHEIRO","cx":1,"v":30},{"d":"2026-09-07","h":"11:12","nf":4569,"tp":"Orçamento","pag":"DINHEIRO | PIX","cx":1,"v":19.9},{"d":"2026-09-08","h":"09:15","nf":4596,"tp":"Orçamento","pag":"PIX | DINHEIRO","cx":1,"v":71.5},{"d":"2026-09-11","h":"10:27","nf":4817,"tp":"Orçamento","pag":"DINHEIRO | VALE TROCA","cx":1,"v":29},{"d":"2026-09-11","h":"11:07","nf":6261,"tp":"NFC-e","pag":"DINHEIRO | DÉBITO","cx":1,"v":7},{"d":"2026-09-11","h":"11:19","nf":6263,"tp":"NFC-e","pag":"DINHEIRO | DÉBITO","cx":1,"v":5.5},{"d":"2026-09-11","h":"11:32","nf":6265,"tp":"NFC-e","pag":"DINHEIRO | CRÉDITO","cx":1,"v":14.8},{"d":"2026-09-11","h":"18:07","nf":2197,"tp":"NFC-e","pag":"DÉBITO | DINHEIRO","cx":2,"v":29.5},{"d":"2026-09-12","h":"15:23","nf":6380,"tp":"NFC-e","pag":"DÉBITO | DINHEIRO","cx":1,"v":55.5},{"d":"2026-09-17","h":"14:58","nf":5281,"tp":"Orçamento","pag":"DINHEIRO | DÉBITO","cx":1,"v":9},{"d":"2026-09-18","h":"13:05","nf":6704,"tp":"NFC-e","pag":"DINHEIRO | DÉBITO","cx":1,"v":18},{"d":"2026-09-21","h":"11:01","nf":1020,"tp":"Orçamento","pag":"PIX | DINHEIRO","cx":2,"v":11.5}],"canc":5};
+const DAYS = DATA.days, MIX = DATA.mix;
+const fmt = v => Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const brl = v => (v < 0 ? '−' : '') + 'R$ ' + fmt(v);
+const dm = iso => iso.slice(8, 10) + '/' + iso.slice(5, 7);
+const DOW = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+const dow = iso => DOW[new Date(iso + 'T12:00:00').getDay()];
+const REIMP_CUT = '2026-09-26';
+
+// valor em dinheiro informado em cada venda mista (null = ainda não informado)
+const S = { step: 'menu', reimp: false, cash: MIX.map(() => null), focusIdx: null };
+const parseV = s => { const n = parseFloat(String(s).replace(/\./g, '').replace(',', '.')); return Number.isFinite(n) ? n : null; };
+
+function mixCashByDay() { const m = {}; MIX.forEach((x, i) => { m[x.d] = (m[x.d] || 0) + (S.cash[i] || 0); }); return m; }
+
+function tool() {
+  return `<button class="tbtn pri">+</button>
+    <div style="position:relative"><button class="tbtn ${S.step === 'menu' ? 'hl' : ''}">⇪ Importar ▾</button>
+    ${S.step === 'menu' ? `<div class="ddm">
+      <div><span class="i">B</span><span><b>Extrato bancário</b><small>Itaú · Excel</small></span></div>
+      <div><span class="i">R</span><span><b>Vendas da maquininha</b><small>Rede · relatório de vendas em Excel ou CSV</small></span></div>
+      <div class="hot" onclick="go('file')"><span class="i">$</span><span><b>Vendas em dinheiro<span class="new">NOVO</span></b><small>Retaguarda · Central de Vendas em Excel</small></span></div>
+    </div>` : ''}</div>`;
+}
+function header(step) {
+  const steps = [['file', 'Arquivo'], ['prev', 'Prévia'], ['done', 'Concluído']];
+  const idx = steps.findIndex(s => s[0] === step);
+  return `<div class="mh"><span class="i">$</span><div><h2>Importar vendas em dinheiro</h2><p>Retaguarda · Central de Vendas</p></div>
+    <div class="steps">${steps.map(([k, l], i) => `<span class="st ${i === idx ? 'on' : i < idx ? 'done' : ''}"><i>${i < idx ? '✓' : i + 1}</i>${l}</span>`).join('')}</div>
+    <button class="x" onclick="go('menu')">✕</button></div>`;
+}
+
+const totPuro = DAYS.reduce((a, d) => a + d.v, 0);
+const nPuro = DAYS.reduce((a, d) => a + d.n, 0);
+
+function stepFile() {
+  return `<div class="modal">${header('file')}
+    <div class="mb">
+      <div class="file"><span class="ic">XLSX</span><span><b>central_vendas_20261005181744.xlsx</b><small>Central de Vendas do Retaguarda reconhecida · 1.999 vendas lidas · ${DATA.canc} canceladas (ficam de fora)</small></span><span class="tr">Trocar arquivo</span></div>
+      <div class="warn">⚠ <span>O arquivo tem <b>exatamente 1.999 vendas</b> (2.000 linhas): pode ser o limite de exportação do Retaguarda. Confira o total na tela do Retaguarda — se for maior, exporte o mês em duas partes (ex.: 01–15 e 16–30) e importe as duas; vendas repetidas são ignoradas.</span></div>
+      <div class="detect">
+        <div><small>Período das vendas</small><b>01/09 a 30/09/2026</b></div>
+        <div><small>Vendas finalizadas</small><b class="mono">1.994</b><small>${nPuro.toLocaleString('pt-BR')} só dinheiro · ${MIX.length} mistas</small></div>
+        <div><small>Caixas</small><b>2</b><small>Caixa 1 · Caixa 2</small></div>
+        <div><small>Total (só dinheiro)</small><b class="mono">${brl(totPuro)}</b><small>+ mistas a informar</small></div>
+      </div>
+      <div class="grid2">
+        <div class="box">
+          <div class="bh">Estabelecimento <span>pelo CNPJ da loja — fica salvo</span></div>
+          <div class="map"><div class="from"><b>CNPJ 16.654.967/0001-27</b><small>UNIVERSO DO 1,99 COMERCIO DE UTILIDADES DOMESTICAS LTDA</small></div><span class="ar">→</span><select class="sel"><option>Universo do R$1,99</option><option>Castelo Real</option><option>Pessoal</option></select></div>
+        </div>
+        <div class="box">
+          <div class="bh">Tag <span>fica salva para as próximas</span></div>
+          <div class="map"><div class="from"><b>Vendas em dinheiro</b><small>Receita · já recebida no dia</small></div><span class="ar">→</span><select class="sel"><option>● Dinheiro</option><option>+ Criar tag "Dinheiro"</option></select></div>
+          <div class="note">Dinheiro não tem taxa nem prazo: cada dia vira uma receita já paga na data da venda.</div>
+        </div>
+      </div>
+    </div>
+    <div class="mf"><span class="info">Agrupa por <b>dia da venda</b>; as vendas individuais ficam guardadas para conferência.</span>
+      <button class="btn ml" onclick="go('menu')">Cancelar</button><button class="btn pri" onclick="go('prev')">Ver prévia →</button></div>
+  </div>`;
+}
+
+function mixTable() {
+  const pend = S.cash.filter(v => v === null).length;
+  const soma = S.cash.reduce((a, v) => a + (v || 0), 0);
+  const totMix = MIX.reduce((a, x) => a + x.v, 0);
+  return `<div class="box mixbox">
+    <div class="bh">⚠ Vendas com pagamento misto · <b>${MIX.length}</b> <span>${pend ? `${pend} sem valor informado` : 'todas informadas ✓'} · em dinheiro: <b class="mono">${brl(soma)}</b> de ${brl(totMix)}</span></div>
+    <div class="note" style="border-top:0;border-bottom:1px solid var(--line)">O Retaguarda só traz o total destas vendas. Informe <b>quanto foi pago em dinheiro</b> em cada uma — o resto (cartão, PIX, vale troca) não entra aqui. Vazio conta como R$ 0,00.</div>
+    <div class="tbl mixtbl" style="border:0;max-height:none"><table>
+      <colgroup><col style="width:110px"><col style="width:100px"><col style="width:90px"><col><col style="width:70px"><col style="width:110px"><col style="width:170px"></colgroup>
+      <thead><tr><th class="l">Data</th><th class="l">Nº</th><th class="l">Tipo</th><th class="l">Pagamento</th><th class="l">Caixa</th><th>Total da venda</th><th>Em dinheiro</th></tr></thead>
+      <tbody>${MIX.map((x, i) => {
+        const v = S.cash[i];
+        const bad = v !== null && v > x.v;
+        return `<tr class="${i % 2 ? 'od' : 'ev'}">
+          <td class="l"><b>${dm(x.d)}</b> <span class="vd">${x.h}</span></td>
+          <td class="l v">${x.nf}</td><td class="l vd">${x.tp}</td>
+          <td class="l"><span class="pg">${x.pag.split(' | ').map(p => `<span class="${p === 'DINHEIRO' ? 'cash' : ''}">${p}</span>`).join('')}</span></td>
+          <td class="l vd">${x.cx}</td>
+          <td><span class="v">${fmt(x.v)}</span></td>
+          <td><div style="display:flex;gap:4px;align-items:center"><button class="qb" onclick="setCash(${i},${x.v})" title="A venda inteira foi em dinheiro">Tudo</button><input class="inp ${v === null ? 'empty' : ''} ${bad ? 'bad' : ''}" placeholder="0,00" value="${v === null ? '' : fmt(v)}" onfocus="this.select()" onchange="setCash(${i}, this.value)"></div></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>
+  </div>`;
+}
+function setCash(i, raw) { const v = typeof raw === 'number' ? raw : parseV(raw); S.cash[i] = raw === '' ? null : v; render(); }
+
+function statusOf(d) {
+  if (S.reimp) return d.d < REIMP_CUT ? '<span class="pill sk">Já importado</span>' : d.d === REIMP_CUT ? '<span class="pill up">Atualiza</span>' : '<span class="pill ok">Novo</span>';
+  return '<span class="pill ok">Recebido</span>';
+}
+function stepPrev() {
+  const mc = mixCashByDay();
+  const somaMix = S.cash.reduce((a, v) => a + (v || 0), 0);
+  const T = DAYS.reduce((t, d) => ({ n: t.n + d.n, nfce: t.nfce + d.nfce, orc: t.orc + d.orc, c1: t.c1 + d.c1, c2: t.c2 + d.c2 }), { n: 0, nfce: 0, orc: 0, c1: 0, c2: 0 });
+  const rows = DAYS.map((d, i) => {
+    const m = mc[d.d] || 0, skip = S.reimp && d.d < REIMP_CUT;
+    return `<tr class="${i % 2 ? 'od' : 'ev'}" style="${skip ? 'opacity:.45' : ''}">
+      <td class="l"><b>${dm(d.d)}</b> <span class="vd">${dow(d.d)}</span></td>
+      <td><span class="v">${d.n}</span>${d.mn ? ` <span class="vd">+${d.mn} mista${d.mn > 1 ? 's' : ''}</span>` : ''}</td>
+      <td><span class="v">${fmt(d.c1)}</span></td><td><span class="v">${d.c2 ? fmt(d.c2) : '<span class="z">—</span>'}</span></td>
+      <td><span class="v" style="color:${m ? 'var(--amber)' : ''}">${d.mn ? fmt(m) : '<span class="z">—</span>'}</span></td>
+      <td><span class="v pos" style="font-weight:800">${fmt(d.v + m)}</span></td>
+      <td>${statusOf(d)}</td></tr>`;
+  }).join('');
+  return `<div class="modal">${header('prev')}
+    <div class="mb">
+      ${S.reimp ? `<div class="okbar">↻ Este período já foi importado em parte: <b>&nbsp;1.745 vendas já existem e serão ignoradas</b>, 254 são novas. O dia 26/09 será recalculado e 4 dias novos entram.</div>` : ''}
+      <div class="kpis">
+        <div class="kpi"><div class="l">Só dinheiro</div><div class="v mono pos">${brl(totPuro)}</div><div class="s">${nPuro.toLocaleString('pt-BR')} vendas</div></div>
+        <div class="kpi"><div class="l">Mistas (parte em dinheiro)</div><div class="v mono" style="color:var(--amber)">${brl(somaMix)}</div><div class="s">${MIX.length} vendas · informado por você</div></div>
+        <div class="kpi"><div class="l">Total a lançar</div><div class="v mono pos">${brl(totPuro + somaMix)}</div><div class="s">${DAYS.length} receitas · já pagas</div></div>
+        <div class="kpi"><div class="l">NFC-e / Orçamento</div><div class="v mono" style="font-size:13px;margin-top:5px">${fmt(T.nfce)} / ${fmt(T.orc)}</div><div class="s">só dinheiro</div></div>
+        <div class="kpi"><div class="l">Canceladas</div><div class="v mono">${DATA.canc}</div><div class="s">ficam de fora (valor zero)</div></div>
+      </div>
+      ${mixTable()}
+      <div class="tbl"><table>
+        <colgroup><col style="width:120px"><col style="width:150px"><col><col><col><col><col style="width:110px"></colgroup>
+        <thead><tr><th class="l">Data</th><th>Vendas</th><th>Caixa 1</th><th>Caixa 2</th><th>Mistas (dinheiro)</th><th>Receita do dia</th><th>Status</th></tr></thead>
+        <tbody>${rows}
+          <tr class="tot"><td class="l">${DAYS.length} dias</td><td><span class="v">${T.n}</span></td><td><span class="v">${fmt(T.c1)}</span></td><td><span class="v">${fmt(T.c2)}</span></td><td><span class="v">${fmt(somaMix)}</span></td><td><span class="v">${fmt(totPuro + somaMix)}</span></td><td></td></tr>
+        </tbody>
+      </table></div>
+      <div class="tip">Cada linha vira uma receita "Dinheiro" · Favorecido <b>Vendas balcão</b> · Universo do R$1,99 · paga na data da venda. A divisão por caixa fica na observação.</div>
+    </div>
+    <div class="mf"><span class="info">${S.reimp ? 'Serão criadas <b>4 receitas</b> e atualizada <b>1</b>' : `Serão criadas <b>${DAYS.length} receitas</b> · ${brl(totPuro + somaMix)}`}</span>
+      <button class="btn ml" onclick="go('file')">← Voltar</button><button class="btn pri" onclick="go('done')">Importar</button></div>
+  </div>`;
+}
+function stepDone() {
+  return `<div class="modal sm">${header('done')}
+    <div class="done"><div class="big">✓</div><h3>Vendas em dinheiro importadas</h3><p>As receitas em dinheiro de setembro já estão no Controle Financeiro e no Fluxo de Caixa da Universo do R$1,99.</p></div>
+    <div class="reslist"><div>Receitas criadas<b>${DAYS.length}</b></div><div>Vendas guardadas<b>1.999</b></div><div>Mistas informadas<b>${S.cash.filter(v => v !== null).length} de ${MIX.length}</b></div><div>Já existentes (ignoradas)<b>0</b></div></div>
+    <div class="mb" style="padding-top:12px"><div class="tip" style="text-align:center">Errou o valor de uma venda mista? Importe o arquivo de novo: a prévia mostra as mistas com o valor salvo para corrigir, e o dia é recalculado.</div></div>
+    <div class="mf"><button class="btn">↶ Desfazer</button><button class="btn ml" onclick="go('menu')">Fechar</button><button class="btn pri">Ver no Fluxo de Caixa →</button></div>
+  </div>`;
+}
+
+function render() {
+  const ae = document.activeElement, scroll = document.querySelector('.mb')?.scrollTop;
+  document.getElementById('tool').innerHTML = tool();
+  const m = { file: stepFile, prev: stepPrev, done: stepDone }[S.step];
+  document.getElementById('modal').innerHTML = m ? `<div class="ov">${m()}</div>` : '';
+  if (scroll != null && document.querySelector('.mb')) document.querySelector('.mb').scrollTop = scroll;
+  renderAnno();
+}
+function go(s) { S.step = s; render(); }
+const STEPS = [
+  ['1 · Botão Importar', () => Object.assign(S, { step: 'menu' })],
+  ['2 · Arquivo lido', () => Object.assign(S, { step: 'file' })],
+  ['3 · Prévia (mistas vazias)', () => Object.assign(S, { step: 'prev', reimp: false, cash: MIX.map(() => null) })],
+  ['3b · Mistas preenchidas', () => Object.assign(S, { step: 'prev', reimp: false, cash: MIX.map((x, i) => x.pag.startsWith('DINHEIRO') ? Math.round(x.v * 0.6 * 10) / 10 : i % 3 === 0 ? x.v : Math.round(x.v * 0.4 * 10) / 10) })],
+  ['3c · Reimportação', () => Object.assign(S, { step: 'prev', reimp: true })],
+  ['4 · Concluído', () => Object.assign(S, { step: 'done' })],
+];
+let cur = 0;
+function renderAnno() {
+  const dark = document.documentElement.classList.contains('dark');
+  document.getElementById('anno').innerHTML = `<b>Fluxo</b>${STEPS.map((s, i) => `<button class="${i === cur ? 'on' : ''}" onclick="cur=${i};STEPS[${i}][1]();render()">${s[0]}</button>`).join('')}<a href="mockup-importar-dinheiro-${dark ? 'light' : 'dark'}.html">${dark ? 'ver claro' : 'ver escuro'}</a>`;
+}
+render();
+</script>
+</body>
+</html>

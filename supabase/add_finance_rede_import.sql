@@ -11,7 +11,7 @@
 -- 1) Movimentações: nova origem + referência única da origem
 ALTER TABLE finance_transactions DROP CONSTRAINT IF EXISTS finance_transactions_origem_check;
 ALTER TABLE finance_transactions
-  ADD CONSTRAINT finance_transactions_origem_check CHECK (origem IN ('manual', 'hr_salario', 'rede'));
+  ADD CONSTRAINT finance_transactions_origem_check CHECK (origem IN ('manual', 'hr_salario', 'rede', 'retaguarda'));
 
 ALTER TABLE finance_transactions ADD COLUMN IF NOT EXISTS origem_ref TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS finance_transactions_origem_ref_key

@@ -354,7 +354,7 @@ const SALE_COLS = 'numero_estabelecimento, nsu, data_venda, data_recebimento, mo
 type DbSale = SaleLike & { nsu: string };
 
 /** Busca paginada (o Supabase devolve no máximo 1000 linhas por consulta). */
-async function buscarPaginado<T>(build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>): Promise<T[]> {
+export async function buscarPaginado<T>(build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>): Promise<T[]> {
   const out: T[] = [];
   const PAGE = 1000;
   for (let from = 0; ; from += PAGE) {

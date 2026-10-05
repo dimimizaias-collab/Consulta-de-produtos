@@ -7,7 +7,7 @@ import {
   Wallet, Search, ChevronLeft, ChevronRight, Building2, CreditCard, Upload,
   ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Filter, Clock, CheckCircle2,
   AlertTriangle, Info, Lock, Unlock, Link2Off, Landmark,
-  ArrowUp, ArrowDown, Eye, ChevronDown,
+  ArrowUp, ArrowDown, Eye, ChevronDown, Banknote,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,7 @@ import { TagSelector } from './TagSelector';
 import { TagGuide } from './TagGuide';
 import { CashFlowPage } from './CashFlowPage';
 import { RedeImportModal } from './RedeImportModal';
+import { DinheiroImportModal } from './DinheiroImportModal';
 import { LinkedNotesSection, LinkedNoteLite, linkNotesToTransactions, cleanupNoteLinksForDeletedTxs } from './LinkedNotesSection';
 import { FavorecidoEditModal } from './FavorecidoEditModal';
 import { FavorecidoDetailsModal } from './FavorecidoDetailsModal';
@@ -303,6 +304,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   // import extrato modal
   const [showImportModal, setShowImportModal] = useState(false);
   const [showRedeImport, setShowRedeImport] = useState(false);
+  const [showDinheiroImport, setShowDinheiroImport] = useState(false);
   const [importMenuOpen, setImportMenuOpen] = useState(false);
   const [importBanco, setImportBanco] = useState('Itaú');
   const [importEstab, setImportEstab] = useState('Castelo Real');
@@ -3085,6 +3087,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                 {([
                   { icon: <Landmark size={14} />, titulo: 'Extrato bancário', sub: 'Itaú · Excel', onClick: openImportModal },
                   { icon: <CreditCard size={14} />, titulo: 'Vendas da maquininha', sub: 'Rede · relatório de vendas em Excel ou CSV', onClick: () => setShowRedeImport(true) },
+                  { icon: <Banknote size={14} />, titulo: 'Vendas em dinheiro', sub: 'Retaguarda · Central de Vendas em Excel', onClick: () => setShowDinheiroImport(true) },
                 ]).map(op => (
                   <button
                     key={op.titulo}
@@ -4583,6 +4586,17 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
             onClose={() => setShowRedeImport(false)}
             onImported={fetchAll}
             onVerFluxo={() => { setShowRedeImport(false); setFinanceView('fluxo'); }}
+          />
+        )}
+        {showDinheiroImport && (
+          <DinheiroImportModal
+            key="dinheiro-import"
+            tags={tags}
+            createTag={createTag}
+            updateTag={updateTag}
+            onClose={() => setShowDinheiroImport(false)}
+            onImported={fetchAll}
+            onVerFluxo={() => { setShowDinheiroImport(false); setFinanceView('fluxo'); }}
           />
         )}
         {showImportModal && (
