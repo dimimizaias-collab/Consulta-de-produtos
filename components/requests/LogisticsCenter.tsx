@@ -32,6 +32,7 @@ import {
   Truck,
   MoreVertical,
   ArrowUpDown,
+  Loader2,
   Copy,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -291,7 +292,10 @@ export function LogisticsCenter({
   const [showAddSupplier, setShowAddSupplier]       = useState(false);
   const [pickerSuppliers, setPickerSuppliers]       = useState<EditingSupplier[]>([]);
   const [supplierSearch, setSupplierSearch]         = useState('');
-  const [supplierFavCounts, setSupplierFavCounts]   = useState<Record<string, number>>({});
+  // Nomes fiscais dos favorecidos do financeiro vinculados a cada fornecedor.
+  const [supplierFavNames, setSupplierFavNames]     = useState<Record<string, string[]>>({});
+  const [supplierFilter, setSupplierFilter]         = useState<'todos' | 'favs' | 'dup' | 'semdoc'>('todos');
+  const [supplierSort, setSupplierSort]             = useState<{ key: 'nome' | 'doc' | 'favs'; dir: 1 | -1 }>({ key: 'nome', dir: 1 });
   const [loadingPicker, setLoadingPicker]           = useState(false);
   const [editingSupplier, setEditingSupplier]       = useState<EditingSupplier | null>(null);
   const [showAddManufacturer, setShowAddManufacturer] = useState(false);
@@ -463,12 +467,12 @@ export function LogisticsCenter({
     setLoadingPicker(true);
     const [{ data }, { data: favs }] = await Promise.all([
       supabase.from('suppliers').select('*').order('nome_fantasia,name'),
-      supabase.from('finance_favorecidos').select('supplier_id').not('supplier_id', 'is', null),
+      supabase.from('finance_favorecidos').select('supplier_id, nome_fiscal').not('supplier_id', 'is', null).order('nome_fiscal'),
     ]);
     setPickerSuppliers((data || []) as EditingSupplier[]);
-    const counts: Record<string, number> = {};
-    (favs ?? []).forEach((f: any) => { counts[f.supplier_id] = (counts[f.supplier_id] ?? 0) + 1; });
-    setSupplierFavCounts(counts);
+    const names: Record<string, string[]> = {};
+    (favs ?? []).forEach((f: any) => { (names[f.supplier_id] ??= []).push(f.nome_fiscal); });
+    setSupplierFavNames(names);
     setLoadingPicker(false);
   };
 
@@ -488,14 +492,41 @@ export function LogisticsCenter({
     }
   }, [activeSection]);
 
-  const filteredSuppliers = pickerSuppliers.filter(s => {
-    if (!supplierSearch.trim()) return true;
-    const q = supplierSearch.toLowerCase();
-    const qDigits = supplierSearch.replace(/\D/g, '');
-    return (s.nome_fantasia || s.name).toLowerCase().includes(q) ||
-      (s.razao_social || '').toLowerCase().includes(q) ||
-      (!/[a-z]/i.test(supplierSearch) && qDigits.length >= 3 && (s.documento || '').replace(/\D/g, '').includes(qDigits));
-  });
+  const supplierHasDoc = (s: EditingSupplier) => (s.documento || '').replace(/\D/g, '').length > 0;
+  const supplierFilterCounts = {
+    todos: pickerSuppliers.length,
+    favs: pickerSuppliers.filter(s => supplierFavNames[s.id]?.length).length,
+    dup: pickerSuppliers.filter(s => dupSupplierIds.has(s.id)).length,
+    semdoc: pickerSuppliers.filter(s => !supplierHasDoc(s)).length,
+  };
+  const filteredSuppliers = pickerSuppliers
+    .filter(s => {
+      if (supplierFilter === 'favs' && !supplierFavNames[s.id]?.length) return false;
+      if (supplierFilter === 'dup' && !dupSupplierIds.has(s.id)) return false;
+      if (supplierFilter === 'semdoc' && supplierHasDoc(s)) return false;
+      if (!supplierSearch.trim()) return true;
+      const q = supplierSearch.toLowerCase();
+      const qDigits = supplierSearch.replace(/\D/g, '');
+      return (s.nome_fantasia || s.name).toLowerCase().includes(q) ||
+        (s.razao_social || '').toLowerCase().includes(q) ||
+        (!/[a-z]/i.test(supplierSearch) && qDigits.length >= 3 && (s.documento || '').replace(/\D/g, '').includes(qDigits));
+    })
+    .sort((x, y) => {
+      const { key, dir } = supplierSort;
+      if (key === 'favs') return ((supplierFavNames[x.id]?.length ?? 0) - (supplierFavNames[y.id]?.length ?? 0)) * dir;
+      const vx = key === 'doc' ? (x.documento || '').replace(/\D/g, '') : (x.nome_fantasia || x.name);
+      const vy = key === 'doc' ? (y.documento || '').replace(/\D/g, '') : (y.nome_fantasia || y.name);
+      if (!vx !== !vy) return vx ? -1 : 1; // vazios sempre no fim
+      return vx.localeCompare(vy, 'pt-BR') * dir;
+    });
+  const toggleSupplierSort = (key: 'nome' | 'doc' | 'favs') =>
+    setSupplierSort(prev => prev.key === key ? { key, dir: prev.dir === 1 ? -1 : 1 } : { key, dir: 1 });
+  const SUPPLIER_FILTERS = [
+    { key: 'todos', label: 'Todos', short: 'Todos' },
+    { key: 'favs', label: 'Com favorecidos', short: 'Com favorecidos' },
+    { key: 'dup', label: 'CNPJ repetido', short: 'CNPJ repetido' },
+    { key: 'semdoc', label: 'Sem documento', short: 'Sem doc.' },
+  ] as const;
 
   const fetchPickerManufacturers = async () => {
     setLoadingManufacturersPicker(true);
@@ -1071,68 +1102,93 @@ export function LogisticsCenter({
         )}
 
         {activeSection === 'fornecedores' && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5">
               <div className="relative flex-1">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
                 <input
                   type="text"
                   value={supplierSearch}
                   onChange={e => setSupplierSearch(e.target.value)}
-                  placeholder="Buscar por nome ou CNPJ..."
-                  className="w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl pl-9 pr-3 py-2.5 text-sm font-medium text-on-surface placeholder:text-on-surface/30 focus:outline-none"
+                  placeholder="Nome ou CNPJ..."
+                  className="w-full h-[34px] bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] pl-9 pr-3 text-sm font-semibold text-on-surface placeholder:text-on-surface/30 placeholder:font-medium caret-[#D81E1E] outline-none focus:!border-[#D81E1E]"
                 />
               </div>
               <button
                 onClick={() => { setEditingSupplier(null); setShowAddSupplier(true); }}
-                className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/20"
+                className="w-[34px] h-[34px] bg-primary text-white flex items-center justify-center shrink-0 active:scale-[0.95] transition-transform"
               >
-                <Plus size={18} />
+                <Plus size={16} strokeWidth={3} />
               </button>
+            </div>
+            <div className="flex gap-1 overflow-x-auto pb-0.5">
+              {SUPPLIER_FILTERS.map(f => (
+                <button
+                  key={f.key}
+                  onClick={() => setSupplierFilter(f.key)}
+                  className={cn(
+                    'h-[26px] shrink-0 flex items-center gap-1 px-2.5 border text-[10px] font-extrabold uppercase tracking-[0.05em] whitespace-nowrap',
+                    supplierFilter === f.key
+                      ? 'bg-primary border-primary text-white'
+                      : 'bg-white dark:bg-[#1E1E18] border-[#E0D8BF] dark:border-white/[0.10] text-on-surface/45',
+                  )}
+                >
+                  {f.short} {supplierFilterCounts[f.key]}
+                </button>
+              ))}
             </div>
             {loadingPicker ? (
               <div className="flex items-center justify-center py-10">
-                <div className="w-5 h-5 rounded-full border-2 border-amber-500 border-r-transparent animate-spin" />
+                <Loader2 size={18} className="animate-spin text-on-surface/30" />
               </div>
             ) : filteredSuppliers.length === 0 ? (
               <p className="text-sm text-on-surface/30 text-center py-10">
-                {supplierSearch ? 'Nenhum fornecedor encontrado.' : 'Nenhum fornecedor cadastrado.'}
+                {supplierSearch || supplierFilter !== 'todos' ? 'Nenhum fornecedor encontrado.' : 'Nenhum fornecedor cadastrado.'}
               </p>
-            ) : filteredSuppliers.map(s => {
-              const displayName = s.nome_fantasia || s.name;
-              const subtitle = s.razao_social && s.razao_social !== displayName ? s.razao_social : null;
-              return (
-                <div key={s.id} className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-on-surface/[0.06] bg-[#FDFAF0] dark:bg-[#252520]">
-                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
-                    <Building2 size={16} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-on-surface truncate">{displayName}</p>
-                    {subtitle && <p className="text-[10px] text-on-surface/40 truncate">{subtitle}</p>}
-                    {(supplierFavCounts[s.id] || dupSupplierIds.has(s.id)) ? (
-                      <div className="mt-1.5 flex flex-wrap gap-1">
-                        {supplierFavCounts[s.id] > 0 && (
-                          <span className="h-[18px] inline-flex items-center gap-1 px-[7px] rounded-full text-[9.5px] font-extrabold bg-[#D81E1E]/[0.08] text-[#D81E1E]">
-                            <Wallet size={10} /> {supplierFavCounts[s.id]} favorecido{supplierFavCounts[s.id] !== 1 ? 's' : ''}
-                          </span>
-                        )}
-                        {dupSupplierIds.has(s.id) && (
-                          <span className="h-[18px] inline-flex items-center gap-1 px-[7px] rounded-full text-[9.5px] font-extrabold text-[#B45309] dark:text-[#FCD34D] bg-[rgba(217,119,6,0.10)] dark:bg-[rgba(252,211,77,0.08)] border border-[rgba(217,119,6,0.35)] dark:border-[rgba(252,211,77,0.30)]">
-                            <Copy size={10} /> CNPJ repetido
-                          </span>
-                        )}
-                      </div>
-                    ) : null}
-                  </div>
-                  <button
-                    onClick={() => { setEditingSupplier(s); setShowAddSupplier(true); }}
-                    className="w-8 h-8 rounded-lg text-on-surface/20 hover:text-amber-600 hover:bg-amber-500/10 flex items-center justify-center transition-all shrink-0"
-                  >
-                    <Pencil size={14} />
-                  </button>
-                </div>
-              );
-            })}
+            ) : (
+              <div className="border border-[#E0D8BF] dark:border-white/[0.10]">
+                {filteredSuppliers.map((s, idx) => {
+                  const displayName = s.nome_fantasia || s.name;
+                  const subtitle = s.razao_social && s.razao_social !== displayName ? s.razao_social : null;
+                  const favCount = supplierFavNames[s.id]?.length ?? 0;
+                  const isDup = dupSupplierIds.has(s.id);
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => { setEditingSupplier(s); setShowAddSupplier(true); }}
+                      className={cn(
+                        'w-full text-left flex items-center gap-2.5 px-2.5 py-2 border-b border-[#E0D8BF] dark:border-white/[0.10] last:border-b-0 active:bg-[#FFF8D0] dark:active:bg-[#FFE500]/[0.06]',
+                        idx % 2 === 0 ? 'bg-white dark:bg-[#1E1E18]' : 'bg-[#FAF7EE] dark:bg-[#1A1A15]',
+                      )}
+                    >
+                      <span className="w-[30px] h-[30px] flex items-center justify-center shrink-0 bg-[#D81E1E]/[0.08] text-[#D81E1E]">
+                        <Building2 size={14} />
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-[13px] font-extrabold text-on-surface truncate">{displayName}</span>
+                        {subtitle && <span className="block text-[10.5px] font-semibold text-on-surface/45 truncate">{subtitle}</span>}
+                        <span className="mt-0.5 flex items-center gap-1.5 min-w-0 whitespace-nowrap">
+                          {s.documento
+                            ? <span className={cn('font-mono text-[10.5px] truncate', isDup ? 'text-[#B45309] dark:text-[#FCD34D]' : 'text-on-surface/45')}>{s.documento_tipo === 'CPF' ? 'CPF ' : ''}{s.documento}</span>
+                            : <span className="text-[10.5px] italic text-on-surface/30">sem documento</span>}
+                          {isDup && (
+                            <span className="shrink-0 inline-flex items-center gap-[3px] text-[8.5px] font-black uppercase tracking-[0.06em] px-[5px] py-px text-[#B45309] dark:text-[#FCD34D] bg-[rgba(217,119,6,0.10)] dark:bg-[rgba(252,211,77,0.08)] border border-[rgba(217,119,6,0.35)] dark:border-[rgba(252,211,77,0.30)]">
+                              <Copy size={9} /> Repetido
+                            </span>
+                          )}
+                          {favCount > 0 && (
+                            <span className="shrink-0 inline-flex items-center gap-1 text-[10.5px] font-extrabold text-[#D81E1E]">
+                              <Wallet size={11} /> {favCount}
+                            </span>
+                          )}
+                        </span>
+                      </span>
+                      <ChevronRight size={15} className="text-on-surface/25 shrink-0" />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -2260,82 +2316,167 @@ export function LogisticsCenter({
 
       {/* ── Fornecedores (aba) ───────────────────────────────────────────── */}
       {activeSection === 'fornecedores' && (
-        <div className="hidden md:block bg-surface-container-lowest rounded-3xl border border-on-surface/[0.04] shadow-md overflow-hidden">
-          <div className="p-6 border-b border-on-surface/[0.06] flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
-              <Users size={20} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h2 className="text-base font-black text-on-surface leading-none">Fornecedores</h2>
-              <p className="text-xs text-on-surface/40 font-medium mt-0.5">{pickerSuppliers.length} cadastrado{pickerSuppliers.length !== 1 ? 's' : ''}</p>
-            </div>
-            <div className="relative w-64">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
+        <div className="hidden md:block space-y-2.5">
+          {/* Barra de ferramentas — mesmo padrão da aba Notas */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="h-7 flex items-center gap-1.5 px-2.5 border border-[#E0D8BF] dark:border-white/[0.10] text-[11px] font-bold text-on-surface/45 whitespace-nowrap">
+              <b className="font-black text-on-surface">{filteredSuppliers.length}</b> {filteredSuppliers.length === 1 ? 'fornecedor' : 'fornecedores'}
+            </span>
+
+            <div className="relative group">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface/30 group-focus-within:text-primary transition-colors pointer-events-none" />
               <input
                 type="text"
                 value={supplierSearch}
                 onChange={e => setSupplierSearch(e.target.value)}
-                placeholder="Buscar por nome ou CNPJ..."
-                className="w-full bg-surface-container border border-on-surface/[0.06] rounded-xl pl-9 pr-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-on-surface/30"
+                placeholder="Buscar por nome, razão social ou CNPJ..."
+                className="h-7 w-72 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] pl-8 pr-7 text-xs font-semibold text-on-surface placeholder:text-on-surface/25 placeholder:font-medium caret-[#D81E1E] outline-none hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] transition-colors"
               />
+              {supplierSearch && (
+                <button onClick={() => setSupplierSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-on-surface/30 hover:text-on-surface transition-colors">
+                  <X size={13} />
+                </button>
+              )}
             </div>
+
+            <div className="flex border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18]">
+              {SUPPLIER_FILTERS.map((f, i) => {
+                const on = supplierFilter === f.key;
+                const n = supplierFilterCounts[f.key];
+                return (
+                  <button
+                    key={f.key}
+                    onClick={() => setSupplierFilter(f.key)}
+                    className={cn(
+                      'h-[26px] flex items-center gap-1.5 px-2.5 text-[10.5px] font-extrabold uppercase tracking-[0.05em] whitespace-nowrap transition-colors',
+                      i > 0 && 'border-l border-[#E0D8BF] dark:border-white/[0.10]',
+                      on ? 'bg-primary text-white' : 'text-on-surface/45 hover:text-on-surface',
+                    )}
+                  >
+                    {f.label}
+                    <span className={cn(
+                      'text-[9px] font-black px-[5px] leading-[15px] rounded-full tracking-normal',
+                      on ? 'bg-white/25'
+                        : f.key === 'dup' && n > 0 ? 'bg-[rgba(217,119,6,0.18)] text-[#B45309] dark:bg-[rgba(252,211,77,0.14)] dark:text-[#FCD34D]'
+                        : 'bg-black/[0.10] dark:bg-white/10',
+                    )}>{n}</span>
+                  </button>
+                );
+              })}
+            </div>
+
             <button
               onClick={() => { setEditingSupplier(null); setShowAddSupplier(true); }}
-              className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center hover:bg-amber-600 transition-colors shrink-0 shadow-lg shadow-amber-500/20"
               title="Cadastrar novo fornecedor"
+              className="ml-auto w-7 h-7 flex items-center justify-center bg-primary text-on-primary hover:bg-[#B91818] active:scale-[0.97] transition-all"
             >
-              <Plus size={18} />
+              <Plus size={14} strokeWidth={3} />
             </button>
           </div>
 
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {loadingPicker ? (
-              <div className="col-span-full flex items-center justify-center py-10">
-                <div className="w-5 h-5 rounded-full border-2 border-amber-500 border-r-transparent animate-spin" />
-              </div>
-            ) : filteredSuppliers.length === 0 ? (
-              <p className="col-span-full text-sm text-on-surface/30 text-center py-10">
-                {supplierSearch ? 'Nenhum fornecedor encontrado.' : 'Nenhum fornecedor cadastrado.'}
+          {loadingPicker ? (
+            <div className="flex items-center justify-center py-10 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10]">
+              <Loader2 size={18} className="animate-spin text-on-surface/30" />
+            </div>
+          ) : filteredSuppliers.length === 0 ? (
+            <div className="bg-white dark:bg-[#1E1E18] p-10 border border-[#E0D8BF] dark:border-white/[0.10] flex flex-col items-center gap-2 text-on-surface/30">
+              <Building2 size={28} />
+              <p className="text-sm font-bold">
+                {supplierSearch || supplierFilter !== 'todos' ? 'Nenhum fornecedor encontrado.' : 'Nenhum fornecedor cadastrado.'}
               </p>
-            ) : filteredSuppliers.map(s => {
-              const displayName = s.nome_fantasia || s.name;
-              const subtitle = s.razao_social && s.razao_social !== displayName ? s.razao_social : null;
-              return (
-                <div key={s.id}
-                  className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-on-surface/[0.06] bg-surface-container/50 hover:border-amber-500/20 hover:bg-amber-500/5 transition-all group">
-                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
-                    <Building2 size={16} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-on-surface truncate group-hover:text-amber-700 transition-colors">{displayName}</p>
-                    {subtitle && <p className="text-[10px] text-on-surface/40 truncate">{subtitle}</p>}
-                    {s.documento && <p className="text-[10px] text-on-surface/30 font-mono">{s.documento}</p>}
-                    {(supplierFavCounts[s.id] || dupSupplierIds.has(s.id)) ? (
-                      <div className="mt-1.5 flex flex-wrap gap-1">
-                        {supplierFavCounts[s.id] > 0 && (
-                          <span className="h-[18px] inline-flex items-center gap-1 px-[7px] rounded-full text-[9.5px] font-extrabold bg-[#D81E1E]/[0.08] text-[#D81E1E]">
-                            <Wallet size={10} /> {supplierFavCounts[s.id]} favorecido{supplierFavCounts[s.id] !== 1 ? 's' : ''}
-                          </span>
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] overflow-x-auto">
+              <table className="w-full min-w-[900px] table-fixed text-[13px] border-collapse [&_td]:h-9 [&_td]:px-2.5 [&_td]:whitespace-nowrap [&_td]:overflow-hidden [&_td]:text-ellipsis [&_td]:border-r [&_td]:border-b [&_td]:border-[#A8A290] dark:[&_td]:border-white/20 [&_td:last-child]:border-r-0">
+                <thead>
+                  <tr className="bg-[#FFEC4D]">
+                    {([
+                      { key: null, label: '#', cls: 'w-[42px] text-right' },
+                      { key: 'nome', label: 'Fornecedor', cls: '' },
+                      { key: 'doc', label: 'CNPJ / CPF', cls: 'w-[300px]' },
+                      { key: 'favs', label: 'Favorecidos no financeiro', cls: 'w-[34%]' },
+                      { key: null, label: '', cls: 'w-[48px]' },
+                    ] as const).map((c, i) => (
+                      <th key={i} className={cn('h-8 px-2.5 text-left whitespace-nowrap shadow-[inset_-1px_0_0_#B8A31F,inset_0_-1.5px_0_#8F7E10]', c.cls)}>
+                        {c.key ? (
+                          <button
+                            onClick={() => toggleSupplierSort(c.key)}
+                            className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.55)] hover:text-[#1A1A0E] transition-colors"
+                          >
+                            {c.label}
+                            {supplierSort.key === c.key && (
+                              supplierSort.dir === 1
+                                ? <ChevronDown size={11} strokeWidth={3} className="text-[#D81E1E]" />
+                                : <ChevronDown size={11} strokeWidth={3} className="text-[#D81E1E] rotate-180" />
+                            )}
+                          </button>
+                        ) : (
+                          <span className="text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.55)]">{c.label}</span>
                         )}
-                        {dupSupplierIds.has(s.id) && (
-                          <span className="h-[18px] inline-flex items-center gap-1 px-[7px] rounded-full text-[9.5px] font-extrabold text-[#B45309] dark:text-[#FCD34D] bg-[rgba(217,119,6,0.10)] dark:bg-[rgba(252,211,77,0.08)] border border-[rgba(217,119,6,0.35)] dark:border-[rgba(252,211,77,0.30)]">
-                            <Copy size={10} /> CNPJ repetido
-                          </span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSuppliers.map((s, idx) => {
+                    const displayName = s.nome_fantasia || s.name;
+                    const subtitle = s.razao_social && s.razao_social !== displayName ? s.razao_social : null;
+                    const favNames = supplierFavNames[s.id] ?? [];
+                    const isDup = dupSupplierIds.has(s.id);
+                    return (
+                      <tr
+                        key={s.id}
+                        onClick={() => { setEditingSupplier(s); setShowAddSupplier(true); }}
+                        className={cn(
+                          'group cursor-pointer transition-colors',
+                          idx % 2 === 0 ? 'bg-white dark:bg-[#1E1E18]' : 'bg-[#FAF7EE] dark:bg-[#1A1A15]',
+                          'hover:bg-[#FFF8D0] dark:hover:bg-[#FFE500]/[0.06]',
                         )}
-                      </div>
-                    ) : null}
-                  </div>
-                  <button
-                    onClick={() => { setEditingSupplier(s); setShowAddSupplier(true); }}
-                    className="w-8 h-8 rounded-lg text-on-surface/20 hover:text-amber-600 hover:bg-amber-500/10 flex items-center justify-center transition-all shrink-0"
-                    title="Editar fornecedor"
-                  >
-                    <Pencil size={14} />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+                      >
+                        <td className="text-right font-mono text-[11px] text-on-surface/30">{idx + 1}</td>
+                        <td title={[displayName, subtitle].filter(Boolean).join(' — ')}>
+                          <span className="font-extrabold text-on-surface">{displayName}</span>
+                          {subtitle && <span className="ml-2 text-[10.5px] font-semibold text-on-surface/45">{subtitle}</span>}
+                        </td>
+                        <td>
+                          {s.documento ? (
+                            <span className={cn('inline-flex items-center gap-1.5 font-mono text-[12px] font-medium tracking-[0.03em]', isDup ? 'text-[#B45309] dark:text-[#FCD34D]' : 'text-on-surface')}>
+                              <span className="font-sans text-[8.5px] font-black tracking-[0.08em] px-[5px] py-px bg-black/[0.07] dark:bg-white/[0.08] text-on-surface/50">{s.documento_tipo || 'CNPJ'}</span>
+                              {s.documento}
+                              {isDup && (
+                                <span className="font-sans inline-flex items-center gap-[3px] text-[8.5px] font-black uppercase tracking-[0.06em] px-[5px] py-px text-[#B45309] dark:text-[#FCD34D] bg-[rgba(217,119,6,0.10)] dark:bg-[rgba(252,211,77,0.08)] border border-[rgba(217,119,6,0.35)] dark:border-[rgba(252,211,77,0.30)]">
+                                  <Copy size={9} /> Repetido
+                                </span>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-[12px] italic text-on-surface/30">sem documento</span>
+                          )}
+                        </td>
+                        <td title={favNames.join(', ')}>
+                          {favNames.length ? (
+                            <>
+                              <span className="inline-flex items-center gap-1 text-[11.5px] font-extrabold text-[#D81E1E]">
+                                <Wallet size={12} /> {favNames.length}
+                              </span>
+                              <span className="ml-1.5 text-[10.5px] font-semibold text-on-surface/45">· {favNames.join(', ')}</span>
+                            </>
+                          ) : (
+                            <span className="text-on-surface/25">—</span>
+                          )}
+                        </td>
+                        <td>
+                          <span className="w-[26px] h-[26px] ml-auto flex items-center justify-center border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-on-surface/45 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Pencil size={13} />
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
