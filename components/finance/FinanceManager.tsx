@@ -7,7 +7,7 @@ import {
   Wallet, Search, ChevronLeft, ChevronRight, Building2, CreditCard, Upload,
   ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Filter, Clock, CheckCircle2,
   AlertTriangle, Info, Lock, Unlock, Link2Off, Landmark,
-  ArrowUp, ArrowDown, Eye,
+  ArrowUp, ArrowDown, Eye, ChevronDown,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,7 @@ import { useFinanceTags, TAG_COLOR_MAP } from '@/hooks/useFinanceTags';
 import { TagSelector } from './TagSelector';
 import { TagGuide } from './TagGuide';
 import { CashFlowPage } from './CashFlowPage';
+import { RedeImportModal } from './RedeImportModal';
 import { LinkedNotesSection, LinkedNoteLite, linkNotesToTransactions, cleanupNoteLinksForDeletedTxs } from './LinkedNotesSection';
 import { FavorecidoEditModal } from './FavorecidoEditModal';
 import { FavorecidoDetailsModal } from './FavorecidoDetailsModal';
@@ -301,6 +302,8 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
 
   // import extrato modal
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showRedeImport, setShowRedeImport] = useState(false);
+  const [importMenuOpen, setImportMenuOpen] = useState(false);
   const [importBanco, setImportBanco] = useState('Itaú');
   const [importEstab, setImportEstab] = useState('Castelo Real');
   const [importAccountId, setImportAccountId] = useState('');
@@ -3054,6 +3057,52 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
           <Plus size={14} strokeWidth={3} />
         </button>
 
+        <div className="relative">
+          <button
+            onClick={() => setImportMenuOpen(o => !o)}
+            title="Importar"
+            className={cn(
+              'h-7 flex items-center gap-1.5 px-2.5 text-[10.5px] font-extrabold uppercase tracking-[0.05em] border transition-all active:scale-[0.97]',
+              importMenuOpen
+                ? 'bg-primary/[0.08] text-primary border-primary/30'
+                : 'bg-white dark:bg-[#1E1E18] border-[#E0D8BF] dark:border-white/[0.10] text-on-surface hover:bg-on-surface/[0.05]',
+            )}
+          >
+            <Upload size={12} />
+            Importar
+            <ChevronDown size={11} strokeWidth={3} className={cn('transition-transform', importMenuOpen && 'rotate-180')} />
+          </button>
+          <AnimatePresence>
+            {importMenuOpen && (<>
+              <div className="fixed inset-0 z-30" onClick={() => setImportMenuOpen(false)} />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.97, y: -4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.97, y: -4 }}
+                transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
+                className="absolute left-0 top-[calc(100%+4px)] z-40 w-[300px] p-1 origin-top-left bg-white dark:bg-[#2E2E28] border border-[#E0D8BF] dark:border-white/[0.10] shadow-[0_12px_28px_rgba(26,26,10,0.18)]"
+              >
+                {([
+                  { icon: <Landmark size={14} />, titulo: 'Extrato bancário', sub: 'Itaú · Excel', onClick: openImportModal },
+                  { icon: <CreditCard size={14} />, titulo: 'Vendas da maquininha', sub: 'Rede · relatório de vendas em Excel ou CSV', onClick: () => setShowRedeImport(true) },
+                ]).map(op => (
+                  <button
+                    key={op.titulo}
+                    onClick={() => { setImportMenuOpen(false); op.onClick(); }}
+                    className="w-full flex items-start gap-2.5 px-2.5 py-2 text-left hover:bg-[#FFF8D0] dark:hover:bg-[#FFE500]/[0.08] transition-colors"
+                  >
+                    <span className="w-7 h-7 shrink-0 grid place-items-center bg-[rgba(26,26,10,0.09)] dark:bg-[rgba(216,30,30,0.13)] text-[#1A1A0E] dark:text-[#D81E1E]">{op.icon}</span>
+                    <span>
+                      <b className="block text-[12.5px] font-extrabold text-on-surface">{op.titulo}</b>
+                      <small className="block mt-px text-[11px] font-medium text-on-surface/45">{op.sub}</small>
+                    </span>
+                  </button>
+                ))}
+              </motion.div>
+            </>)}
+          </AnimatePresence>
+        </div>
+
         {mainTableView === 'comum' && (
           <button
             onClick={toggleSelectionMode}
@@ -4525,6 +4574,17 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
 
       {/* ── Import Extrato Modal ───────────────────────────────────────────── */}
       <AnimatePresence>
+        {showRedeImport && (
+          <RedeImportModal
+            key="rede-import"
+            tags={tags}
+            createTag={createTag}
+            updateTag={updateTag}
+            onClose={() => setShowRedeImport(false)}
+            onImported={fetchAll}
+            onVerFluxo={() => { setShowRedeImport(false); setFinanceView('fluxo'); }}
+          />
+        )}
         {showImportModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}

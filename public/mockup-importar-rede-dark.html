@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="pt-BR" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Importar Rede</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FFFCEC; --text: #1A1A0E; --muted: rgba(26,26,10,0.45); --faint: rgba(26,26,10,0.28); --ghost: rgba(26,26,10,0.18);
+    --hdr: #FBF35E; --hdr-border: #D9CF45; --hdr-text: #1A1A0E; --chip: rgba(26,26,10,0.09);
+    --modal: #FDFAF0; --mhdr: #FFE500; --mhdr-border: #D4C000; --micon: rgba(26,26,10,0.09); --micon-c: #1A1A0E;
+    --card: #FFFFFF; --card-border: #E0D8BF; --field: #FFFFFF; --field-hover: #CFC4A2;
+    --line: #EFE8D2; --soft: #FAF7EE; --sub: #FDFBF4; --menu: #FFFFFF; --menu-hover: #FFF8D0;
+    --grid: #A8A290; --row-hover: #FFF8D0; --th: #FFEC4D; --th-line: #B8A31F; --th-bottom: #8F7E10; --th-text: rgba(26,26,10,0.55);
+    --foot: #FFF7B0; --foot-border: #DDD000;
+    --close-bg: rgba(26,26,10,0.08); --close-c: rgba(26,26,10,0.45);
+    --cancel-bg: rgba(26,26,10,0.08); --cancel-c: rgba(26,26,10,0.55); --cancel-b: rgba(26,26,10,0.14);
+    --green: #0A7A55; --red: #D81E1E; --amber: #92400E; --amber-bg: #FFFBEB; --amber-border: rgba(251,191,36,0.55);
+    --ok-bg: rgba(10,122,85,0.08);
+    --tabshadow: inset 0 6px 8px -5px rgba(26,26,10,0.35);
+    --rail: 64px; --hh: 44px;
+  }
+  html.dark {
+    --bg: #161612; --text: #F2F0E3; --muted: rgba(242,240,227,0.42); --faint: rgba(242,240,227,0.25); --ghost: rgba(242,240,227,0.16);
+    --hdr: #252520; --hdr-border: rgba(242,240,227,0.08); --hdr-text: #F2F0E3; --chip: rgba(216,30,30,0.13);
+    --modal: #1E1E18; --mhdr: #252520; --mhdr-border: rgba(242,240,227,0.07); --micon: rgba(216,30,30,0.13); --micon-c: #D81E1E;
+    --card: #252520; --card-border: rgba(242,240,227,0.08); --field: #252520; --field-hover: rgba(242,240,227,0.20);
+    --line: rgba(242,240,227,0.06); --soft: #1E1E18; --sub: #22221C; --menu: #2E2E28; --menu-hover: rgba(255,229,0,0.08);
+    --grid: rgba(242,240,227,0.16); --row-hover: rgba(242,240,227,0.03); --th-text: rgba(26,26,10,0.58);
+    --foot: #252520; --foot-border: rgba(242,240,227,0.06);
+    --close-bg: rgba(242,240,227,0.06); --close-c: rgba(242,240,227,0.35);
+    --cancel-bg: rgba(242,240,227,0.07); --cancel-c: rgba(242,240,227,0.50); --cancel-b: rgba(242,240,227,0.10);
+    --green: #34D399; --amber: #FCD34D; --amber-bg: rgba(251,191,36,0.07); --amber-border: rgba(251,191,36,0.40);
+    --ok-bg: rgba(52,211,153,0.08);
+    --tabshadow: inset 0 6px 8px -5px rgba(0,0,0,0.55);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+  button, select, input { font-family: inherit; }
+  .mono { font-family: 'DM Mono', monospace; font-variant-numeric: tabular-nums; }
+
+  .anno { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 100; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: center; padding: 8px 10px; border-radius: 14px; background: #1A1A0E; color: #F2F0E3; font-size: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.35); max-width: calc(100vw - 24px); }
+  .anno b { color: #FFE500; margin-right: 4px; }
+  .anno button { border: 1px solid rgba(242,240,227,.18); background: transparent; color: #F2F0E3; padding: 5px 10px; border-radius: 999px; cursor: pointer; font-weight: 700; font-size: 11px; }
+  .anno button.on { background: #FFE500; color: #1A1A0E; border-color: #FFE500; }
+  .anno a { color: rgba(242,240,227,.6); font-size: 11px; margin-left: 4px; }
+
+  /* Shell */
+  .hdr { position: fixed; top: 0; left: 0; right: 0; z-index: 10; height: var(--hh); display: flex; align-items: stretch; background: var(--hdr); border-bottom: 1px solid var(--hdr-border); }
+  .logo { width: var(--rail); display: grid; place-items: center; border-right: 1px solid var(--hdr-border); }
+  .logo span { width: 32px; height: 32px; display: grid; place-items: center; background: #fff; color: #D81E1E; font-size: 8.5px; font-weight: 900; border: 1px solid rgba(26,26,10,0.12); }
+  .ttl { display: flex; align-items: center; gap: 9px; padding: 0 16px; }
+  .ttl h1 { margin: 0; font-size: 15px; font-weight: 900; color: var(--hdr-text); }
+  .rail { position: fixed; left: 0; top: var(--hh); bottom: 0; width: var(--rail); z-index: 9; background: var(--hdr); border-right: 1px solid var(--hdr-border); }
+  main { margin-left: var(--rail); padding-top: var(--hh); }
+  .tabs { display: flex; width: max-content; }
+  .tab { height: 32px; min-width: 120px; padding: 0 14px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--hdr-border); border-top: 0; margin-left: -1px; background: var(--hdr); color: var(--hdr-text); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; box-shadow: var(--tabshadow); }
+  .tab:first-child { margin-left: 0; border-left: 0; }
+  .tab span { opacity: .55; } .tab.on { box-shadow: var(--tabshadow), inset 0 -3px 0 #D81E1E; } .tab.on span { opacity: 1; }
+  .page { padding: 14px 28px; }
+  .tool { display: flex; align-items: center; gap: 6px; }
+  .tbtn { height: 30px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid var(--card-border); background: var(--card); color: var(--text); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; cursor: pointer; position: relative; }
+  .tbtn.pri { background: #D81E1E; border-color: #D81E1E; color: #fff; }
+  .tbtn.hl { box-shadow: 0 0 0 3px rgba(216,30,30,.25); }
+  .ddm { position: absolute; top: 34px; left: 0; z-index: 5; width: 300px; background: var(--menu); border: 1px solid var(--card-border); box-shadow: 0 12px 28px rgba(26,26,10,.18); padding: 4px; text-transform: none; letter-spacing: 0; animation: pop .13s cubic-bezier(.23,1,.32,1); transform-origin: top left; }
+  .ddm div { display: flex; gap: 10px; align-items: flex-start; padding: 9px 10px; cursor: pointer; }
+  .ddm div:hover, .ddm div.hot { background: var(--menu-hover); }
+  .ddm .i { width: 28px; height: 28px; flex-shrink: 0; display: grid; place-items: center; background: var(--micon); color: var(--micon-c); font-size: 13px; font-weight: 900; }
+  .ddm b { display: block; font-size: 12.5px; font-weight: 800; }
+  .ddm small { display: block; font-size: 11px; font-weight: 500; color: var(--muted); margin-top: 1px; }
+  .ddm .new { font-size: 8px; padding: 1px 4px; background: #D81E1E; color: #fff; margin-left: 5px; vertical-align: 2px; letter-spacing: .04em; }
+  .ghosttbl { margin-top: 10px; height: 420px; border: 1px solid var(--card-border); background: repeating-linear-gradient(var(--card) 0 36px, var(--soft) 36px 72px); opacity: .6; }
+
+  /* Modal */
+  .ov { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.55); backdrop-filter: blur(3px); display: grid; place-items: center; padding: 20px; }
+  .modal { width: min(1120px, 100%); max-height: calc(100vh - 40px); display: flex; flex-direction: column; background: var(--modal); box-shadow: 0 25px 50px -12px rgba(0,0,0,.4); animation: mopen .2s cubic-bezier(.23,1,.32,1); }
+  .modal.sm { width: min(620px, 100%); }
+  @keyframes mopen { from { opacity: 0; transform: scale(.97); } }
+  @keyframes pop { from { opacity: 0; transform: scale(.97) translateY(-4px); } }
+  .mh { display: flex; align-items: center; gap: 10px; height: 54px; padding: 0 16px; background: var(--mhdr); border-bottom: 1px solid var(--mhdr-border); flex-shrink: 0; }
+  .mh .i { width: 32px; height: 32px; display: grid; place-items: center; background: var(--micon); color: var(--micon-c); font-weight: 900; font-size: 13px; }
+  .mh h2 { margin: 0; font-size: 15px; font-weight: 900; }
+  .mh p { margin: 1px 0 0; font-size: 11px; color: var(--muted); font-weight: 600; }
+  html.dark .mh h2 { color: #F2F0E3; }
+  .steps { margin-left: auto; display: flex; align-items: center; gap: 0; }
+  .st { display: flex; align-items: center; gap: 6px; padding: 0 10px; font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .st i { font-style: normal; width: 18px; height: 18px; display: grid; place-items: center; border: 1.5px solid currentColor; font-size: 10px; }
+  .st.on { color: var(--text); } .st.on i { background: #D81E1E; border-color: #D81E1E; color: #fff; }
+  .st.done { color: var(--green); }
+  .st + .st::before { content: ''; width: 14px; height: 1px; background: var(--card-border); margin-right: 10px; }
+  .x { width: 30px; height: 30px; margin-left: 10px; border: 1px solid var(--close-c); border-color: transparent; background: var(--close-bg); color: var(--close-c); cursor: pointer; font-size: 15px; font-weight: 900; }
+  .x:hover { color: #D81E1E; } .x:active { transform: scale(.93); }
+  .mb { padding: 16px; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
+  .mf { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: var(--foot); border-top: 1px solid var(--foot-border); flex-shrink: 0; }
+  .mf .info { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .mf .info b { color: var(--text); font-weight: 900; }
+  .btn { height: 34px; padding: 0 16px; border: 1px solid var(--cancel-b); background: var(--cancel-bg); color: var(--cancel-c); font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; cursor: pointer; transition: transform .15s; }
+  .btn:active { transform: scale(.97); }
+  .btn.pri { background: #D81E1E; border-color: #D81E1E; color: #fff; }
+  .btn.pri:disabled { opacity: .4; cursor: default; }
+  .ml { margin-left: auto; }
+
+  .lbl { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin-bottom: 5px; display: block; }
+  .drop { border: 1.5px dashed var(--card-border); background: var(--card); padding: 30px; display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--faint); cursor: pointer; transition: border-color .15s, color .15s; }
+  .drop:hover { border-color: #D81E1E; color: #D81E1E; }
+  .drop b { font-size: 13px; color: var(--text); }
+  .drop small { font-size: 11px; font-weight: 600; }
+  .file { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid rgba(10,122,85,.35); background: var(--ok-bg); }
+  .file .ic { width: 34px; height: 34px; display: grid; place-items: center; background: var(--green); color: #fff; font-size: 10px; font-weight: 900; }
+  .file b { display: block; font-size: 12.5px; font-weight: 800; }
+  .file small { display: block; font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 1px; }
+  .file .tr { margin-left: auto; font-size: 10.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; cursor: pointer; }
+  .detect { display: grid; grid-template-columns: repeat(4, 1fr); border-left: 1px solid var(--card-border); border-top: 1px solid var(--card-border); background: var(--card); }
+  .detect div { padding: 9px 12px; border-right: 1px solid var(--card-border); border-bottom: 1px solid var(--card-border); }
+  .detect b { display: block; font-size: 13.5px; font-weight: 900; margin-top: 2px; }
+  .detect small { font-size: 10.5px; color: var(--muted); font-weight: 600; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .box { background: var(--card); border: 1px solid var(--card-border); }
+  .box .bh { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; background: var(--th); box-shadow: inset 0 -1.5px 0 var(--th-bottom); font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: var(--th-text); }
+  .box .bh span { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 700; font-size: 10.5px; }
+  .map { display: grid; grid-template-columns: 1fr 16px 1.1fr; align-items: center; gap: 8px; padding: 7px 12px; border-bottom: 1px solid var(--line); }
+  .map:last-child { border-bottom: 0; }
+  .map .from b { display: block; font-size: 12.5px; font-weight: 800; }
+  .map .from small { display: block; font-size: 10.5px; color: var(--muted); font-weight: 600; }
+  .map .ar { color: var(--faint); font-weight: 900; text-align: center; }
+  .sel { height: 30px; width: 100%; border: 1px solid var(--card-border); background: var(--field); color: var(--text); padding: 0 8px; font-size: 12px; font-weight: 700; outline: none; cursor: pointer; }
+  .sel:focus { border-color: #D81E1E; }
+  .sel.miss { border-color: var(--amber-border); color: var(--amber); }
+  .tagopt { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .note { font-size: 11px; color: var(--muted); padding: 8px 12px; border-top: 1px solid var(--line); line-height: 1.45; }
+  .warn { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border: 1px solid var(--amber-border); background: var(--amber-bg); color: var(--amber); font-size: 12px; }
+  .okbar { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border: 1px solid rgba(10,122,85,.30); background: var(--ok-bg); color: var(--green); font-size: 12px; }
+
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); border-left: 1px solid var(--card-border); border-top: 1px solid var(--card-border); background: var(--card); }
+  .kpi { padding: 9px 12px; border-right: 1px solid var(--card-border); border-bottom: 1px solid var(--card-border); }
+  .kpi .l { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .kpi .v { margin-top: 2px; font-size: 16px; font-weight: 900; }
+  .kpi .s { font-size: 10.5px; color: var(--faint); font-weight: 700; margin-top: 1px; }
+  .pos { color: var(--green); } .neg { color: var(--red); }
+
+  .tbl { background: var(--card); border: 1px solid var(--card-border); overflow: auto; max-height: 360px; }
+  table { width: 100%; min-width: 980px; table-layout: fixed; border-collapse: collapse; font-size: 12.5px; }
+  th { position: sticky; top: 0; z-index: 2; height: 30px; padding: 0 10px; background: var(--th); text-align: right; box-shadow: inset -1px 0 0 var(--th-line), inset 0 -1.5px 0 var(--th-bottom); font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: var(--th-text); white-space: nowrap; }
+  th.l, td.l { text-align: left; }
+  td { height: 34px; padding: 0 10px; border-right: 1px solid var(--grid); border-bottom: 1px solid var(--grid); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+  td:last-child { border-right: 0; }
+  tr.r { cursor: pointer; transition: background .12s; }
+  tr.r:nth-child(4n+1), tr.r:nth-child(4n+3) { }
+  tr.ev { background: var(--card); } tr.od { background: var(--soft); }
+  tr.r:hover { background: var(--row-hover); }
+  tr.sub td { background: var(--sub); font-size: 12px; color: var(--muted); height: 30px; }
+  tr.tot td { background: var(--foot); font-weight: 900; border-top: 1.5px solid var(--th-bottom); position: sticky; bottom: 0; }
+  .v { font-family: 'DM Mono', monospace; font-variant-numeric: tabular-nums; }
+  .z { color: var(--ghost); }
+  .chev { display: inline-block; width: 12px; font-size: 8px; color: var(--muted); transition: transform .18s cubic-bezier(.23,1,.32,1); }
+  .chev.open { transform: rotate(90deg); }
+  .pill { display: inline-block; font-size: 8.5px; font-weight: 900; padding: 0 5px; line-height: 15px; letter-spacing: .05em; text-transform: uppercase; border: 1px solid currentColor; }
+  .pill.ok { color: var(--green); } .pill.op { color: var(--amber); } .pill.up { color: #2563EB; } .pill.sk { color: var(--faint); }
+  html.dark .pill.up { color: #60A5FA; }
+  .vd { color: var(--faint); font-size: 11px; }
+  .tg { display: inline-flex; align-items: center; gap: 5px; }
+  .tip { font-size: 10.5px; color: var(--faint); padding: 0 2px; }
+
+  .done { padding: 26px 16px 8px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; }
+  .done .big { width: 52px; height: 52px; display: grid; place-items: center; background: var(--ok-bg); color: var(--green); font-size: 24px; font-weight: 900; border: 1px solid rgba(10,122,85,.3); }
+  .done h3 { margin: 8px 0 0; font-size: 18px; font-weight: 900; }
+  .done p { margin: 0; font-size: 12.5px; color: var(--muted); max-width: 440px; line-height: 1.5; }
+  .reslist { margin: 10px 16px 0; display: grid; grid-template-columns: 1fr 1fr; border-left: 1px solid var(--card-border); border-top: 1px solid var(--card-border); background: var(--card); }
+  .reslist div { display: flex; justify-content: space-between; gap: 8px; padding: 9px 12px; border-right: 1px solid var(--card-border); border-bottom: 1px solid var(--card-border); font-size: 12px; color: var(--muted); font-weight: 600; }
+  .reslist b { color: var(--text); font-weight: 900; }
+</style>
+</head>
+<body>
+  <header class="hdr"><div class="logo"><span>CR</span></div><div class="ttl"><h1>Controle Financeiro</h1></div></header>
+  <nav class="rail"></nav>
+  <main>
+    <div class="tabs"><div class="tab on"><span>Controle Financeiro</span></div><div class="tab"><span>Fluxo de Caixa</span></div><div class="tab"><span>Favorecidos</span></div><div class="tab"><span>Contas</span></div></div>
+    <div class="page">
+      <div class="tool" id="tool"></div>
+      <div class="ghosttbl"></div>
+    </div>
+  </main>
+  <div id="modal"></div>
+  <div class="anno" id="anno"></div>
+
+<script>
+const AGG = [{"d":"2026-09-02","v":["2026-09-01"],"cb":385.4,"cn":16,"db":974.5,"dn":49,"mdr":13.95,"ant":4.83,"liq":1341.12},{"d":"2026-09-03","v":["2026-09-02"],"cb":739.4,"cn":23,"db":1228.1,"dn":53,"mdr":21.02,"ant":9.76,"liq":1936.72},{"d":"2026-09-04","v":["2026-09-02","2026-09-03"],"cb":844.1,"cn":23,"db":1871.5,"dn":67,"mdr":28.07,"ant":11.03,"liq":2676.5},{"d":"2026-09-08","v":["2026-09-03","2026-09-04","2026-09-05","2026-09-06","2026-09-07"],"cb":5533.4,"cn":102,"db":5639.75,"dn":212,"mdr":126.13,"ant":83.08,"liq":10963.94},{"d":"2026-09-09","v":["2026-09-08"],"cb":1217.7,"cn":29,"db":1449.5,"dn":68,"mdr":30.3,"ant":20.52,"liq":2616.38},{"d":"2026-09-10","v":["2026-09-08","2026-09-09"],"cb":676,"cn":16,"db":986.2,"dn":45,"mdr":17.59,"ant":8.79,"liq":1635.82},{"d":"2026-09-11","v":["2026-09-09","2026-09-10"],"cb":760.7,"cn":17,"db":843.7,"dn":41,"mdr":18.93,"ant":10.52,"liq":1574.95},{"d":"2026-09-14","v":["2026-09-11","2026-09-12","2026-09-13"],"cb":3045.1,"cn":91,"db":3998.9,"dn":178,"mdr":78.46,"ant":41.49,"liq":6924.05},{"d":"2026-09-15","v":["2026-09-14"],"cb":451.5,"cn":17,"db":1096.3,"dn":54,"mdr":14.05,"ant":5.65,"liq":1528.1},{"d":"2026-09-16","v":["2026-09-15"],"cb":1315.53,"cn":19,"db":1181.65,"dn":52,"mdr":27.29,"ant":16.47,"liq":2453.42},{"d":"2026-09-17","v":["2026-09-16"],"cb":1274.6,"cn":32,"db":1712.9,"dn":66,"mdr":30.51,"ant":15.97,"liq":2941.02},{"d":"2026-09-18","v":["2026-09-17"],"cb":1002.85,"cn":24,"db":950.7,"dn":51,"mdr":21.67,"ant":13.04,"liq":1918.84},{"d":"2026-09-21","v":["2026-09-18","2026-09-19","2026-09-20"],"cb":2495.6,"cn":63,"db":5109.4,"dn":198,"mdr":78.11,"ant":32.46,"liq":7494.43},{"d":"2026-09-22","v":["2026-09-21"],"cb":738.9,"cn":20,"db":1203.8,"dn":48,"mdr":21.93,"ant":9.25,"liq":1911.52},{"d":"2026-09-23","v":["2026-09-22"],"cb":798.1,"cn":21,"db":680.7,"dn":37,"mdr":16.94,"ant":11.62,"liq":1450.24},{"d":"2026-09-24","v":["2026-09-22","2026-09-23"],"cb":671,"cn":14,"db":1030.2,"dn":55,"mdr":17.93,"ant":12.08,"liq":1671.19},{"d":"2026-09-25","v":["2026-09-24"],"cb":1133.9,"cn":36,"db":796.9,"dn":49,"mdr":23.46,"ant":16.77,"liq":1890.57},{"d":"2026-09-28","v":["2026-09-24","2026-09-25","2026-09-26","2026-09-27"],"cb":2588.15,"cn":72,"db":4718.7,"dn":210,"mdr":77.2,"ant":37.11,"liq":7192.54},{"d":"2026-09-29","v":["2026-09-27","2026-09-28"],"cb":1176,"cn":21,"db":747.95,"dn":45,"mdr":24.95,"ant":22.76,"liq":1876.24},{"d":"2026-09-30","v":["2026-09-29"],"cb":713.75,"cn":20,"db":862.2,"dn":46,"mdr":17.12,"ant":9.55,"liq":1549.28},{"d":"2026-10-01","v":["2026-09-30"],"cb":629.5,"cn":17,"db":1033.7,"dn":42,"mdr":18.36,"ant":8.49,"liq":1636.35},{"d":"2026-10-02","v":["2026-09-30"],"cb":17,"cn":1,"db":0,"dn":0,"mdr":0.22,"ant":0,"liq":16.78}];
+const HOJE = '2026-10-05';
+const fmt = v => Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const brl = v => (v < 0 ? '−' : '') + 'R$ ' + fmt(v);
+const dm = iso => iso.slice(8, 10) + '/' + iso.slice(5, 7);
+const DOW = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+const dow = iso => DOW[new Date(iso + 'T12:00:00').getDay()];
+const tot = k => AGG.reduce((s, o) => s + o[k], 0);
+const T = { cb: tot('cb'), db: tot('db'), mdr: tot('mdr'), ant: tot('ant'), liq: tot('liq'), cn: tot('cn'), dn: tot('dn') };
+const nMov = AGG.reduce((s, o) => s + (o.cb ? 1 : 0) + (o.db ? 1 : 0) + (o.mdr ? 1 : 0) + (o.ant ? 1 : 0), 0);
+const nRec = AGG.reduce((s, o) => s + (o.cb ? 1 : 0) + (o.db ? 1 : 0), 0);
+
+const TAGS = {
+  cred: { nome: 'Crédito', cor: '#3b82f6' }, deb: { nome: 'Débito', cor: '#14b8a6' },
+  mdr: { nome: 'Taxa maquininha (MDR)', cor: '#ef4444' }, ant: { nome: 'Antecipação', cor: '#f59e0b' },
+};
+// Reimportação: simula que 01–27/09 já tinham sido importados
+const REIMP_CUT = '2026-09-28';
+
+const S = { step: 'menu', exp: new Set(['2026-09-08']), reimp: false, tagsOk: true };
+
+function tool() {
+  return `<button class="tbtn pri">+ Nova</button>
+    <div style="position:relative"><button class="tbtn ${S.step === 'menu' ? 'hl' : ''}">⇪ Importar ▾</button>
+    ${S.step === 'menu' ? `<div class="ddm">
+      <div><span class="i">B</span><span><b>Extrato bancário</b><small>Itaú · Excel — como hoje</small></span></div>
+      <div class="hot" onclick="go('file')"><span class="i">R</span><span><b>Vendas da maquininha<span class="new">NOVO</span></b><small>Rede · relatório de vendas em Excel ou CSV</small></span></div>
+    </div>` : ''}</div>
+    <button class="tbtn">Selecionar</button>`;
+}
+
+function header(step) {
+  const steps = [['file', 'Arquivo'], ['prev', 'Prévia'], ['done', 'Concluído']];
+  const idx = steps.findIndex(s => s[0] === step);
+  return `<div class="mh"><span class="i">R</span><div><h2>Importar vendas da maquininha</h2><p>Rede · crédito e débito</p></div>
+    <div class="steps">${steps.map(([k, l], i) => `<span class="st ${i === idx ? 'on' : i < idx ? 'done' : ''}"><i>${i < idx ? '✓' : i + 1}</i>${l}</span>`).join('')}</div>
+    <button class="x" onclick="go('menu')">✕</button></div>`;
+}
+
+const tagSel = (key, miss) => `<select class="sel ${miss ? 'miss' : ''}">${miss ? `<option>Escolha uma tag…</option>` : `<option>● ${TAGS[key].nome}</option>`}<option>+ Criar tag "${TAGS[key].nome}"</option></select>`;
+
+function stepFile(withFile) {
+  const miss = !S.tagsOk;
+  return `<div class="modal">${header('file')}
+    <div class="mb">
+      ${withFile ? `<div class="file"><span class="ic">XLSX</span><span><b>Rede_Rel_Vendas_01_09_2026-30_09_2026.xlsx</b><small>Relatório de vendas Rede reconhecido · 2.360 vendas lidas</small></span><span class="tr" onclick="go('file0')">Trocar arquivo</span></div>
+      <div class="detect">
+        <div><small>Período das vendas</small><b>01/09 a 30/09/2026</b></div>
+        <div><small>Vendas</small><b class="mono">2.360</b><small>${T.cn} crédito · ${T.dn} débito</small></div>
+        <div><small>Máquinas</small><b>2</b><small>KN151175 · KN154767</small></div>
+        <div><small>Valor bruto</small><b class="mono">${brl(T.cb + T.db)}</b></div>
+      </div>
+      <div class="grid2">
+        <div class="box">
+          <div class="bh">Estabelecimento <span>pelo nº da Rede — fica salvo</span></div>
+          <div class="map"><div class="from"><b>Nº 41209966</b><small>UNIVERSO DO 1 99 · CNPJ 16.654.967/0001-27 · 2 máquinas</small></div><span class="ar">→</span><select class="sel"><option>Universo do R$1,99</option><option>Castelo Real</option><option>Pessoal</option></select></div>
+          <div class="note">Na próxima importação esse número já vem preenchido. Se um relatório trouxer outro nº (ex.: máquina da Castelo Real), ele aparece aqui para escolher a loja.</div>
+        </div>
+        <div class="box">
+          <div class="bh">Tags <span>ficam salvas para as próximas</span></div>
+          <div class="map"><div class="from"><b>Vendas no crédito</b><small>Receita · valor bruto</small></div><span class="ar">→</span>${tagSel('cred', miss)}</div>
+          <div class="map"><div class="from"><b>Vendas no débito</b><small>Receita · valor bruto</small></div><span class="ar">→</span>${tagSel('deb', miss)}</div>
+          <div class="map"><div class="from"><b>Taxa MDR</b><small>Despesa</small></div><span class="ar">→</span>${tagSel('mdr', miss)}</div>
+          <div class="map"><div class="from"><b>Antecipação</b><small>Despesa · recebimento automático</small></div><span class="ar">→</span>${tagSel('ant', miss)}</div>
+        </div>
+      </div>
+      ${miss ? `<div class="warn">⚠ Escolha ou crie as 4 tags para continuar — sem elas as vendas cairiam em "Receitas sem tag" e as taxas em "Não classificadas" no Fluxo de Caixa.</div>` : ''}`
+      : `<label class="lbl">Relatório de vendas da Rede</label>
+      <div class="drop" onclick="go('file')"><span style="font-size:28px">⇪</span><b>Arraste o arquivo aqui ou clique para escolher</b><small>Excel (.xlsx) ou CSV — baixado em Rede › Vendas › Exportar</small></div>
+      <div class="tip">Pode importar o mesmo período mais de uma vez: vendas que já entraram são ignoradas e os dias são recalculados.</div>`}
+    </div>
+    <div class="mf"><span class="info">${withFile ? 'Agrupa por <b>dia de recebimento</b> e <b>modalidade</b>; as vendas individuais ficam guardadas para conferência.' : 'Nada foi importado ainda.'}</span>
+      <button class="btn ml" onclick="go('menu')">Cancelar</button><button class="btn pri" ${withFile && !miss ? '' : 'disabled'} onclick="go('prev')">Ver prévia →</button></div>
+  </div>`;
+}
+
+function statusOf(o) {
+  if (S.reimp) {
+    if (o.d < REIMP_CUT) return '<span class="pill sk">Já importado</span>';
+    if (o.d === REIMP_CUT) return '<span class="pill up">Atualiza</span>';
+    return '<span class="pill ok">Novo</span>';
+  }
+  return o.d <= HOJE ? '<span class="pill ok">Recebido</span>' : '<span class="pill op">A receber</span>';
+}
+function stepPrev() {
+  const rows = AGG.map((o, i) => {
+    const open = S.exp.has(o.d);
+    const bruto = o.cb + o.db;
+    const vendas = o.v.length === 1 ? dm(o.v[0]) : dm(o.v[0]) + ' a ' + dm(o.v[o.v.length - 1]);
+    const skip = S.reimp && o.d < REIMP_CUT;
+    let h = `<tr class="r ${i % 2 ? 'od' : 'ev'}" style="${skip ? 'opacity:.45' : ''}" onclick="tog('${o.d}')">
+      <td class="l"><span class="chev ${open ? 'open' : ''}">▶</span> <b>${dm(o.d)}</b> <span class="vd">${dow(o.d)}</span></td>
+      <td class="l vd">${vendas}${o.v.length > 2 ? ' · fim de semana/feriado' : ''}</td>
+      <td><span class="v">${o.cb ? fmt(o.cb) : '<span class="z">—</span>'}</span></td>
+      <td><span class="v">${o.db ? fmt(o.db) : '<span class="z">—</span>'}</span></td>
+      <td><span class="v neg">${o.mdr ? '−' + fmt(o.mdr) : '—'}</span></td>
+      <td><span class="v neg">${o.ant ? '−' + fmt(o.ant) : '<span class="z">—</span>'}</span></td>
+      <td><span class="v" style="font-weight:800">${fmt(o.liq)}</span></td>
+      <td>${statusOf(o)}</td></tr>`;
+    if (open) {
+      const mv = [];
+      if (o.cb) mv.push(['Receita', 'cred', `Vendas crédito Rede · ${o.cn} vendas`, o.cb]);
+      if (o.db) mv.push(['Receita', 'deb', `Vendas débito Rede · ${o.dn} vendas`, o.db]);
+      if (o.mdr) mv.push(['Despesa', 'mdr', 'Taxa MDR Rede', -o.mdr]);
+      if (o.ant) mv.push(['Despesa', 'ant', 'Antecipação Rede', -o.ant]);
+      mv.forEach(([tipo, tk, desc, v]) => {
+        h += `<tr class="sub"><td class="l" style="padding-left:30px">${tipo === 'Receita' ? '<b class="pos">+</b>' : '<b class="neg">−</b>'} ${tipo}</td>
+          <td class="l" colspan="3"><span class="tg"><span class="dot" style="background:${TAGS[tk].cor}"></span>${TAGS[tk].nome}</span> · ${desc} · Favorecido <b>Rede</b> · Universo do R$1,99</td>
+          <td colspan="3"><span class="v ${v < 0 ? 'neg' : 'pos'}">${v < 0 ? '−' : ''}${fmt(v)}</span></td><td class="l vd">${o.d <= HOJE ? 'pago em ' + dm(o.d) : 'vence ' + dm(o.d)}</td></tr>`;
+      });
+    }
+    return h;
+  }).join('');
+  const reimpInfo = S.reimp
+    ? `<div class="okbar">↻ Este período já foi importado em parte: <b>&nbsp;2.055 vendas já existem e serão ignoradas</b>, 305 são novas. O dia 28/09 será recalculado e 4 dias novos entram.</div>` : '';
+  return `<div class="modal">${header('prev')}
+    <div class="mb">
+      ${reimpInfo}
+      <div class="kpis">
+        <div class="kpi"><div class="l">Crédito (bruto)</div><div class="v mono pos">${brl(T.cb)}</div><div class="s">${T.cn} vendas</div></div>
+        <div class="kpi"><div class="l">Débito (bruto)</div><div class="v mono pos">${brl(T.db)}</div><div class="s">${T.dn} vendas</div></div>
+        <div class="kpi"><div class="l">Taxa MDR</div><div class="v mono neg">${brl(-T.mdr)}</div><div class="s">${(T.mdr / (T.cb + T.db) * 100).toFixed(2).replace('.', ',')}% do bruto</div></div>
+        <div class="kpi"><div class="l">Antecipação</div><div class="v mono neg">${brl(-T.ant)}</div><div class="s">${(T.ant / T.cb * 100).toFixed(2).replace('.', ',')}% do crédito</div></div>
+        <div class="kpi"><div class="l">Líquido a receber</div><div class="v mono">${brl(T.liq)}</div><div class="s">confere com a Rede ✓</div></div>
+      </div>
+      <div class="tbl"><table>
+        <colgroup><col style="width:120px"><col style="width:200px"><col><col><col><col><col><col style="width:110px"></colgroup>
+        <thead><tr><th class="l">Recebimento</th><th class="l">Vendas de</th><th>Crédito</th><th>Débito</th><th>MDR</th><th>Antecipação</th><th>Líquido</th><th>Status</th></tr></thead>
+        <tbody>${rows}
+          <tr class="tot"><td class="l">${AGG.length} dias</td><td class="l vd">01/09 a 30/09</td><td><span class="v">${fmt(T.cb)}</span></td><td><span class="v">${fmt(T.db)}</span></td><td><span class="v neg">−${fmt(T.mdr)}</span></td><td><span class="v neg">−${fmt(T.ant)}</span></td><td><span class="v">${fmt(T.liq)}</span></td><td></td></tr>
+        </tbody>
+      </table></div>
+      <div class="tip">Recebimento = dia útil seguinte à venda (sexta, sábado, domingo e o feriado de 07/09 caem juntos no dia 08/09). Clique num dia para ver as movimentações que serão criadas.</div>
+    </div>
+    <div class="mf"><span class="info">${S.reimp ? 'Serão criadas <b>14 movimentações</b> e atualizadas <b>4</b>' : `Serão criadas <b>${nMov} movimentações</b> — ${nRec} receitas e ${nMov - nRec} despesas de taxa`} · Universo do R$1,99</span>
+      <button class="btn ml" onclick="go('file')">← Voltar</button><button class="btn pri" onclick="go('done')">Importar</button></div>
+  </div>`;
+}
+
+function stepDone() {
+  return `<div class="modal sm">${header('done')}
+    <div class="done"><div class="big">✓</div><h3>Vendas importadas</h3><p>As receitas de crédito e débito e as taxas da Rede de setembro já estão no Controle Financeiro e no Fluxo de Caixa da Universo do R$1,99.</p></div>
+    <div class="reslist">
+      <div>Receitas criadas<b>${nRec}</b></div><div>Despesas de taxa<b>${nMov - nRec}</b></div>
+      <div>Vendas guardadas<b>2.360</b></div><div>Já existentes (ignoradas)<b>0</b></div>
+    </div>
+    <div class="mb" style="padding-top:12px"><div class="tip" style="text-align:center">Para desfazer, use "Desfazer importação" no histórico de importações — remove as movimentações e as vendas deste arquivo.</div></div>
+    <div class="mf"><button class="btn" onclick="go('menu')">Fechar</button><button class="btn pri ml">Ver no Fluxo de Caixa →</button></div>
+  </div>`;
+}
+
+function render() {
+  document.getElementById('tool').innerHTML = tool();
+  const m = { file0: () => stepFile(false), file: () => stepFile(true), prev: stepPrev, done: stepDone }[S.step];
+  document.getElementById('modal').innerHTML = m ? `<div class="ov">${m()}</div>` : '';
+  renderAnno();
+}
+function go(s) { S.step = s; render(); }
+function tog(d) { S.exp.has(d) ? S.exp.delete(d) : S.exp.add(d); render(); }
+
+const STEPS = [
+  ['1 · Botão Importar', () => Object.assign(S, { step: 'menu' })],
+  ['2 · Escolher arquivo', () => Object.assign(S, { step: 'file0' })],
+  ['3 · Arquivo lido', () => Object.assign(S, { step: 'file', tagsOk: true })],
+  ['3b · Tags faltando', () => Object.assign(S, { step: 'file', tagsOk: false })],
+  ['4 · Prévia', () => Object.assign(S, { step: 'prev', reimp: false, exp: new Set(['2026-09-08']) })],
+  ['4b · Reimportação', () => Object.assign(S, { step: 'prev', reimp: true, exp: new Set() })],
+  ['5 · Concluído', () => Object.assign(S, { step: 'done' })],
+];
+let cur = 0;
+function renderAnno() {
+  const dark = document.documentElement.classList.contains('dark');
+  document.getElementById('anno').innerHTML = `<b>Fluxo</b>${STEPS.map((s, i) => `<button class="${i === cur ? 'on' : ''}" onclick="cur=${i};STEPS[${i}][1]();render()">${s[0]}</button>`).join('')}<a href="mockup-importar-rede-${dark ? 'light' : 'dark'}.html">${dark ? 'ver claro' : 'ver escuro'}</a>`;
+}
+render();
+</script>
+</body>
+</html>

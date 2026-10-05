@@ -26,7 +26,9 @@ export interface Transaction {
   account_id?: string | null;
   tag_ids: string[];
   observacoes: string | null;
-  origem?: 'manual' | 'hr_salario';
+  origem?: 'manual' | 'hr_salario' | 'rede';
+  /** Chave da origem automática (ex.: 'rede:41209966:2026-09-08:credito'), única. */
+  origem_ref?: string | null;
   data_pagamento?: string | null;
   codigo?: string | null;
   codigo_numero?: number | null;
