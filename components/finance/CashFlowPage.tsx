@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, Fragment } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, AlertTriangle, Loader2, X, Search } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, AlertTriangle, Loader2, X, Search, Store } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TAG_COLOR_MAP, type FinanceTag, type GrupoDre } from '@/hooks/useFinanceTags';
 import type { Transaction } from '@/types/finance';
@@ -45,6 +45,11 @@ const MODOS: { key: Modo; label: string; hint: string }[] = [
   { key: 'realizado', label: 'Realizado', hint: 'Só o que já entrou ou saiu do caixa' },
   { key: 'aberto', label: 'Em aberto', hint: 'Só o que ainda falta receber ou pagar' },
 ];
+
+// Ordem preferida dos estabelecimentos no seletor; outros valores que aparecerem nas
+// movimentações (ex.: nomes antigos) entram depois, em ordem alfabética.
+const ESTABELECIMENTOS_ORDEM = ['Castelo Real', 'Universo do R$1,99'];
+const TODAS = '__todas__';
 
 const SEM_TAG = '__sem_tag__';
 const AJUSTE_FATURA = '__ajuste_fatura__';
@@ -97,6 +102,15 @@ export function CashFlowPage({ transactions, tags, loading, onUpdateTag }: CashF
   const [expandidos, setExpandidos] = useState<Set<Grupo>>(new Set());
   const [vista, setVista] = useState<Vista>('dre');
   const [buscaTag, setBuscaTag] = useState('');
+  const [estab, setEstab] = useState<string>(TODAS);
+
+  const estabelecimentos = useMemo(() => {
+    const s = new Set(ESTABELECIMENTOS_ORDEM);
+    const extras = new Set<string>();
+    for (const t of transactions) if (t.estabelecimento && !s.has(t.estabelecimento)) extras.add(t.estabelecimento);
+    return [...ESTABELECIMENTOS_ORDEM, ...[...extras].sort((a, b) => a.localeCompare(b))];
+  }, [transactions]);
+  const estabLabel = estab === TODAS ? 'Todas as empresas' : estab;
 
   const tagById = useMemo(() => new Map(tags.map(t => [t.id, t])), [tags]);
 
@@ -104,6 +118,7 @@ export function CashFlowPage({ transactions, tags, loading, onUpdateTag }: CashF
   const lancamentos = useMemo<Lancamento[]>(() => {
     const out: Lancamento[] = [];
     for (const t of transactions) {
+      if (estab !== TODAS && t.estabelecimento !== estab) continue;
       const valor = Math.abs(t.valor_final || 0);
       const pagoVal = t.pago ? (Math.abs(t.total_pago || 0) || valor) : Math.abs(t.total_pago || 0);
       const abertoVal = t.pago ? 0 : Math.max(valor - pagoVal, 0);
@@ -143,7 +158,7 @@ export function CashFlowPage({ transactions, tags, loading, onUpdateTag }: CashF
       push(grupo, linha, pagoVal, abertoVal);
     }
     return out;
-  }, [transactions, tagById, hojeIso]);
+  }, [transactions, tagById, hojeIso, estab]);
 
   const anosDisponiveis = useMemo(() => {
     const s = new Set<number>([anoAtual]);
@@ -382,6 +397,22 @@ export function CashFlowPage({ transactions, tags, loading, onUpdateTag }: CashF
             ))}
           </div>
 
+          <div className="flex items-center border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18]">
+            <span className="h-[26px] w-7 flex items-center justify-center text-on-surface/35" title="Empresa">
+              <Store size={13} />
+            </span>
+            {[TODAS, ...estabelecimentos].map(e => (
+              <button
+                key={e}
+                onClick={() => setEstab(e)}
+                className={cn(
+                  'h-[26px] px-2.5 border-l border-[#E0D8BF] dark:border-white/[0.10] text-[10.5px] font-extrabold uppercase tracking-[0.05em] whitespace-nowrap transition-colors active:scale-[0.97]',
+                  estab === e ? 'bg-primary text-white' : 'text-on-surface/45 hover:text-on-surface',
+                )}
+              >{e === TODAS ? 'Todas' : e}</button>
+            ))}
+          </div>
+
           {mesSel !== null && (
             <button
               onClick={() => setMesSel(null)}
@@ -391,7 +422,7 @@ export function CashFlowPage({ transactions, tags, loading, onUpdateTag }: CashF
             </button>
           )}
 
-          <span className="ml-auto text-[11px] font-semibold text-on-surface/30">{MODOS.find(m => m.key === modo)?.hint}</span>
+          <span className="ml-auto hidden 2xl:inline text-[11px] font-semibold text-on-surface/30">{MODOS.find(m => m.key === modo)?.hint}</span>
         </>) : (<>
           <div className="relative group">
             <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface/30 group-focus-within:text-primary transition-colors pointer-events-none" />
@@ -434,7 +465,7 @@ export function CashFlowPage({ transactions, tags, loading, onUpdateTag }: CashF
         >
           <AlertTriangle size={14} className="shrink-0" />
           <span>
-            <b>{fmtBRL(naoClassTotal)}</b> em despesas de {ano} sem grupo da DRE
+            <b>{fmtBRL(naoClassTotal)}</b> em despesas de {ano}{estab !== TODAS ? ` (${estab})` : ''} sem grupo da DRE
             {tagsSemGrupo > 0 ? ` (${tagsSemGrupo} ${tagsSemGrupo === 1 ? 'tag sem grupo' : 'tags sem grupo'} e movimentações sem tag).` : ' (movimentações sem tag classificada).'}
           </span>
           <span className="ml-auto shrink-0 text-[10.5px] font-extrabold uppercase tracking-[0.05em]">Classificar tags →</span>
@@ -458,7 +489,7 @@ export function CashFlowPage({ transactions, tags, loading, onUpdateTag }: CashF
               <tr className="bg-[#FFEC4D]">
                 <th className="sticky left-0 z-[2] bg-[#FFEC4D] h-8 px-2.5 text-left shadow-[inset_-1px_0_0_#B8A31F,inset_0_-1.5px_0_#8F7E10]">
                   <span className="text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.55)]">
-                    {modo === 'aberto' ? 'Em aberto' : modo === 'realizado' ? 'Realizado' : 'Previsto'} · {ano}
+                    {modo === 'aberto' ? 'Em aberto' : modo === 'realizado' ? 'Realizado' : 'Previsto'} · {ano} · {estabLabel}
                   </span>
                 </th>
                 {MESES.map((m, i) => (
