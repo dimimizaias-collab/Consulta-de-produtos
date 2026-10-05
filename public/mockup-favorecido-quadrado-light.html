@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="pt-BR" class="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editar Favorecido</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page: #D9D4C2; --modal: #FDFAF0; --modal-border: rgba(26,26,10,0.12);
+    --hdr: #FBF35E; --hdr-border: #D9CF45; --hdr-text: #1A1A0E;
+    --head: #EFE7CD; --head-border: #DDD2B0; --area: #F1EAD3; --label: rgba(26,26,10,0.58);
+    --text: #1A1A0E; --muted: rgba(26,26,10,0.45); --faint: rgba(26,26,10,0.28);
+    --field: #FFFFFF; --field-border: #E0D8BF; --field-hover: #CFC4A2; --locked: rgba(26,26,10,0.035);
+    --btn: rgba(26,26,10,0.06);
+    --th: #FFEC4D; --th-bottom: #8F7E10; --th-text: rgba(26,26,10,0.55);
+    --menu: #FFFFFF; --menu-hover: #FFF8D0;
+    --amber: #92400E; --amber-bg: rgba(217,119,6,0.08); --amber-border: rgba(217,119,6,0.40);
+    --ok: #0A7A55;
+  }
+  html.dark {
+    --page: #0E0E0B; --modal: #1E1E18; --modal-border: rgba(242,240,227,0.08);
+    --hdr: #252520; --hdr-border: rgba(242,240,227,0.08); --hdr-text: #F2F0E3;
+    --head: #181814; --head-border: rgba(242,240,227,0.08); --area: #181814; --label: rgba(242,240,227,0.55);
+    --text: #F2F0E3; --muted: rgba(242,240,227,0.40); --faint: rgba(242,240,227,0.24);
+    --field: #1E1E18; --field-border: rgba(242,240,227,0.10); --field-hover: rgba(242,240,227,0.20); --locked: rgba(242,240,227,0.03);
+    --btn: rgba(242,240,227,0.06);
+    --th-text: rgba(26,26,10,0.58);
+    --menu: #2E2E28; --menu-hover: rgba(255,229,0,0.08);
+    --amber: #FCD34D; --amber-bg: rgba(252,211,77,0.07); --amber-border: rgba(252,211,77,0.35);
+    --ok: #34D399;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--page); color: var(--text); font-family: 'DM Sans', sans-serif; display: flex; justify-content: center; align-items: flex-start; padding: 28px 16px 100px; }
+  button, input, select { font-family: inherit; }
+  .anno { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 100; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; padding: 8px 10px; border-radius: 14px; background: #1A1A0E; color: #F2F0E3; font-size: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.35); max-width: calc(100vw - 24px); }
+  .anno b { color: #FFE500; }
+  .anno button { border: 1px solid rgba(242,240,227,.18); background: transparent; color: #F2F0E3; padding: 5px 11px; border-radius: 999px; cursor: pointer; font-weight: 700; font-size: 11.5px; }
+  .anno button.on { background: #FFE500; color: #1A1A0E; border-color: #FFE500; }
+
+  .modal { width: 100%; max-width: 720px; background: var(--modal); border: 1px solid var(--modal-border); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35); display: flex; flex-direction: column; max-height: calc(100vh - 140px); }
+  .tbar { height: 48px; flex-shrink: 0; display: flex; align-items: center; gap: 11px; padding: 0 12px 0 14px; background: var(--hdr); border-bottom: 1px solid var(--hdr-border); }
+  .tico { width: 30px; height: 30px; display: grid; place-items: center; background: rgba(26,26,10,0.09); color: var(--hdr-text); flex-shrink: 0; }
+  html.dark .tico { background: rgba(216,30,30,0.16); color: #D81E1E; }
+  .ttl { flex: 1; min-width: 0; }
+  .ttl b { display: block; font-size: 15px; font-weight: 900; line-height: 1.15; color: var(--hdr-text); }
+  .ttl small { font-size: 10.5px; font-weight: 700; color: rgba(26,26,10,0.5); }
+  html.dark .ttl small { color: var(--muted); }
+  .sqb { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid rgba(26,26,10,0.14); background: transparent; color: rgba(26,26,10,0.5); cursor: pointer; transition: background 130ms, color 130ms, transform 130ms; }
+  html.dark .sqb { border-color: var(--field-border); color: var(--muted); }
+  .sqb:hover { background: rgba(216,30,30,0.09); color: #D81E1E; border-color: rgba(216,30,30,0.25); }
+  .sqb:active { transform: scale(0.93); }
+
+  .body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+  .sec { border: 1px solid var(--field-border); background: var(--area); }
+  .sh { height: 28px; display: flex; align-items: center; gap: 7px; padding: 0 10px; background: var(--th); border-bottom: 1.5px solid var(--th-bottom); }
+  .sh span { font-size: 9px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--th-text); }
+  .sh svg { color: #D81E1E; flex-shrink: 0; }
+  .sh .n { margin-left: auto; font-size: 10px; font-weight: 800; letter-spacing: 0; text-transform: none; }
+  .grid { display: grid; gap: 10px; padding: 10px; }
+  .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .span2 { grid-column: span 2; } .full { grid-column: 1 / -1; }
+  @media (max-width: 560px) { .g2, .g3 { grid-template-columns: 1fr; } .span2 { grid-column: auto; } }
+  .fl { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .lb { height: 12px; display: flex; align-items: center; gap: 4px; padding-left: 1px; font-size: 9px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--label); white-space: nowrap; }
+  .lb i { color: #D81E1E; font-style: normal; }
+  .in { width: 100%; height: 34px; padding: 0 10px; border: 1px solid var(--field-border); background: var(--field); color: var(--text); font-size: 13px; font-weight: 600; outline: 0; caret-color: #D81E1E; transition: border-color 130ms, box-shadow 130ms; }
+  .in:hover { border-color: var(--field-hover); }
+  .in:focus { border-color: #D81E1E; box-shadow: 0 0 0 2px rgba(216,30,30,0.12); }
+  .in::placeholder { color: var(--faint); font-weight: 500; }
+  .in.mono { font-family: 'DM Mono', monospace; font-size: 12.5px; font-weight: 500; letter-spacing: .03em; }
+  .lock { height: 34px; display: flex; align-items: center; padding: 0 10px; border: 1px solid var(--field-border); background: var(--locked); color: var(--muted); font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lock.mono { font-family: 'DM Mono'; font-size: 12.5px; font-weight: 500; }
+  .docrow { display: flex; }
+  .seg { display: flex; flex-shrink: 0; border: 1px solid var(--field-border); border-right: 0; background: var(--btn); padding: 2px; gap: 2px; }
+  .seg button { width: 42px; border: 0; background: transparent; color: var(--muted); font-size: 9.5px; font-weight: 900; letter-spacing: .06em; cursor: pointer; transition: background 130ms, color 130ms; }
+  .seg button:hover { color: var(--text); }
+  .seg button.on { background: #D81E1E; color: #fff; }
+  .seg.dis { opacity: .55; pointer-events: none; }
+  .docrow .in, .docrow .lock { flex: 1; min-width: 0; }
+
+  /* Fornecedor vinculado */
+  .combo { position: relative; }
+  .combo .chev { position: absolute; right: 10px; top: 10px; color: var(--muted); pointer-events: none; }
+  .linked { height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 10px; border: 1px solid rgba(216,30,30,0.35); background: rgba(216,30,30,0.06); color: #D81E1E; font-size: 13px; font-weight: 800; }
+  .linked span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .linked small { font-family: 'DM Mono'; font-size: 11px; font-weight: 500; color: var(--muted); }
+  .linked button { width: 24px; height: 24px; display: grid; place-items: center; border: 0; background: transparent; color: rgba(216,30,30,0.6); cursor: pointer; }
+  .linked button:hover { color: #D81E1E; background: rgba(216,30,30,0.08); }
+  .menu { position: absolute; z-index: 5; left: 0; right: 0; top: 36px; border: 1px solid var(--field-border); background: var(--menu); box-shadow: 0 12px 30px -8px rgba(0,0,0,.25); max-height: 200px; overflow-y: auto; animation: dd 130ms cubic-bezier(0.23,1,0.32,1); }
+  @keyframes dd { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
+  .opt { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; border: 0; background: transparent; color: var(--text); text-align: left; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .opt:hover { background: var(--menu-hover); }
+  .opt small { font-family: 'DM Mono'; font-size: 10.5px; font-weight: 500; color: var(--muted); }
+  .note { display: flex; align-items: flex-start; gap: 6px; padding: 6px 8px; border: 1px solid var(--amber-border); background: var(--amber-bg); color: var(--amber); font-size: 10.5px; font-weight: 700; line-height: 1.35; }
+  .note svg { flex-shrink: 0; margin-top: 1px; }
+  .note.ok { border-color: rgba(10,122,85,.35); background: rgba(10,122,85,.06); color: var(--ok); }
+  html.dark .note.ok { border-color: rgba(52,211,153,.30); background: rgba(52,211,153,.06); }
+
+  /* Contas */
+  .sub { padding: 8px 10px 0; font-size: 10.5px; font-weight: 600; color: var(--muted); }
+  .contas { display: flex; flex-direction: column; gap: 8px; padding: 10px; }
+  .conta { border: 1px solid var(--field-border); background: var(--field); }
+  .ch { height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 4px 0 10px; border-bottom: 1px solid var(--field-border); background: var(--locked); }
+  .ch .no { width: 18px; height: 18px; display: grid; place-items: center; background: #1A1A0E; color: #FFE500; font-size: 10px; font-weight: 900; }
+  html.dark .ch .no { background: #FFE500; color: #1A1A0E; }
+  .ch b { flex: 1; min-width: 0; font-size: 11.5px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ch b.ph { color: var(--faint); font-weight: 600; }
+  .rm { width: 24px; height: 24px; display: grid; place-items: center; border: 1px solid transparent; background: transparent; color: var(--muted); cursor: pointer; transition: background 130ms, color 130ms; }
+  .rm:hover { background: #D81E1E; color: #fff; }
+  .conta .grid { padding: 8px 10px 10px; gap: 8px; }
+  .conta .in, .conta select { height: 32px; font-size: 12.5px; }
+  .selw { position: relative; }
+  .selw select { appearance: none; width: 100%; height: 34px; border: 1px solid var(--field-border); background: var(--field); color: var(--text); padding: 0 24px 0 10px; font: 600 12.5px 'DM Sans'; outline: 0; cursor: pointer; }
+  .selw svg { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+  .addp { height: 32px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px dashed rgba(216,30,30,0.45); background: transparent; color: #D81E1E; font-size: 10.5px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; transition: background 130ms; }
+  .addp:hover { background: rgba(216,30,30,0.06); }
+  .empty { margin: 10px; padding: 18px 16px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; border: 1px dashed var(--field-border); color: var(--muted); font-size: 11.5px; font-weight: 700; }
+  .empty svg { opacity: .55; }
+
+  .ftr { flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--head); border-top: 1px solid var(--head-border); }
+  .err { font-size: 11px; font-weight: 700; color: #D81E1E; }
+  .fb { height: 36px; padding: 0 18px; border: 1px solid var(--field-border); background: var(--field); color: var(--text); font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; gap: 7px; transition: background 130ms, transform 130ms; }
+  .fb:hover { background: var(--btn); }
+  .fb:active { transform: scale(0.97); }
+  .fb.pri { background: #D81E1E; border-color: #D81E1E; color: #fff; }
+  .fb.pri:hover { background: #B91818; }
+  .ml { margin-left: auto; }
+</style>
+</head>
+<body>
+
+<div class="modal">
+  <div class="tbar">
+    <div class="tico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2M10 6h4M10 10h4M10 14h4M10 18h4"/></svg></div>
+    <div class="ttl"><b id="title">Editar Favorecido</b><small>Nome no extrato → nome fiscal</small></div>
+    <button class="sqb" title="Fechar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+  <div class="body" id="body"></div>
+  <div class="ftr"><span class="err" id="err"></span><button class="fb ml">Cancelar</button><button class="fb pri"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>Salvar favorecido</button></div>
+</div>
+
+<div class="anno">
+  <span><b>Mockup</b> — Favorecido</span>
+  <button data-s="vazio" class="on">Sem fornecedor</button>
+  <button data-s="busca">Buscando fornecedor</button>
+  <button data-s="novo">Novo fornecedor digitado</button>
+  <button data-s="link">Fornecedor vinculado</button>
+  <button data-s="criar">Novo favorecido</button>
+  <button id="theme">Claro/escuro</button>
+</div>
+
+<script>
+const I = {
+  user: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>',
+  bld: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2M10 6h4M10 10h4M10 14h4M10 18h4"/></svg>',
+  card: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>',
+  chev: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>',
+  x: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  trash: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  plus: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  lock: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+  info: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
+};
+const S = {
+  vazio: { banco: 'PIX ENVIADO MARIANA P SILVA', fiscal: 'Mariana Paixão da Silva', link: false, doc: '', razao: '', fant: '', contas: [] },
+  busca: { banco: 'PIX ENVIADO DISPEL', fiscal: 'Dispel Maxx', link: false, open: true, doc: '', razao: '', fant: '', contas: [] },
+  novo: { banco: 'PIX ENVIADO MARIANA P SILVA', fiscal: 'Mariana Paixão da Silva', link: false, tipo: 'CPF', doc: '123.456.789-09', razao: 'Mariana Paixão da Silva', fant: '', novo: true, contas: [{ nome: '', tipo: 'CPF', id: '', inst: '', ag: '', ct: '', pix: '' }] },
+  link: { banco: 'BOLETO DISPEL MAXX DIST', fiscal: 'Dispel Maxx', link: true, doc: '12.345.678/0001-90', razao: 'Dispel Maxx Distribuidora Ltda', fant: 'Dispel Maxx', contas: [
+    { nome: 'Conta principal', tipo: 'CNPJ', id: '12.345.678/0001-90', inst: 'Itaú', ag: '0456', ct: '123456', pix: 'financeiro@dispel.com.br' },
+    { nome: 'Sócio — João', tipo: 'CPF', id: '987.654.321-00', inst: 'Nubank', ag: '0001', ct: '9876543', pix: '' },
+  ] },
+  criar: { banco: '', fiscal: 'TRANSF MERCADO PAGO 0042', link: false, doc: '', razao: '', fant: '', contas: [], criar: true },
+};
+const SUP = [['Dispel Maxx', '12.345.678/0001-90'], ['Distribuidora Dias', '45.112.009/0001-33'], ['Disk Gás Central', '—']];
+let cur = 'vazio';
+const fl = (lb, f, cls = '') => `<div class="fl ${cls}"><span class="lb">${lb}</span>${f}</div>`;
+const inp = (v, ph, mono) => `<input class="in ${mono ? 'mono' : ''}" value="${v}" placeholder="${ph}">`;
+const lk = (v, mono) => `<div class="lock ${mono ? 'mono' : ''}">${v || '—'}</div>`;
+function render() {
+  const s = S[cur]; const L = s.link; const tipo = s.tipo || 'CNPJ';
+  document.getElementById('title').textContent = s.criar ? 'Novo Favorecido' : 'Editar Favorecido';
+  const contasOn = L || s.razao || s.doc;
+  const combo = L
+    ? `<div class="linked">${I.bld}<span>Dispel Maxx</span><small>12.345.678/0001-90</small><button title="Desvincular">${I.x}</button></div>`
+    : `<div class="combo"><input class="in" placeholder="Sem fornecedor vinculado — buscar por nome ou CNPJ…" style="padding-right:28px" ${s.open ? 'value="dis"' : ''}><span class="chev">${I.chev}</span>${s.open ? `<div class="menu">${SUP.map(([n, d]) => `<button class="opt">${n}<small>${d}</small></button>`).join('')}</div>` : ''}</div>`;
+  const conta = (c, i) => `<div class="conta"><div class="ch"><span class="no">${i + 1}</span><b class="${c.nome ? '' : 'ph'}">${c.nome || 'Nova conta'}</b><button class="rm" title="Remover conta">${I.trash}</button></div>
+    <div class="grid g3">
+      ${fl('Nome <i>*</i>', inp(c.nome, 'Ex: Sócio — João'))}
+      ${fl('Identificação', `<div class="docrow"><div class="seg"><button class="${c.tipo === 'CNPJ' ? 'on' : ''}">CNPJ</button><button class="${c.tipo === 'CPF' ? 'on' : ''}">CPF</button></div>${inp(c.id, c.tipo === 'CPF' ? '000.000.000-00' : '00.000.000/0000-00', true)}</div>`, 'span2')}
+      ${fl('Instituição', inp(c.inst, 'Ex: Nubank'))}
+      ${fl('Agência', inp(c.ag, '0000', true))}
+      ${fl('Conta', inp(c.ct, '000000', true))}
+      ${fl('Chave Pix', inp(c.pix, 'Opcional'), 'full')}
+    </div></div>`;
+  document.getElementById('body').innerHTML = `
+    <div class="sec"><div class="sh">${I.user}<span>Favorecido</span></div>
+      <div class="grid g2">
+        ${fl('Nome no extrato', inp(s.banco, 'Nome no extrato bancário…'))}
+        ${fl('Nome fiscal <i>*</i>', inp(s.fiscal, 'Nome fiscal do favorecido…'))}
+      </div></div>
+    <div class="sec"><div class="sh">${I.bld}<span>Identificação do fornecedor</span><span class="n" style="color:var(--th-text)">${L ? 'vinculado' : s.novo ? 'será cadastrado' : 'opcional'}</span></div>
+      <div class="grid g2">
+        ${fl('Fornecedor vinculado', combo, 'full')}
+        ${L ? `<div class="note full">${I.lock}<span>Dados abaixo vêm do fornecedor vinculado — travados para não afetar outros favorecidos que usam o mesmo fornecedor.</span></div>` : ''}
+        ${s.novo ? `<div class="note ok full">${I.info}<span>Nenhum fornecedor com esse CPF — um novo será cadastrado ao salvar.</span></div>` : ''}
+        ${fl('Razão social', L ? lk(s.razao) : inp(s.razao, 'Ex: Mariana Paixão da Silva'), 'full')}
+        ${fl('Identificação', `<div class="docrow"><div class="seg ${L ? 'dis' : ''}"><button class="${tipo === 'CNPJ' ? 'on' : ''}">CNPJ</button><button class="${tipo === 'CPF' ? 'on' : ''}">CPF</button></div>${L ? lk(s.doc, true) : inp(s.doc, tipo === 'CPF' ? '000.000.000-00' : '00.000.000/0000-00', true)}</div>`)}
+        ${fl('Nome fantasia', L ? lk(s.fant) : inp(s.fant, 'Opcional'))}
+      </div></div>
+    <div class="sec"><div class="sh">${I.card}<span>Outras contas desse fornecedor</span><span class="n" style="color:var(--th-text)">${contasOn ? (s.contas.length ? s.contas.length + (s.contas.length > 1 ? ' contas' : ' conta') : 'nenhuma') : ''}</span></div>
+      ${contasOn ? `<div class="sub">Outras formas de recebimento usadas por este mesmo fornecedor</div><div class="contas">${s.contas.map(conta).join('')}<button class="addp">${I.plus}Adicionar conta</button></div>`
+        : `<div class="empty">${I.bld}<span>Vincule um fornecedor existente ou preencha a Razão Social acima para liberar esta área</span></div>`}
+    </div>`;
+}
+document.querySelectorAll('[data-s]').forEach(b => b.addEventListener('click', () => { cur = b.dataset.s; document.querySelectorAll('[data-s]').forEach(x => x.classList.toggle('on', x === b)); render(); }));
+document.getElementById('theme').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
+render();
+</script>
+</body>
+</html>
