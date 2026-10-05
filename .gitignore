@@ -5,3 +5,6 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Arquivos temporarios (relatorios de vendas, testes, rascunhos) - nunca versionar
+_temp/
