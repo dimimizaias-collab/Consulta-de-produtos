@@ -33,6 +33,7 @@ import {
   MoreVertical,
   ArrowUpDown,
   Loader2,
+  Package,
   Copy,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -301,6 +302,9 @@ export function LogisticsCenter({
   const [showAddManufacturer, setShowAddManufacturer] = useState(false);
   const [pickerManufacturers, setPickerManufacturers] = useState<Manufacturer[]>([]);
   const [manufacturerSearch, setManufacturerSearch]   = useState('');
+  const [manufacturerFilter, setManufacturerFilter]   = useState<'todos' | 'ativos' | 'inativos' | 'semcnpj'>('todos');
+  const [manufacturerSort, setManufacturerSort]       = useState<{ key: 'nome' | 'prefixo' | 'produtos'; dir: 1 | -1 }>({ key: 'nome', dir: 1 });
+  const [manufacturerProductCounts, setManufacturerProductCounts] = useState<Record<string, number>>({});
   const [loadingManufacturersPicker, setLoadingManufacturersPicker] = useState(false);
   const [editingManufacturer, setEditingManufacturer] = useState<Manufacturer | null>(null);
   // Cadastrar/editar fabricante é restrito a admin/gerente (RLS já bloqueia no banco;
@@ -532,6 +536,14 @@ export function LogisticsCenter({
     setLoadingManufacturersPicker(true);
     const { data } = await supabase.from('manufacturers').select('*').order('name');
     setPickerManufacturers((data || []) as Manufacturer[]);
+    // Quantos produtos usam cada fabricante — paginado (o Supabase devolve no máx. 1000 linhas por vez).
+    const counts: Record<string, number> = {};
+    for (let from = 0; ; from += 1000) {
+      const { data: rows } = await supabase.from('products').select('manufacturer_id').not('manufacturer_id', 'is', null).range(from, from + 999);
+      (rows ?? []).forEach((r: any) => { counts[r.manufacturer_id] = (counts[r.manufacturer_id] ?? 0) + 1; });
+      if (!rows || rows.length < 1000) break;
+    }
+    setManufacturerProductCounts(counts);
     setLoadingManufacturersPicker(false);
   };
 
@@ -541,11 +553,38 @@ export function LogisticsCenter({
     }
   }, [activeSection]);
 
-  const filteredManufacturers = pickerManufacturers.filter(m => {
-    if (!manufacturerSearch.trim()) return true;
-    const q = manufacturerSearch.toLowerCase();
-    return m.name.toLowerCase().includes(q) || m.prefix.includes(q);
-  });
+  const manufacturerFilterCounts = {
+    todos: pickerManufacturers.length,
+    ativos: pickerManufacturers.filter(m => m.active).length,
+    inativos: pickerManufacturers.filter(m => !m.active).length,
+    semcnpj: pickerManufacturers.filter(m => !(m.cnpj || '').replace(/\D/g, '')).length,
+  };
+  const filteredManufacturers = pickerManufacturers
+    .filter(m => {
+      if (manufacturerFilter === 'ativos' && !m.active) return false;
+      if (manufacturerFilter === 'inativos' && m.active) return false;
+      if (manufacturerFilter === 'semcnpj' && (m.cnpj || '').replace(/\D/g, '')) return false;
+      if (!manufacturerSearch.trim()) return true;
+      const q = manufacturerSearch.toLowerCase();
+      const qDigits = manufacturerSearch.replace(/\D/g, '');
+      return m.name.toLowerCase().includes(q) || m.prefix.includes(q) ||
+        (!/[a-z]/i.test(manufacturerSearch) && qDigits.length >= 3 && (m.cnpj || '').replace(/\D/g, '').includes(qDigits));
+    })
+    .sort((x, y) => {
+      const { key, dir } = manufacturerSort;
+      if (key === 'produtos') return ((manufacturerProductCounts[x.id] ?? 0) - (manufacturerProductCounts[y.id] ?? 0)) * dir;
+      if (key === 'prefixo') return x.prefix.localeCompare(y.prefix) * dir;
+      return x.name.localeCompare(y.name, 'pt-BR') * dir;
+    });
+  const toggleManufacturerSort = (key: 'nome' | 'prefixo' | 'produtos') =>
+    setManufacturerSort(prev => prev.key === key ? { key, dir: prev.dir === 1 ? -1 : 1 } : { key, dir: 1 });
+  const MANUFACTURER_FILTERS = [
+    { key: 'todos', label: 'Todos' },
+    { key: 'ativos', label: 'Ativos' },
+    { key: 'inativos', label: 'Inativos' },
+    { key: 'semcnpj', label: 'Sem CNPJ' },
+  ] as const;
+  const nextManufacturerCode = (m: Manufacturer) => `7816-${m.prefix}-${String(m.next_seq ?? 1).padStart(5, '0')}`;
 
   useEffect(() => {
     (async () => {
@@ -1193,57 +1232,89 @@ export function LogisticsCenter({
         )}
 
         {activeSection === 'fabricantes' && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5">
               <div className="relative flex-1">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
                 <input
                   type="text"
                   value={manufacturerSearch}
                   onChange={e => setManufacturerSearch(e.target.value)}
-                  placeholder="Buscar fabricante..."
-                  className="w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl pl-9 pr-3 py-2.5 text-sm font-medium text-on-surface placeholder:text-on-surface/30 focus:outline-none"
+                  placeholder="Nome, prefixo ou CNPJ..."
+                  className="w-full h-[34px] bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] pl-9 pr-3 text-sm font-semibold text-on-surface placeholder:text-on-surface/30 placeholder:font-medium caret-[#D81E1E] outline-none focus:!border-[#D81E1E]"
                 />
               </div>
               {canManageManufacturers && (
                 <button
                   onClick={() => { setEditingManufacturer(null); setShowAddManufacturer(true); }}
-                  className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/20"
+                  className="w-[34px] h-[34px] bg-primary text-white flex items-center justify-center shrink-0 active:scale-[0.95] transition-transform"
                 >
-                  <Plus size={18} />
+                  <Plus size={16} strokeWidth={3} />
                 </button>
               )}
             </div>
+            <div className="flex gap-1 overflow-x-auto pb-0.5">
+              {MANUFACTURER_FILTERS.map(f => (
+                <button
+                  key={f.key}
+                  onClick={() => setManufacturerFilter(f.key)}
+                  className={cn(
+                    'h-[26px] shrink-0 flex items-center gap-1 px-2.5 border text-[10px] font-extrabold uppercase tracking-[0.05em] whitespace-nowrap',
+                    manufacturerFilter === f.key
+                      ? 'bg-primary border-primary text-white'
+                      : 'bg-white dark:bg-[#1E1E18] border-[#E0D8BF] dark:border-white/[0.10] text-on-surface/45',
+                  )}
+                >
+                  {f.label} {manufacturerFilterCounts[f.key]}
+                </button>
+              ))}
+            </div>
             {loadingManufacturersPicker ? (
               <div className="flex items-center justify-center py-10">
-                <div className="w-5 h-5 rounded-full border-2 border-amber-500 border-r-transparent animate-spin" />
+                <Loader2 size={18} className="animate-spin text-on-surface/30" />
               </div>
             ) : filteredManufacturers.length === 0 ? (
               <p className="text-sm text-on-surface/30 text-center py-10">
-                {manufacturerSearch ? 'Nenhum fabricante encontrado.' : 'Nenhum fabricante cadastrado.'}
+                {manufacturerSearch || manufacturerFilter !== 'todos' ? 'Nenhum fabricante encontrado.' : 'Nenhum fabricante cadastrado.'}
               </p>
-            ) : filteredManufacturers.map(m => (
-              <div key={m.id} className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-2xl border border-on-surface/[0.06] bg-[#FDFAF0] dark:bg-[#252520]",
-                !m.active && 'opacity-50'
-              )}>
-                <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
-                  <Factory size={16} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-on-surface truncate">{m.name}</p>
-                  <p className="text-[10px] text-on-surface/40 font-mono">Prefixo {m.prefix}{!m.active && ' · Inativo'}</p>
-                </div>
-                {canManageManufacturers && (
-                  <button
-                    onClick={() => { setEditingManufacturer(m); setShowAddManufacturer(true); }}
-                    className="w-8 h-8 rounded-lg text-on-surface/20 hover:text-amber-600 hover:bg-amber-500/10 flex items-center justify-center transition-all shrink-0"
-                  >
-                    <Pencil size={14} />
-                  </button>
-                )}
+            ) : (
+              <div className="border border-[#E0D8BF] dark:border-white/[0.10]">
+                {filteredManufacturers.map((m, idx) => {
+                  const nProd = manufacturerProductCounts[m.id] ?? 0;
+                  return (
+                    <button
+                      key={m.id}
+                      disabled={!canManageManufacturers}
+                      onClick={() => { setEditingManufacturer(m); setShowAddManufacturer(true); }}
+                      className={cn(
+                        'w-full text-left flex items-center gap-2.5 px-2.5 py-2 border-b border-[#E0D8BF] dark:border-white/[0.10] last:border-b-0 active:bg-[#FFF8D0] dark:active:bg-[#FFE500]/[0.06] disabled:active:bg-transparent',
+                        idx % 2 === 0 ? 'bg-white dark:bg-[#1E1E18]' : 'bg-[#FAF7EE] dark:bg-[#1A1A15]',
+                      )}
+                    >
+                      <span className="w-[30px] h-[30px] flex items-center justify-center shrink-0 bg-[#D81E1E]/[0.08] text-[#D81E1E]">
+                        <Factory size={14} />
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className={cn('block text-[13px] font-extrabold truncate', m.active ? 'text-on-surface' : 'text-on-surface/40')}>{m.name}</span>
+                        <span className="mt-0.5 flex items-center gap-1.5 min-w-0 whitespace-nowrap">
+                          <span className="font-mono text-[10.5px] text-on-surface/45 shrink-0">Prefixo {m.prefix}</span>
+                          {nProd > 0 && (
+                            <span className="shrink-0 inline-flex items-center gap-1 text-[10.5px] font-extrabold text-on-surface/60">
+                              <Package size={11} className="text-[#D81E1E]" /> {nProd.toLocaleString('pt-BR')}
+                            </span>
+                          )}
+                          {!m.active && (
+                            <span className="shrink-0 text-[8.5px] font-black uppercase tracking-[0.06em] px-[5px] py-px border border-[#E0D8BF] dark:border-white/[0.12] text-on-surface/45">Inativo</span>
+                          )}
+                          {m.cnpj && <span className="font-mono text-[10.5px] text-on-surface/35 truncate">{m.cnpj}</span>}
+                        </span>
+                      </span>
+                      {canManageManufacturers && <ChevronRight size={15} className="text-on-surface/25 shrink-0" />}
+                    </button>
+                  );
+                })}
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
@@ -2482,71 +2553,160 @@ export function LogisticsCenter({
 
       {/* ── Fabricantes (aba) ────────────────────────────────────────────── */}
       {activeSection === 'fabricantes' && (
-        <div className="hidden md:block bg-surface-container-lowest rounded-3xl border border-on-surface/[0.04] shadow-md overflow-hidden">
-          <div className="p-6 border-b border-on-surface/[0.06] flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
-              <Factory size={20} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h2 className="text-base font-black text-on-surface leading-none">Fabricantes</h2>
-              <p className="text-xs text-on-surface/40 font-medium mt-0.5">{pickerManufacturers.length} cadastrado{pickerManufacturers.length !== 1 ? 's' : ''}</p>
-            </div>
-            <div className="relative w-64">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
+        <div className="hidden md:block space-y-2.5">
+          {/* Barra de ferramentas — mesmo padrão das abas Notas / Fornecedores */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="h-7 flex items-center gap-1.5 px-2.5 border border-[#E0D8BF] dark:border-white/[0.10] text-[11px] font-bold text-on-surface/45 whitespace-nowrap">
+              <b className="font-black text-on-surface">{filteredManufacturers.length}</b> {filteredManufacturers.length === 1 ? 'fabricante' : 'fabricantes'}
+            </span>
+
+            <div className="relative group">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface/30 group-focus-within:text-primary transition-colors pointer-events-none" />
               <input
                 type="text"
                 value={manufacturerSearch}
                 onChange={e => setManufacturerSearch(e.target.value)}
-                placeholder="Buscar fabricante..."
-                className="w-full bg-surface-container border border-on-surface/[0.06] rounded-xl pl-9 pr-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-on-surface/30"
+                placeholder="Buscar por nome, prefixo ou CNPJ..."
+                className="h-7 w-72 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] pl-8 pr-7 text-xs font-semibold text-on-surface placeholder:text-on-surface/25 placeholder:font-medium caret-[#D81E1E] outline-none hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] transition-colors"
               />
+              {manufacturerSearch && (
+                <button onClick={() => setManufacturerSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-on-surface/30 hover:text-on-surface transition-colors">
+                  <X size={13} />
+                </button>
+              )}
             </div>
+
+            <div className="flex border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18]">
+              {MANUFACTURER_FILTERS.map((f, i) => {
+                const on = manufacturerFilter === f.key;
+                return (
+                  <button
+                    key={f.key}
+                    onClick={() => setManufacturerFilter(f.key)}
+                    className={cn(
+                      'h-[26px] flex items-center gap-1.5 px-2.5 text-[10.5px] font-extrabold uppercase tracking-[0.05em] whitespace-nowrap transition-colors',
+                      i > 0 && 'border-l border-[#E0D8BF] dark:border-white/[0.10]',
+                      on ? 'bg-primary text-white' : 'text-on-surface/45 hover:text-on-surface',
+                    )}
+                  >
+                    {f.label}
+                    <span className={cn('text-[9px] font-black px-[5px] leading-[15px] rounded-full tracking-normal', on ? 'bg-white/25' : 'bg-black/[0.10] dark:bg-white/10')}>
+                      {manufacturerFilterCounts[f.key]}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
             {canManageManufacturers && (
               <button
                 onClick={() => { setEditingManufacturer(null); setShowAddManufacturer(true); }}
-                className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center hover:bg-amber-600 transition-colors shrink-0 shadow-lg shadow-amber-500/20"
                 title="Cadastrar novo fabricante"
+                className="ml-auto w-7 h-7 flex items-center justify-center bg-primary text-on-primary hover:bg-[#B91818] active:scale-[0.97] transition-all"
               >
-                <Plus size={18} />
+                <Plus size={14} strokeWidth={3} />
               </button>
             )}
           </div>
 
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {loadingManufacturersPicker ? (
-              <div className="col-span-full flex items-center justify-center py-10">
-                <div className="w-5 h-5 rounded-full border-2 border-amber-500 border-r-transparent animate-spin" />
-              </div>
-            ) : filteredManufacturers.length === 0 ? (
-              <p className="col-span-full text-sm text-on-surface/30 text-center py-10">
-                {manufacturerSearch ? 'Nenhum fabricante encontrado.' : 'Nenhum fabricante cadastrado.'}
+          {loadingManufacturersPicker ? (
+            <div className="flex items-center justify-center py-10 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10]">
+              <Loader2 size={18} className="animate-spin text-on-surface/30" />
+            </div>
+          ) : filteredManufacturers.length === 0 ? (
+            <div className="bg-white dark:bg-[#1E1E18] p-10 border border-[#E0D8BF] dark:border-white/[0.10] flex flex-col items-center gap-2 text-on-surface/30">
+              <Factory size={28} />
+              <p className="text-sm font-bold">
+                {manufacturerSearch || manufacturerFilter !== 'todos' ? 'Nenhum fabricante encontrado.' : 'Nenhum fabricante cadastrado.'}
               </p>
-            ) : filteredManufacturers.map(m => (
-              <div key={m.id}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-2xl border border-on-surface/[0.06] bg-surface-container/50 hover:border-amber-500/20 hover:bg-amber-500/5 transition-all group",
-                  !m.active && 'opacity-50'
-                )}>
-                <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
-                  <Factory size={16} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-on-surface truncate group-hover:text-amber-700 transition-colors">{m.name}</p>
-                  <p className="text-[10px] text-on-surface/40 font-mono">Prefixo {m.prefix}{!m.active && ' · Inativo'}</p>
-                  {m.cnpj && <p className="text-[10px] text-on-surface/30 font-mono">{m.cnpj}</p>}
-                </div>
-                {canManageManufacturers && (
-                  <button
-                    onClick={() => { setEditingManufacturer(m); setShowAddManufacturer(true); }}
-                    className="w-8 h-8 rounded-lg text-on-surface/20 hover:text-amber-600 hover:bg-amber-500/10 flex items-center justify-center transition-all shrink-0"
-                    title="Editar fabricante"
-                  >
-                    <Pencil size={14} />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] overflow-x-auto">
+              <table className="w-full min-w-[900px] table-fixed text-[13px] border-collapse [&_td]:h-9 [&_td]:px-2.5 [&_td]:whitespace-nowrap [&_td]:overflow-hidden [&_td]:text-ellipsis [&_td]:border-r [&_td]:border-b [&_td]:border-[#A8A290] dark:[&_td]:border-white/20 [&_td:last-child]:border-r-0">
+                <thead>
+                  <tr className="bg-[#FFEC4D]">
+                    {([
+                      { key: null, label: '#', cls: 'w-[42px] text-right' },
+                      { key: 'nome', label: 'Fabricante', cls: '' },
+                      { key: 'prefixo', label: 'Prefixo', cls: 'w-[90px]' },
+                      { key: null, label: 'CNPJ', cls: 'w-[200px]' },
+                      { key: 'produtos', label: 'Produtos', cls: 'w-[110px]' },
+                      { key: null, label: 'Próximo código', cls: 'w-[170px]' },
+                      { key: null, label: 'Status', cls: 'w-[96px]' },
+                      { key: null, label: '', cls: 'w-[48px]' },
+                    ] as const).map((c, i) => (
+                      <th key={i} className={cn('h-8 px-2.5 text-left whitespace-nowrap shadow-[inset_-1px_0_0_#B8A31F,inset_0_-1.5px_0_#8F7E10]', c.cls)}>
+                        {c.key ? (
+                          <button
+                            onClick={() => toggleManufacturerSort(c.key)}
+                            className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.55)] hover:text-[#1A1A0E] transition-colors"
+                          >
+                            {c.label}
+                            {manufacturerSort.key === c.key && (
+                              <ChevronDown size={11} strokeWidth={3} className={cn('text-[#D81E1E]', manufacturerSort.dir === -1 && 'rotate-180')} />
+                            )}
+                          </button>
+                        ) : (
+                          <span className="text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.55)]">{c.label}</span>
+                        )}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredManufacturers.map((m, idx) => {
+                    const nProd = manufacturerProductCounts[m.id] ?? 0;
+                    return (
+                      <tr
+                        key={m.id}
+                        onClick={canManageManufacturers ? () => { setEditingManufacturer(m); setShowAddManufacturer(true); } : undefined}
+                        className={cn(
+                          'group transition-colors',
+                          canManageManufacturers && 'cursor-pointer',
+                          idx % 2 === 0 ? 'bg-white dark:bg-[#1E1E18]' : 'bg-[#FAF7EE] dark:bg-[#1A1A15]',
+                          'hover:bg-[#FFF8D0] dark:hover:bg-[#FFE500]/[0.06]',
+                        )}
+                      >
+                        <td className="text-right font-mono text-[11px] text-on-surface/30">{idx + 1}</td>
+                        <td title={m.name} className={cn('font-extrabold', m.active ? 'text-on-surface' : 'text-on-surface/40')}>{m.name}</td>
+                        <td className="font-mono text-[12px] font-medium tracking-[0.03em] text-on-surface">{m.prefix}</td>
+                        <td>
+                          {m.cnpj
+                            ? <span className="font-mono text-[12px] font-medium tracking-[0.03em] text-on-surface">{m.cnpj}</span>
+                            : <span className="text-[12px] italic text-on-surface/30">sem CNPJ</span>}
+                        </td>
+                        <td>
+                          {nProd > 0
+                            ? <span className="inline-flex items-center gap-1 text-[11.5px] font-extrabold text-on-surface"><Package size={12} className="text-[#D81E1E]" /> {nProd.toLocaleString('pt-BR')}</span>
+                            : <span className="text-on-surface/25">—</span>}
+                        </td>
+                        <td className="font-mono text-[12px] font-medium tracking-[0.03em] text-on-surface/55" title={`${Math.max((m.next_seq ?? 1) - 1, 0)} código(s) já gerado(s)`}>
+                          {nextManufacturerCode(m)}
+                        </td>
+                        <td>
+                          <span className={cn(
+                            'inline-flex items-center gap-1 text-[8.5px] font-black uppercase tracking-[0.06em] px-[6px] py-px border',
+                            m.active
+                              ? 'text-[#0A7A55] dark:text-[#34D399] bg-[#0A7A55]/[0.07] dark:bg-[#34D399]/[0.08] border-[#0A7A55]/30 dark:border-[#34D399]/30'
+                              : 'text-on-surface/45 bg-black/[0.04] dark:bg-white/[0.05] border-[#E0D8BF] dark:border-white/[0.12]',
+                          )}>
+                            {m.active ? 'Ativo' : 'Inativo'}
+                          </span>
+                        </td>
+                        <td>
+                          {canManageManufacturers && (
+                            <span className="w-[26px] h-[26px] ml-auto flex items-center justify-center border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-on-surface/45 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Pencil size={13} />
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
