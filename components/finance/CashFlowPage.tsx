@@ -253,6 +253,8 @@ export function CashFlowPage({ transactions, tags, loading, onUpdateTag }: CashF
     i === mesSel && 'bg-[#FFF3A3]/50 dark:bg-[#FFE500]/[0.07]',
     i === 12 && 'font-extrabold bg-[#FAF7EE] dark:bg-[#1A1A15]',
   );
+  // Coluna de rótulos: escurece a cor da própria linha com uma camada por cima.
+  const rotuloCls = 'sticky left-0 z-[1] bg-inherit [background-image:linear-gradient(rgba(26,26,10,0.07),rgba(26,26,10,0.07))] dark:[background-image:linear-gradient(rgba(0,0,0,0.25),rgba(0,0,0,0.25))]';
 
   const Valor = ({ v, sinal, forte }: { v: number; sinal?: boolean; forte?: boolean }) => {
     if (!v || Number.isNaN(v)) return <span className="text-on-surface/20">—</span>;
@@ -277,7 +279,7 @@ export function CashFlowPage({ transactions, tags, loading, onUpdateTag }: CashF
           onClick={() => linhas.length && toggleGrupo(g)}
           className={cn('bg-white dark:bg-[#1E1E18] hover:bg-[#FFF8D0] dark:hover:bg-[#FFE500]/[0.06] transition-colors', linhas.length && 'cursor-pointer')}
         >
-          <td className="sticky left-0 z-[1] bg-inherit">
+          <td className={rotuloCls}>
             <span className="flex items-center gap-1.5">
               <ChevronDown
                 size={12}
@@ -300,7 +302,7 @@ export function CashFlowPage({ transactions, tags, loading, onUpdateTag }: CashF
           const { nome, cor } = nomeLinha(linha);
           return (
             <tr key={g + linha} className="bg-[#FDFBF4] dark:bg-[#1B1B16]">
-              <td className="sticky left-0 z-[1] bg-inherit">
+              <td className={rotuloCls}>
                 <span className="flex items-center gap-1.5 pl-[42px]">
                   {cor
                     ? <span className="w-[7px] h-[7px] rounded-full shrink-0" style={{ background: cor }} />
@@ -318,7 +320,7 @@ export function CashFlowPage({ transactions, tags, loading, onUpdateTag }: CashF
 
   const linhaTotal = (label: string, serie: Serie, destaque?: boolean) => (
     <tr className={destaque ? 'bg-[#FFEC4D]/60 dark:bg-[#FFE500]/[0.12]' : 'bg-[#FFF8D0] dark:bg-[#FFE500]/[0.05]'}>
-      <td className="sticky left-0 z-[1] bg-inherit">
+      <td className={rotuloCls}>
         <span className="flex items-center gap-1.5 pl-[18px]">
           <span className="w-3 text-center font-black text-on-surface/60">=</span>
           <span className={cn('font-black uppercase tracking-[0.04em]', destaque ? 'text-[12px] text-on-surface' : 'text-[11.5px] text-on-surface/85')}>{label}</span>
@@ -529,7 +531,7 @@ export function CashFlowPage({ transactions, tags, loading, onUpdateTag }: CashF
               {temInvest && linhaGrupo('investimento', '−')}
               {temInvest && linhaTotal('Resultado do período', resultado, true)}
               <tr className="bg-white dark:bg-[#1E1E18]">
-                <td className="sticky left-0 z-[1] bg-inherit">
+                <td className={rotuloCls}>
                   <span className="pl-[38px] text-[11.5px] font-bold text-on-surface/55">Margem sobre receitas</span>
                 </td>
                 {margem.map((v, i) => (
@@ -541,7 +543,7 @@ export function CashFlowPage({ transactions, tags, loading, onUpdateTag }: CashF
                 ))}
               </tr>
               <tr className="bg-[#FAF7EE] dark:bg-[#1A1A15]">
-                <td className="sticky left-0 z-[1] bg-inherit">
+                <td className={rotuloCls}>
                   <span className="pl-[38px] text-[11.5px] font-bold text-on-surface/55">Saldo acumulado no ano</span>
                 </td>
                 {acumulado.map((v, i) => <td key={i} className={cellCls(i)}><Valor v={v} sinal /></td>)}
