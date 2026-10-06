@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Plus, Check, Trash2, Lock, Search, Calendar, Filter, X,
-  ChevronLeft, ChevronRight, ChevronDown, Edit2, Users, Package, Ticket, Award, MoreHorizontal,
+  ChevronLeft, ChevronRight, ChevronDown, Edit2, Users, Package, Ticket, Award, MoreHorizontal, BookText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -733,426 +733,459 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
     );
   }
 
-  // ── Desktop layout: calendário + painel Modalidades/Colaboradores + tabela ──
-  const thCls = 'text-[10px] font-extrabold uppercase tracking-wide text-on-surface/40 px-3.5 py-3 text-left whitespace-nowrap';
-  const tdCls = 'px-3.5 py-2.5';
-  const modalFieldCls = 'w-full bg-surface border border-on-surface/10 rounded-xl px-3.5 py-2.5 text-[13px] font-medium text-on-surface focus:outline-none focus:border-primary/50 transition-colors';
-  const modalLabelCls = 'text-[10px] font-extrabold uppercase tracking-wide text-on-surface/45 mb-1.5 block';
+  // ── Desktop layout: tabela no centro + coluna com calendário e resumo (padrão quadrado) ──
+  const sectionCls = 'bg-[#F1EAD3] dark:bg-[#181814] border border-[#E0D8BF] dark:border-white/[0.10]';
+  const sectionHeadCls = 'h-7 flex items-center gap-2 px-2.5 bg-[#FFEC4D] border-b-[1.5px] border-[#8F7E10]';
+  const sectionTitleCls = 'text-[9px] font-black uppercase tracking-[0.1em] text-[rgba(26,26,10,0.55)]';
+  const modalLabelCls = 'block text-[9px] font-black uppercase tracking-[0.1em] text-[#1A1A0E]/[0.58] dark:text-[#F2F0E3]/55 pl-px mb-1';
+  const modalFieldCls = 'w-full min-w-0 h-[34px] px-2.5 bg-white dark:bg-[#1E1E18] text-[13px] font-semibold text-on-surface border border-[#E0D8BF] dark:border-white/[0.10] outline-none caret-[#D81E1E] hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] placeholder:text-on-surface/25 placeholder:font-medium transition-[border-color,box-shadow]';
+  const segWrapCls = 'flex gap-0.5 p-0.5 bg-on-surface/[0.06] border border-[#E0D8BF] dark:border-white/[0.10]';
+  const segBtnCls = (on: boolean) => cn(
+    'flex-1 h-[26px] px-2 text-[10px] font-black uppercase tracking-[0.05em] transition-colors duration-[130ms]',
+    on ? 'bg-[#D81E1E] text-white' : 'text-on-surface/50 hover:text-on-surface',
+  );
+  const tipoTagCls = (t: TipoLancamento) => t === 'Receita'
+    ? 'text-[#0A7A55] dark:text-[#34D399] bg-emerald-500/[0.07]'
+    : 'text-[#B91818] dark:text-red-400 bg-[#D81E1E]/[0.06]';
+  const modalidadeTagCls = (m: Modalidade) =>
+    m === 'Mercadoria' ? 'text-[#B45309] dark:text-[#FCD34D] bg-amber-500/10'
+    : m === 'Vale' ? 'text-[#1D4ED8] dark:text-[#93C5FD] bg-blue-500/10'
+    : m === 'Bônus' ? 'text-[#047857] dark:text-[#6EE7B7] bg-emerald-500/10'
+    : 'text-on-surface/55 bg-gray-500/10';
+  const modalidadeDotCls = (m: Modalidade) =>
+    m === 'Mercadoria' ? 'bg-amber-500' : m === 'Vale' ? 'bg-blue-500' : m === 'Bônus' ? 'bg-emerald-500' : 'bg-gray-400';
+  const activeFilterCount = (filterModalidade ? 1 : 0) + (filterTipo ? 1 : 0);
+  const calCells = buildCalCells(calViewDate);
 
   return (
-    <div className="flex flex-col gap-3.5">
-      {/* Calendário + painel de resumo */}
-      <div className="grid grid-cols-2 gap-3.5 items-start">
-        {/* Calendário */}
-        <div className="bg-surface border border-on-surface/[0.08] rounded-[18px] overflow-hidden flex flex-col">
-          <div className="bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center gap-2.5">
-            <span className="text-[13px] font-black text-[#1A1A0E] flex-1 whitespace-nowrap">
-              {MONTHS_PT[calViewDate.getMonth()]} {calViewDate.getFullYear()}
-            </span>
-            <div className="flex gap-1">
-              <button
-                onClick={() => setCalViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
-                className="w-[26px] h-[26px] rounded-lg bg-black/[0.08] hover:bg-black/[0.14] text-black/55 hover:text-[#1A1A0E] flex items-center justify-center transition-colors"
-              >
-                <ChevronLeft size={13} />
-              </button>
-              <button
-                onClick={() => setCalViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
-                className="w-[26px] h-[26px] rounded-lg bg-black/[0.08] hover:bg-black/[0.14] text-black/55 hover:text-[#1A1A0E] flex items-center justify-center transition-colors"
-              >
-                <ChevronRight size={13} />
-              </button>
-            </div>
-          </div>
-          <div className="p-3">
-            <div className="grid grid-cols-7 mb-1">
-              {WEEKDAYS_PT.map((d, i) => (
-                <span key={i} className="text-center text-[8.5px] font-black uppercase tracking-wide text-on-surface/25 py-1">{d}</span>
-              ))}
-            </div>
-            <div className="grid grid-cols-7 gap-[2px]">
-              {buildCalCells(calViewDate).map((cell, i) => {
-                const iso = dateToISO(cell.date);
-                const isToday = iso === todayStr();
-                const selectedSolo = dateFrom === iso && !dateTo;
-                const rangeStart = dateFrom === iso && !!dateTo;
-                const rangeEnd = dateTo === iso;
-                const inRange = !!dateFrom && !!dateTo && iso > dateFrom && iso < dateTo;
-                const highlighted = selectedSolo || rangeStart || rangeEnd;
-                const hasDot = entryDatesSet.has(iso);
-                return (
-                  <button
-                    key={i}
-                    onClick={() => handleCalDayClick(iso)}
-                    className={cn(
-                      'h-[26px] rounded-lg flex items-center justify-center text-[10.5px] font-bold relative transition-colors',
-                      !cell.current && 'text-on-surface/20',
-                      cell.current && !highlighted && !inRange && !isToday && 'text-on-surface/55 hover:bg-on-surface/5',
-                      isToday && !highlighted && 'bg-primary/10 text-primary',
-                      inRange && 'bg-primary/[0.13] text-primary font-extrabold',
-                      highlighted && 'bg-primary text-white font-extrabold shadow-[0_2px_6px_rgba(216,30,30,0.30)]',
-                    )}
-                  >
-                    {cell.date.getDate()}
-                    {hasDot && (
-                      <span className={cn('absolute bottom-[2px] left-1/2 -translate-x-1/2 w-[4px] h-[4px] rounded-full', highlighted ? 'bg-white/70' : 'bg-primary')} />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            {(dateFrom || dateTo) && (
-              <div className="mt-2.5 flex items-center justify-between gap-1 bg-primary/[0.07] border border-primary/20 rounded-[10px] px-2.5 py-1.5">
-                <span className="text-[9.5px] font-bold text-primary">
-                  {dateTo ? `Período: ${fmtDate(dateFrom)} – ${fmtDate(dateTo)}` : `Data: ${fmtDate(dateFrom)}`}
-                </span>
-                <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="text-primary/60 hover:text-primary">
-                  <X size={11} />
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Painel Modalidades / Colaboradores */}
-        <div className="bg-surface border border-on-surface/[0.08] rounded-[18px] overflow-hidden flex flex-col">
-          <div className="bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-2.5 py-2">
-            <div className="flex bg-black/10 rounded-full p-[2px] gap-[2px]">
-              <button
-                onClick={() => setPanelTab('modalidades')}
-                className={cn('flex-1 py-1.5 rounded-full text-[9.5px] font-black uppercase tracking-wide transition-colors', panelTab === 'modalidades' ? 'bg-primary text-white shadow-sm' : 'text-black/45 hover:text-black/70')}
-              >
-                Modalidades
-              </button>
-              <button
-                onClick={() => setPanelTab('colaboradores')}
-                className={cn('flex-1 py-1.5 rounded-full text-[9.5px] font-black uppercase tracking-wide transition-colors', panelTab === 'colaboradores' ? 'bg-primary text-white shadow-sm' : 'text-black/45 hover:text-black/70')}
-              >
-                Colaboradores
-              </button>
-            </div>
-          </div>
-          <div className="p-2.5">
-            {panelTab === 'modalidades' ? (
-              <div className="grid grid-cols-2 gap-1.5">
-                {MODALIDADES.map(m => {
-                  const stat = modalidadeStats.get(m)!;
-                  return (
-                    <div key={m} className="bg-surface-container-low border border-on-surface/[0.07] rounded-xl px-2.5 py-2 flex items-center gap-2">
-                      <div className={cn('w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0', modalidadeColor(m))}>
-                        {modalidadeIcon(m)}
-                      </div>
-                      <div className="min-w-0 flex-1 flex flex-col gap-0.5">
-                        <span className="text-[8px] font-black uppercase tracking-wide text-on-surface/40 whitespace-nowrap">{m}</span>
-                        <span className="text-[13px] font-black text-on-surface leading-tight truncate">{fmtMoney(stat.valor)}</span>
-                        <span className="text-[8.5px] font-bold text-on-surface/35">{stat.count} registro{stat.count === 1 ? '' : 's'}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="flex flex-col gap-1.5 max-h-[220px] overflow-y-auto pr-1 -mr-1">
-                {colaboradorStats.length === 0 ? (
-                  <p className="text-[11px] text-on-surface/35 text-center py-6">Nenhum colaborador no período.</p>
-                ) : colaboradorStats.map(c => (
-                  <div key={c.nome} className="bg-surface-container-low border border-on-surface/[0.07] rounded-xl px-3 py-2.5 flex items-center gap-2.5">
-                    <div className="w-[30px] h-[30px] rounded-[9px] bg-on-surface/[0.08] text-on-surface/55 flex items-center justify-center flex-shrink-0">
-                      <Users size={14} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[11.5px] font-extrabold text-on-surface truncate">{c.nome}</div>
-                      <div className="text-[9px] font-bold text-on-surface/35 mt-0.5">{c.count} registro{c.count === 1 ? '' : 's'}</div>
-                    </div>
-                    <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                      <span className="text-[11.5px] font-black text-red-600 dark:text-red-400">-{fmtMoney(c.despesas)}</span>
-                      <span className="text-[11.5px] font-black text-emerald-600 dark:text-emerald-400">+{fmtMoney(c.receitas)}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Busca + filtro + novo registro */}
-      <div className="flex items-center gap-2.5 flex-wrap">
-        <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/35 pointer-events-none" />
+    <div className="space-y-2.5">
+      {/* Barra de ferramentas */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <div className="relative group">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface/30 group-focus-within:text-[#D81E1E] transition-colors pointer-events-none" />
           <input
-            className="pl-8 pr-4 py-2.5 bg-surface-container-low rounded-xl text-[13px] text-on-surface border border-on-surface/[0.06] focus:outline-none focus:border-primary/50 w-[220px] placeholder:text-on-surface/35"
-            placeholder="Buscar colaborador..."
+            className="h-[30px] w-60 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] pl-8 pr-2.5 text-[12px] font-semibold text-on-surface placeholder:text-on-surface/25 placeholder:font-medium caret-[#D81E1E] outline-none hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] transition-colors"
+            placeholder="Buscar colaborador ou observação..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
         </div>
+
         <div className="relative">
           <button
             onClick={() => setShowFilterPopover(v => !v)}
             className={cn(
-              'flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-extrabold uppercase tracking-wide border transition-colors',
-              hasFilter ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-surface-container-low border-on-surface/[0.08] text-on-surface/60 hover:text-on-surface',
+              'h-[30px] flex items-center gap-1.5 px-2.5 border text-[10.5px] font-extrabold uppercase tracking-[0.05em] transition-colors active:scale-[0.97]',
+              hasFilter
+                ? 'border-[#D81E1E] bg-[#D81E1E]/[0.06] text-[#D81E1E]'
+                : 'border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-on-surface/55 hover:text-on-surface',
             )}
           >
-            <Filter size={14} /> Filtrar colunas
+            <Filter size={13} /> Filtrar
+            {activeFilterCount > 0 && <span className="px-[5px] leading-[14px] bg-[#D81E1E] text-white text-[9px] font-black">{activeFilterCount}</span>}
           </button>
           {showFilterPopover && (
-            <div className="absolute z-20 top-[calc(100%+6px)] left-0 w-[240px] bg-surface border border-on-surface/10 rounded-2xl shadow-xl p-3.5">
-              <div className="flex items-center justify-between mb-2.5">
-                <span className="text-[10px] font-black uppercase tracking-wide text-on-surface/40">Filtrar</span>
-                <button onClick={() => setShowFilterPopover(false)} className="text-on-surface/40 hover:text-on-surface">
-                  <X size={13} />
-                </button>
-              </div>
-              <span className="text-[9px] font-extrabold uppercase tracking-wide text-on-surface/35 mb-1.5 block">Modalidade</span>
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {MODALIDADES.map(m => (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShowFilterPopover(false)} />
+              <div className="absolute z-20 top-[calc(100%+4px)] left-0 w-[260px] p-2.5 bg-white dark:bg-[#2E2E28] border border-[#E0D8BF] dark:border-white/[0.10] shadow-[0_16px_36px_-10px_rgba(0,0,0,0.3)]">
+                <span className={modalLabelCls}>Modalidade</span>
+                <div className={cn(segWrapCls, 'mb-2.5')}>
+                  {MODALIDADES.map(m => (
+                    <button key={m} onClick={() => setFilterModalidade(prev => prev === m ? null : m)} className={segBtnCls(filterModalidade === m)}>
+                      {m}
+                    </button>
+                  ))}
+                </div>
+                <span className={modalLabelCls}>Tipo</span>
+                <div className={segWrapCls}>
+                  {(['Despesa', 'Receita'] as TipoLancamento[]).map(t => (
+                    <button key={t} onClick={() => setFilterTipo(prev => prev === t ? null : t)} className={segBtnCls(filterTipo === t)}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+                {hasFilter && (
                   <button
-                    key={m} onClick={() => setFilterModalidade(prev => prev === m ? null : m)}
-                    className={cn('px-2.5 py-1.5 rounded-lg text-[10px] font-bold border-[1.5px] transition-colors', filterModalidade === m ? 'bg-primary/10 border-primary/30 text-primary' : 'border-on-surface/10 text-on-surface/45')}
+                    onClick={() => { setFilterModalidade(null); setFilterTipo(null); }}
+                    className="mt-2.5 w-full h-[26px] border border-[#E0D8BF] dark:border-white/[0.10] text-[10px] font-black uppercase tracking-[0.06em] text-on-surface/55 hover:text-[#D81E1E] hover:border-[#D81E1E]/35 transition-colors"
                   >
-                    {m}
+                    Limpar filtros
                   </button>
-                ))}
+                )}
               </div>
-              <span className="text-[9px] font-extrabold uppercase tracking-wide text-on-surface/35 mb-1.5 block">Tipo</span>
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {(['Despesa', 'Receita'] as TipoLancamento[]).map(t => (
-                  <button
-                    key={t} onClick={() => setFilterTipo(prev => prev === t ? null : t)}
-                    className={cn('px-2.5 py-1.5 rounded-lg text-[10px] font-bold border-[1.5px] transition-colors', filterTipo === t ? 'bg-primary/10 border-primary/30 text-primary' : 'border-on-surface/10 text-on-surface/45')}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-              {hasFilter && (
-                <button
-                  onClick={() => { setFilterModalidade(null); setFilterTipo(null); }}
-                  className="w-full py-2 rounded-lg text-[10.5px] font-extrabold uppercase tracking-wide bg-on-surface/[0.06] text-on-surface/50 hover:text-on-surface transition-colors"
-                >
-                  Limpar filtros
-                </button>
-              )}
-            </div>
+            </>
           )}
         </div>
+
+        {hasDatePeriod && (
+          <span className="h-[30px] flex items-center gap-2 pl-2.5 pr-1.5 border border-[#D81E1E]/40 bg-[#D81E1E]/[0.06] text-[11px] font-extrabold text-[#D81E1E]">
+            {dateTo && dateTo !== dateFrom ? 'Período' : 'Data'}
+            <span className="font-mono font-medium">
+              {dateTo && dateTo !== dateFrom ? `${fmtDate(dateFrom)} – ${fmtDate(dateTo)}` : fmtDate(dateFrom || dateTo)}
+            </span>
+            <button onClick={() => { setDateFrom(''); setDateTo(''); }} title="Ver todo o histórico" className="w-5 h-5 flex items-center justify-center hover:bg-[#D81E1E]/10 transition-colors">
+              <X size={12} strokeWidth={2.6} />
+            </button>
+          </span>
+        )}
+
         <button
           onClick={openDeskCreate}
-          className="ml-auto flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-extrabold uppercase tracking-wide bg-primary text-white shadow-lg shadow-primary/25 active:scale-[0.97] transition-transform"
+          className="ml-auto h-[30px] px-3.5 flex items-center gap-1.5 bg-[#D81E1E] hover:bg-[#B91818] text-white text-[11px] font-extrabold uppercase tracking-[0.05em] active:scale-[0.97] transition-all"
         >
-          <Plus size={15} strokeWidth={2.8} /> Novo Registro
+          <Plus size={13} strokeWidth={2.8} /> Novo registro
         </button>
       </div>
 
-      {/* Tabela */}
-      <div className="bg-surface-container border border-on-surface/[0.07] rounded-[20px] overflow-hidden">
-        {loading ? (
-          <div className="py-12 flex justify-center">
-            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[780px]">
-              <thead>
-                <tr className="border-b border-on-surface/[0.07]">
-                  <th className={thCls}>Colaborador</th>
-                  <th className={thCls}>Tipo</th>
-                  <th className={thCls}>Modalidade</th>
-                  <th className={thCls}>Valor</th>
-                  <th className={thCls}>Observação</th>
-                  <th className={thCls}>Data</th>
-                  <th className={cn(thCls, 'w-20')} />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-on-surface/[0.05]">
-                {filteredEntries.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="py-10 text-center text-sm text-on-surface/35">
-                      {entries.length === 0 ? 'Nenhum registro ainda. Clique em "Novo Registro" para começar.' : 'Nenhum registro encontrado.'}
-                    </td>
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-2.5 items-start">
+        {/* Tabela */}
+        <div className="bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10]">
+          {loading ? (
+            <div className="py-12 flex justify-center">
+              <div className="w-6 h-6 border-2 border-[#D81E1E] border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <div className="overflow-x-auto [&_tbody_td]:h-9 [&_tbody_td]:px-2.5 [&_tbody_td]:text-[12px] [&_tbody_td]:whitespace-nowrap [&_tbody_td]:border-r [&_tbody_td]:border-b [&_tbody_td]:border-[#A8A290] dark:[&_tbody_td]:border-white/20 [&_tbody_td:last-child]:border-r-0">
+              <table className="w-full min-w-[760px] border-collapse">
+                <thead>
+                  <tr className="bg-[#FFEC4D]">
+                    {[
+                      { label: 'Data', cls: 'w-[105px]' },
+                      { label: 'Colaborador', cls: '' },
+                      { label: 'Tipo', cls: 'w-[95px]' },
+                      { label: 'Modalidade', cls: 'w-[115px]' },
+                      { label: 'Observação', cls: '' },
+                      { label: 'Valor', cls: 'w-[120px] text-right' },
+                      { label: '', cls: 'w-[70px]' },
+                    ].map((c, i) => (
+                      <th
+                        key={i}
+                        className={cn(
+                          'h-8 px-2.5 text-left whitespace-nowrap text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.55)] shadow-[inset_-1px_0_0_#B8A31F,inset_0_-1.5px_0_#8F7E10] last:shadow-[inset_0_-1.5px_0_#8F7E10]',
+                          c.cls,
+                        )}
+                      >
+                        {c.label}
+                      </th>
+                    ))}
                   </tr>
-                )}
+                </thead>
+                <tbody>
+                  {filteredEntries.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="!h-auto py-10 text-center !text-[11.5px] font-bold text-on-surface/40 !whitespace-normal">
+                        {entries.length === 0 ? 'Nenhum registro ainda. Clique em "Novo registro" para começar.' : 'Nenhum registro encontrado.'}
+                      </td>
+                    </tr>
+                  )}
 
-                {filteredEntries.map(entry => (
-                  <tr key={entry.id} className="group hover:bg-on-surface/[0.015] transition-colors">
-                    <td className={cn(tdCls, 'text-[13px] font-semibold text-on-surface')}>
-                      {entry.colaborador_nome || '—'}
-                    </td>
-                    <td className={tdCls}>
-                      <span className={cn('text-[9.5px] font-extrabold uppercase tracking-wide px-2.5 py-1 rounded-lg', tipoColor(entry.tipo))}>
-                        {entry.tipo}
-                      </span>
-                    </td>
-                    <td className={tdCls}>
-                      <span className={cn('text-[9.5px] font-extrabold uppercase tracking-wide px-2.5 py-1 rounded-lg', modalidadeColor(entry.modalidade))}>
-                        {entry.modalidade}
-                      </span>
-                    </td>
-                    <td className={cn(tdCls, 'text-[13px] font-bold text-on-surface')}>
-                      {fmtMoney(entry.valor)}
-                    </td>
-                    <td className={cn(tdCls, 'text-[12.5px] text-on-surface/60 max-w-[200px] truncate')}>
-                      {entry.observacao || '—'}
-                    </td>
-                    <td className={cn(tdCls, 'text-[12.5px] text-on-surface/60 whitespace-nowrap')}>
-                      {fmtDate(entry.data)}
-                    </td>
-                    <td className={tdCls}>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => openDeskEdit(entry)}
-                          className="w-7 h-7 rounded-lg hover:bg-primary/10 text-on-surface/25 hover:text-primary flex items-center justify-center transition-colors"
-                        >
-                          <Edit2 size={13} />
-                        </button>
-                        <button
-                          onClick={() => deleteEntry(entry)}
-                          className="w-7 h-7 rounded-lg hover:bg-red-500/10 text-on-surface/25 hover:text-red-500 flex items-center justify-center transition-colors"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                  {filteredEntries.map((entry, idx) => (
+                    <tr
+                      key={entry.id}
+                      className={cn(
+                        'group transition-colors hover:bg-[#FFF8D0] dark:hover:bg-white/[0.04]',
+                        idx % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]',
+                      )}
+                    >
+                      <td className="font-mono text-on-surface/70">{fmtDate(entry.data)}</td>
+                      <td className="font-extrabold text-on-surface">{entry.colaborador_nome || '—'}</td>
+                      <td>
+                        <span className={cn('inline-flex px-1.5 py-0.5 border border-current text-[9px] font-black uppercase tracking-[0.06em]', tipoTagCls(entry.tipo))}>
+                          {entry.tipo}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={cn('inline-flex px-1.5 py-0.5 border border-current text-[9px] font-black uppercase tracking-[0.06em]', modalidadeTagCls(entry.modalidade))}>
+                          {entry.modalidade}
+                        </span>
+                      </td>
+                      <td className="text-on-surface/55 max-w-[260px] truncate" title={entry.observacao || undefined}>{entry.observacao || '—'}</td>
+                      <td className={cn('text-right font-mono', entry.tipo === 'Receita' ? 'text-[#0A7A55] dark:text-[#34D399]' : 'text-[#B91818] dark:text-red-400')}>
+                        {entry.tipo === 'Receita' ? '+' : '−'}{fmtMoney(entry.valor)}
+                      </td>
+                      <td>
+                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => openDeskEdit(entry)}
+                            title="Editar registro"
+                            className="w-6 h-6 flex items-center justify-center border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-on-surface/55 hover:text-on-surface hover:border-[#CFC4A2] active:scale-[0.94] transition-all"
+                          >
+                            <Edit2 size={12} />
+                          </button>
+                          <button
+                            onClick={() => deleteEntry(entry)}
+                            title="Excluir registro"
+                            className="w-6 h-6 flex items-center justify-center border border-[#D81E1E]/25 bg-[#D81E1E]/[0.06] text-[#D81E1E] hover:bg-[#D81E1E]/[0.14] active:scale-[0.94] transition-all"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Coluna: período + resumo */}
+        <div className="flex flex-col gap-2.5 xl:sticky xl:top-[92px]">
+          <div className={sectionCls}>
+            <div className={sectionHeadCls}>
+              <Calendar size={12} strokeWidth={2.4} className="text-[#D81E1E] shrink-0" />
+              <span className={sectionTitleCls}>Período</span>
+            </div>
+            <div className="p-2.5">
+              <div className="select-none border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18]">
+                <div className="h-[30px] flex items-center border-b border-[#E0D8BF] dark:border-white/[0.10]">
+                  <button
+                    onClick={() => setCalViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+                    title="Mês anterior"
+                    className="w-[30px] h-full flex items-center justify-center border-r border-[#E0D8BF] dark:border-white/[0.10] text-on-surface/50 hover:text-on-surface hover:bg-on-surface/[0.05] transition-colors"
+                  >
+                    <ChevronLeft size={13} strokeWidth={2.5} />
+                  </button>
+                  <span className="flex-1 text-center text-[12px] font-black text-on-surface">
+                    {MONTHS_PT[calViewDate.getMonth()]} {calViewDate.getFullYear()}
+                  </span>
+                  <button
+                    onClick={() => setCalViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+                    title="Próximo mês"
+                    className="w-[30px] h-full flex items-center justify-center border-l border-[#E0D8BF] dark:border-white/[0.10] text-on-surface/50 hover:text-on-surface hover:bg-on-surface/[0.05] transition-colors"
+                  >
+                    <ChevronRight size={13} strokeWidth={2.5} />
+                  </button>
+                </div>
+                <div className="grid grid-cols-7 bg-[#FFEC4D] shadow-[inset_0_-1.5px_0_#8F7E10]">
+                  {WEEKDAYS_PT.map((d, i) => (
+                    <span key={i} className="h-[22px] flex items-center justify-center text-[9px] font-black text-[rgba(26,26,10,0.55)]">{d}</span>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7">
+                  {calCells.map((cell, i) => {
+                    const iso = dateToISO(cell.date);
+                    const isToday = iso === todayStr();
+                    const selectedSolo = dateFrom === iso && !dateTo;
+                    const rangeStart = dateFrom === iso && !!dateTo;
+                    const rangeEnd = dateTo === iso;
+                    const inRange = !!dateFrom && !!dateTo && iso > dateFrom && iso < dateTo;
+                    const highlighted = selectedSolo || rangeStart || rangeEnd;
+                    const hasDot = entryDatesSet.has(iso);
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => handleCalDayClick(iso)}
+                        className={cn(
+                          'relative aspect-square flex items-center justify-center font-mono text-[11.5px] transition-colors duration-[120ms]',
+                          !cell.current && 'opacity-30',
+                          highlighted
+                            ? 'bg-[#D81E1E] text-white'
+                            : inRange
+                              ? 'bg-[#D81E1E]/10 text-on-surface'
+                              : 'text-on-surface/70 hover:bg-[#FFF8D0] dark:hover:bg-white/[0.05] hover:text-on-surface',
+                          isToday && !highlighted && 'font-semibold text-on-surface shadow-[inset_0_0_0_1.5px_rgba(26,26,10,0.40)] dark:shadow-[inset_0_0_0_1.5px_rgba(242,240,227,0.40)]',
+                        )}
+                      >
+                        {cell.date.getDate()}
+                        {hasDot && (
+                          <span className={cn('absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1', highlighted ? 'bg-white/75' : 'bg-[#D81E1E]')} />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <p className="mt-1.5 text-[10.5px] font-semibold text-on-surface/40">
+                Clique num dia para ver só ele, ou em dois dias para um período. Pontinho = dia com registro.
+              </p>
+            </div>
           </div>
-        )}
+
+          <div className={sectionCls}>
+            <div className={sectionHeadCls}>
+              <Users size={12} strokeWidth={2.4} className="text-[#D81E1E] shrink-0" />
+              <span className={sectionTitleCls}>Resumo do período</span>
+            </div>
+            <div className="p-2.5">
+              <div className={cn(segWrapCls, 'mb-2')}>
+                <button onClick={() => setPanelTab('modalidades')} className={segBtnCls(panelTab === 'modalidades')}>Modalidades</button>
+                <button onClick={() => setPanelTab('colaboradores')} className={segBtnCls(panelTab === 'colaboradores')}>Colaboradores</button>
+              </div>
+              {panelTab === 'modalidades' ? (
+                <div className="grid grid-cols-2 border-l border-t border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18]">
+                  {MODALIDADES.map(m => {
+                    const stat = modalidadeStats.get(m)!;
+                    return (
+                      <div key={m} className="px-2.5 py-2 border-r border-b border-[#E0D8BF] dark:border-white/[0.10] min-w-0">
+                        <div className="flex items-center gap-[5px] text-[9px] font-black uppercase tracking-[0.1em] text-on-surface/40">
+                          <span className={cn('w-2 h-2 shrink-0', modalidadeDotCls(m))} />
+                          {m}
+                        </div>
+                        <div className="mt-0.5 font-mono text-[13.5px] text-on-surface truncate">{fmtMoney(stat.valor)}</div>
+                        <div className="text-[10px] font-bold text-on-surface/40">{stat.count} registro{stat.count === 1 ? '' : 's'}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : colaboradorStats.length === 0 ? (
+                <p className="py-5 text-center border border-dashed border-[#E0D8BF] dark:border-white/[0.12] bg-white dark:bg-[#1E1E18] text-[11.5px] font-bold text-on-surface/40">
+                  Nenhum colaborador no período.
+                </p>
+              ) : (
+                <div className="max-h-[260px] overflow-y-auto">
+                  {colaboradorStats.map((c, idx) => (
+                    <div
+                      key={c.nome}
+                      className={cn(
+                        'flex items-center gap-2 px-2.5 py-1.5 bg-white dark:bg-[#1E1E18] border border-[#B5AA86] dark:border-white/[0.10]',
+                        idx > 0 && 'border-t-0',
+                      )}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[12px] font-extrabold text-on-surface truncate">{c.nome}</div>
+                        <div className="text-[10px] font-bold text-on-surface/40">{c.count} registro{c.count === 1 ? '' : 's'}</div>
+                      </div>
+                      <div className="flex flex-col items-end font-mono text-[11px] leading-[1.35] shrink-0">
+                        {c.despesas > 0 && <span className="text-[#B91818] dark:text-red-400">−{fmtMoney(c.despesas)}</span>}
+                        {c.receitas > 0 && <span className="text-[#0A7A55] dark:text-[#34D399]">+{fmtMoney(c.receitas)}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Modal dedicado — Novo/Editar Registro */}
       {typeof window !== 'undefined' && showDeskModal && createPortal(
         <>
-          <div className="fixed inset-0 bg-black/45 backdrop-blur-[2px] z-[100]" onClick={() => setShowDeskModal(false)} />
+          <div className="fixed inset-0 bg-black/55 z-[100]" onClick={() => setShowDeskModal(false)} />
           <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 pointer-events-none">
-            <div className="w-full max-w-[520px] bg-surface rounded-3xl shadow-2xl overflow-hidden pointer-events-auto max-h-[90vh] flex flex-col">
-              <div className="bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-5 py-4 flex items-center justify-between flex-shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-black/[0.09] flex items-center justify-center text-[#1A1A0E]">
-                    <Users size={18} />
-                  </div>
-                  <div>
-                    <div className="text-[9px] font-extrabold uppercase tracking-[0.13em] text-black/40">Caderninho</div>
-                    <div className="text-[17px] font-black text-[#1A1A0E]">{editingEntryId ? 'Editar Registro' : 'Novo Registro'}</div>
-                  </div>
+            <div className="w-full max-w-[520px] max-h-[90vh] flex flex-col overflow-hidden pointer-events-auto bg-[#FDFAF0] dark:bg-[#1E1E18] border border-black/[0.12] dark:border-white/[0.08] shadow-2xl">
+              <div className="h-12 pl-3.5 pr-3 flex items-center gap-[11px] bg-[#FBF35E] dark:bg-[#252520] border-b border-[#D9CF45] dark:border-white/[0.08] shrink-0">
+                <div className="w-[30px] h-[30px] flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
+                  <BookText size={15} strokeWidth={2.3} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="truncate text-[15px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight">{editingEntryId ? 'Editar Registro' : 'Novo Registro'}</h4>
+                  <p className="truncate text-[10.5px] font-bold text-[#1A1A0E]/50 dark:text-[#F2F0E3]/40">Caderninho · lançamento de colaborador</p>
                 </div>
                 <button
                   onClick={() => setShowDeskModal(false)}
-                  className="w-8 h-8 rounded-lg bg-black/[0.08] border border-black/10 text-black/45 hover:bg-black/[0.14] hover:text-[#1A1A0E] flex items-center justify-center transition-colors"
+                  title="Fechar"
+                  className="w-[30px] h-[30px] flex items-center justify-center shrink-0 border border-black/[0.14] dark:border-white/[0.10] text-black/50 dark:text-white/40 hover:bg-[#D81E1E]/[0.09] hover:text-[#D81E1E] hover:border-[#D81E1E]/25 active:scale-[0.93] transition-all duration-[130ms]"
                 >
-                  <X size={14} strokeWidth={2.5} />
+                  <X size={15} strokeWidth={2.6} />
                 </button>
               </div>
 
-              <div className="p-5 flex flex-col gap-3.5 overflow-y-auto">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <span className={modalLabelCls}>Colaborador</span>
-                    <select
-                      className={modalFieldCls}
-                      value={deskDraft.colaborador_id}
-                      onChange={e => setDeskDraft(prev => ({ ...prev, colaborador_id: e.target.value }))}
-                    >
-                      <option value="">Selecionar...</option>
-                      {employees.map(emp => (
-                        <option key={emp.id} value={emp.id}>{emp.nome}</option>
-                      ))}
-                    </select>
+              <div className="flex-1 min-h-0 overflow-y-auto px-3.5 py-3">
+                <div className={sectionCls}>
+                  <div className={sectionHeadCls}>
+                    <BookText size={12} strokeWidth={2.4} className="text-[#D81E1E] shrink-0" />
+                    <span className={sectionTitleCls}>Registro</span>
                   </div>
-                  <div>
-                    <span className={modalLabelCls}>Modalidade</span>
-                    <select
-                      className={modalFieldCls}
-                      value={deskDraft.modalidade}
-                      onChange={e => changeDeskDraftModalidade(e.target.value as Modalidade)}
-                    >
-                      {MODALIDADES.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <span className={modalLabelCls}>Tipo</span>
-                  {TIPO_AUTOMATICO[deskDraft.modalidade] ? (
-                    <div className={cn('flex items-center gap-1.5 w-fit text-[11px] font-extrabold uppercase tracking-wide px-3 py-2.5 rounded-xl', tipoColor(deskDraft.tipo))}>
-                      <Lock size={10} strokeWidth={3} /> {deskDraft.tipo}
+                  <div className="p-2.5 grid grid-cols-2 gap-2.5">
+                    <div className="min-w-0">
+                      <span className={modalLabelCls}>Colaborador</span>
+                      <select
+                        className={cn(modalFieldCls, 'cursor-pointer')}
+                        value={deskDraft.colaborador_id}
+                        onChange={e => setDeskDraft(prev => ({ ...prev, colaborador_id: e.target.value }))}
+                      >
+                        <option value="">Selecionar...</option>
+                        {employees.map(emp => (
+                          <option key={emp.id} value={emp.id}>{emp.nome}</option>
+                        ))}
+                      </select>
                     </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      {(['Despesa', 'Receita'] as TipoLancamento[]).map(t => (
-                        <button
-                          key={t} onClick={() => setDeskDraft(prev => ({ ...prev, tipo: t }))}
-                          className={cn(
-                            'flex-1 py-2.5 rounded-xl text-[11px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
-                            deskDraft.tipo === t ? tipoColor(t) : 'border-on-surface/[0.12] text-on-surface/40',
-                          )}
-                        >
-                          {t}
-                        </button>
-                      ))}
+                    <div className="min-w-0">
+                      <span className={modalLabelCls}>Modalidade</span>
+                      <select
+                        className={cn(modalFieldCls, 'cursor-pointer')}
+                        value={deskDraft.modalidade}
+                        onChange={e => changeDeskDraftModalidade(e.target.value as Modalidade)}
+                      >
+                        {MODALIDADES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
                     </div>
-                  )}
-                </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <span className={modalLabelCls}>Valor (R$)</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      onWheel={blockWheelChange}
-                      className={cn(modalFieldCls, 'no-spinner')}
-                      placeholder="0,00"
-                      value={deskDraft.valor}
-                      onChange={e => setDeskDraft(prev => ({ ...prev, valor: e.target.value }))}
-                    />
+                    <div className="col-span-2 min-w-0">
+                      <span className={modalLabelCls}>Tipo</span>
+                      {TIPO_AUTOMATICO[deskDraft.modalidade] ? (
+                        <span className={cn('h-[34px] inline-flex items-center gap-1.5 px-2.5 border border-current text-[10.5px] font-black uppercase tracking-[0.06em]', tipoTagCls(deskDraft.tipo))}>
+                          <Lock size={11} strokeWidth={2.8} /> {deskDraft.tipo} · definido pela modalidade
+                        </span>
+                      ) : (
+                        <div className={segWrapCls}>
+                          {(['Despesa', 'Receita'] as TipoLancamento[]).map(t => (
+                            <button key={t} onClick={() => setDeskDraft(prev => ({ ...prev, tipo: t }))} className={segBtnCls(deskDraft.tipo === t)}>
+                              {t}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <span className={modalLabelCls}>Valor (R$)</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        onWheel={blockWheelChange}
+                        className={cn(modalFieldCls, 'font-mono no-spinner')}
+                        placeholder="0,00"
+                        value={deskDraft.valor}
+                        onChange={e => setDeskDraft(prev => ({ ...prev, valor: e.target.value }))}
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <span className={modalLabelCls}>Data</span>
+                      <input
+                        type="date"
+                        className={modalFieldCls}
+                        value={deskDraft.data}
+                        onChange={e => setDeskDraft(prev => ({ ...prev, data: e.target.value }))}
+                      />
+                    </div>
+
+                    <div className="col-span-2 min-w-0">
+                      <span className={modalLabelCls}>Observação</span>
+                      <input
+                        type="text"
+                        className={modalFieldCls}
+                        placeholder="Opcional"
+                        value={deskDraft.observacao}
+                        onChange={e => setDeskDraft(prev => ({ ...prev, observacao: e.target.value }))}
+                      />
+                    </div>
+
+                    {deskDraft.error && (
+                      <p className="col-span-2 px-2.5 py-1.5 border border-[#D81E1E]/35 bg-[#D81E1E]/[0.06] text-[11px] font-bold text-[#B91818] dark:text-red-400">{deskDraft.error}</p>
+                    )}
                   </div>
-                  <div>
-                    <span className={modalLabelCls}>Data</span>
-                    <input
-                      type="date"
-                      className={modalFieldCls}
-                      value={deskDraft.data}
-                      onChange={e => setDeskDraft(prev => ({ ...prev, data: e.target.value }))}
-                    />
-                  </div>
                 </div>
-
-                <div>
-                  <span className={modalLabelCls}>Observação</span>
-                  <input
-                    type="text"
-                    className={modalFieldCls}
-                    placeholder="Opcional"
-                    value={deskDraft.observacao}
-                    onChange={e => setDeskDraft(prev => ({ ...prev, observacao: e.target.value }))}
-                  />
-                </div>
-
-                {deskDraft.error && (
-                  <p className="text-[11px] text-red-500 font-semibold">{deskDraft.error}</p>
-                )}
               </div>
 
-              <div className="px-5 py-4 border-t border-on-surface/[0.08] flex justify-end gap-2.5 flex-shrink-0">
+              <div className="px-3.5 py-2.5 bg-[#EFE7CD] dark:bg-[#181814] border-t border-[#DDD2B0] dark:border-white/[0.08] flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => setShowDeskModal(false)}
-                  className="px-5 py-2.5 rounded-xl text-[12px] font-extrabold uppercase tracking-wide bg-on-surface/[0.07] text-on-surface/55 border border-on-surface/10"
+                  className="ml-auto h-9 px-[18px] border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[12px] font-extrabold uppercase tracking-[0.04em] text-on-surface hover:bg-on-surface/[0.05] active:scale-[0.97] transition-all"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={saveDeskDraft}
                   disabled={deskDraft.saving}
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-[12px] font-extrabold uppercase tracking-wide bg-primary text-white shadow-lg shadow-primary/25 active:scale-[0.97] transition-transform disabled:opacity-50"
+                  className="h-9 px-[18px] flex items-center justify-center gap-2 bg-[#D81E1E] hover:bg-[#B91818] text-white text-[12px] font-extrabold uppercase tracking-[0.04em] active:scale-[0.97] transition-all disabled:opacity-45 disabled:cursor-not-allowed"
                 >
                   {deskDraft.saving
                     ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    : <><Check size={14} strokeWidth={2.8} /> Salvar Registro</>
+                    : <><Check size={14} strokeWidth={2.8} /> Salvar registro</>
                   }
                 </button>
               </div>
