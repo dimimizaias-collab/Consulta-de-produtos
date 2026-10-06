@@ -91,11 +91,11 @@ export function TopNav({ hideViewToggle, title, sidebarCollapsed, onToggleSideba
   if (!isMobileView) {
     const PageIcon = title ? getNavIcon(title) : null;
     return (
-      <header data-app-header className="fixed top-0 inset-x-0 z-50 h-11 flex items-stretch bg-[#FBF35E] dark:bg-[#252520] border-b border-[#D9CF45] dark:border-white/[0.08]">
+      <header data-app-header className="fixed top-0 inset-x-0 z-50 h-11 flex items-stretch bg-[#2B2B27] dark:bg-[#2F2F2C] border-b border-[#1A1A17] dark:border-white/[0.10]">
         <button
           onClick={onToggleSidebar}
           title={sidebarCollapsed ? 'Mostrar menu' : 'Ocultar menu'}
-          className="w-16 shrink-0 flex items-center justify-center border-r border-[#D9CF45] dark:border-white/[0.08] hover:bg-black/[0.07] dark:hover:bg-white/[0.06] transition-colors duration-[130ms] outline-none"
+          className="w-16 shrink-0 flex items-center justify-center border-r border-[#1A1A17] dark:border-white/[0.10] hover:bg-[#F2F0E3]/[0.08] dark:hover:bg-[#F2F0E3]/[0.07] transition-colors duration-[130ms] outline-none"
         >
           <span className="relative w-8 h-8 bg-white border border-black/[0.12] flex items-center justify-center">
             <Image src="/brand/logo.png" alt="Universo do R$1,99" fill className="object-contain p-[3px]" unoptimized priority />
@@ -104,17 +104,17 @@ export function TopNav({ hideViewToggle, title, sidebarCollapsed, onToggleSideba
 
         <div className="flex items-center gap-[9px] px-4 min-w-0">
           {PageIcon && (
-            <span className="w-7 h-7 shrink-0 flex items-center justify-center bg-black/[0.09] dark:bg-[#D81E1E]/[0.13] text-[#1A1A0E] dark:text-[#D81E1E]">
+            <span className="w-7 h-7 shrink-0 flex items-center justify-center bg-[#D81E1E]/20 dark:bg-[#D81E1E]/[0.16] text-[#FF5A4E]">
               <PageIcon size={15} strokeWidth={2.2} />
             </span>
           )}
-          <h1 className="text-[15px] font-black tracking-[-0.01em] text-[#1A1A0E] dark:text-[#F2F0E3] whitespace-nowrap truncate">{title}</h1>
+          <h1 className="text-[15px] font-black tracking-[-0.01em] text-[#F2F0E3] whitespace-nowrap truncate">{title}</h1>
         </div>
 
         <div ref={wrapRef} className="relative ml-auto flex items-center gap-1.5 px-2.5 shrink-0">
           <span
             title="Versão do site — confira com o hash do último commit"
-            className="h-[30px] flex items-center px-2 border border-black/[0.16] dark:border-white/[0.14] font-mono text-[10.5px] font-semibold text-[#1A1A0E]/60 dark:text-[#F2F0E3]/50 select-none"
+            className="h-[30px] flex items-center px-2 border border-[#F2F0E3]/[0.16] dark:border-[#F2F0E3]/[0.14] font-mono text-[10.5px] font-semibold text-[#F2F0E3]/55 dark:text-[#F2F0E3]/50 select-none"
           >
             v{getAppVersion()}
           </span>
@@ -123,8 +123,8 @@ export function TopNav({ hideViewToggle, title, sidebarCollapsed, onToggleSideba
             title="Menu do usuário"
             className={cn(
               'w-[30px] h-[30px] flex items-center justify-center border text-[11.5px] font-black',
-              'border-black/[0.16] dark:border-white/[0.14] bg-black/[0.06] dark:bg-[#D81E1E]/[0.13] text-[#1A1A0E] dark:text-[#F2F0E3]',
-              'hover:bg-black/[0.11] dark:hover:bg-[#D81E1E]/20 transition-[background-color,transform,box-shadow] duration-[130ms] active:scale-[0.94]',
+              'border-[#F2F0E3]/[0.16] dark:border-[#F2F0E3]/[0.14] bg-[#D81E1E]/20 dark:bg-[#D81E1E]/[0.16] text-[#F2F0E3]',
+              'hover:bg-[#D81E1E]/30 dark:hover:bg-[#D81E1E]/25 transition-[background-color,transform,box-shadow] duration-[130ms] active:scale-[0.94]',
               open && 'shadow-[inset_0_-3px_0_#D81E1E]'
             )}
           >
