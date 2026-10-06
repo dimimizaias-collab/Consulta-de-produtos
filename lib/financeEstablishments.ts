@@ -16,7 +16,7 @@ export const ESTABLISHMENTS = [...STORE_ESTABLISHMENTS, PERSONAL_ESTABLISHMENT];
 // para não "separar" as movimentações já gravadas (ex.: "Universo do 1,99" → "Universo do R$1,99").
 const ALIASES: [string, string][] = [['universo', 'Universo do R$1,99'], ['castelo', 'Castelo Real']];
 
-const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
 /** Nome do estabelecimento financeiro para uma empresa do cadastro. */
 export function estabelecimentoDaEmpresa(nomeFantasia: string): string {
