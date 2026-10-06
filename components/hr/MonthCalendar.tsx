@@ -38,11 +38,11 @@ export function CalendarLegend({ size = 'full' }: { size?: 'full' | 'compact' })
         <span
           key={origin}
           className={cn(
-            'flex items-center gap-[5px] font-extrabold uppercase tracking-wider text-on-surface/40',
-            size === 'full' ? 'text-[11px]' : 'text-[9px]',
+            'flex items-center gap-[5px] font-extrabold uppercase',
+            size === 'full' ? 'text-[10px] tracking-[0.06em] text-on-surface/55' : 'text-[9px] tracking-wider text-on-surface/40',
           )}
         >
-          <span className={cn('rounded-[2px] flex-shrink-0', size === 'full' ? 'w-[9px] h-[9px]' : 'w-[7px] h-[7px]', ORIGIN_DOT_CLS[origin])} />
+          <span className={cn('flex-shrink-0', size === 'full' ? 'w-[9px] h-[9px]' : 'w-[7px] h-[7px] rounded-[2px]', ORIGIN_DOT_CLS[origin])} />
           {ORIGIN_LABEL[origin]}
         </span>
       ))}
@@ -80,6 +80,71 @@ export function MonthCalendar({ viewDate, setViewDate, selectedDate, setSelected
 
   const t = today();
   const isFull = size === 'full';
+
+  // Desktop: grade no padrão das tabelas do site — cabeçalho amarelo dos dias, linhas de grade,
+  // hoje em amarelo, selecionado com contorno vermelho e eventos como etiquetas retas. Só as
+  // semanas do mês (sem completar 6 linhas).
+  if (isFull) {
+    const rows = Math.ceil((firstDay + daysInMonth) / 7);
+    const fullCells = cells.slice(0, rows * 7);
+    return (
+      <div className="border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18]">
+        <div className="grid grid-cols-7 bg-[#FFEC4D]">
+          {DAYS_PT_FULL.map(d => (
+            <div key={d} className="h-[30px] px-[9px] flex items-center text-[9px] font-black uppercase tracking-[0.1em] text-[rgba(26,26,10,0.55)] shadow-[inset_-1px_0_0_#B8A31F,inset_0_-1.5px_0_#8F7E10] last:shadow-[inset_0_-1.5px_0_#8F7E10]">
+              {d}
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7">
+          {fullCells.map((cell, i) => {
+            const isToday = sameDay(cell.date, t);
+            const isSelected = sameDay(cell.date, selectedDate);
+            const dayEvents = eventsByDate[dateKey(cell.date)] ?? [];
+            return (
+              <button
+                key={i}
+                onClick={() => setSelectedDate(cell.date)}
+                className={cn(
+                  'min-w-0 min-h-[98px] px-1.5 pt-1.5 pb-[7px] flex flex-col gap-[3px] text-left transition-colors',
+                  'border-[#A8A290] dark:border-white/20',
+                  i % 7 !== 6 && 'border-r',
+                  i < fullCells.length - 7 && 'border-b',
+                  cell.current ? 'bg-white dark:bg-[#1E1E18]' : 'bg-[#F3EEDD] dark:bg-[#191914]',
+                  'hover:bg-[#FFF8D0] dark:hover:bg-white/[0.04]',
+                  isSelected && 'shadow-[inset_0_0_0_2px_#D81E1E]',
+                )}
+              >
+                <span className={cn(
+                  'h-5 flex items-center font-mono text-[11.5px] font-medium',
+                  isToday ? 'self-start px-[5px] bg-[#FFE500] text-[#1A1A0E]' : 'text-on-surface/55',
+                  !cell.current && 'opacity-40',
+                )}>
+                  {String(cell.date.getDate()).padStart(2, '0')}
+                </span>
+                {dayEvents.slice(0, 2).map(ev => (
+                  <span
+                    key={ev.id}
+                    className={cn(
+                      'block pl-1.5 pr-[5px] py-0.5 border-l-[3px] text-[9.5px] font-extrabold truncate',
+                      ev.origin === 'hr' && 'border-[#4F46E5] dark:border-[#818CF8] bg-[rgba(79,70,229,0.09)] dark:bg-[rgba(129,140,248,0.14)] text-[#4338CA] dark:text-[#A5B4FC]',
+                      ev.origin === 'task' && 'border-[#EA580C] dark:border-[#FB923C] bg-[rgba(234,88,12,0.09)] dark:bg-[rgba(251,146,60,0.14)] text-[#C2410C] dark:text-[#FDBA74]',
+                      ev.origin === 'finance' && 'border-[#B45309] dark:border-[#FBBF24] bg-[rgba(180,83,9,0.09)] dark:bg-[rgba(251,191,36,0.14)] text-[#92400E] dark:text-[#FCD34D]',
+                    )}
+                  >
+                    {ev.title}
+                  </span>
+                ))}
+                {dayEvents.length > 2 && (
+                  <span className="pl-1.5 text-[9.5px] font-extrabold text-on-surface/40">+{dayEvents.length - 2} mais</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -124,43 +189,6 @@ export function MonthCalendar({ viewDate, setViewDate, selectedDate, setSelected
           const dayEvents = eventsByDate[dateKey(cell.date)] ?? [];
           const origins = Array.from(new Set(dayEvents.map(e => e.origin))).slice(0, isFull ? 2 : 3);
           const extra = dayEvents.length - origins.length;
-
-          if (isFull) {
-            return (
-              <button
-                key={i}
-                onClick={() => setSelectedDate(cell.date)}
-                className={cn(
-                  'text-left rounded-[14px] border min-h-[104px] p-[9px] flex flex-col gap-[5px] transition-colors',
-                  cell.current ? 'bg-surface-container border-on-surface/[0.07]' : 'bg-surface-container/40 border-on-surface/[0.05] opacity-40',
-                  isSelected && 'border-primary shadow-[0_0_0_1px_var(--color-primary)_inset]',
-                )}
-              >
-                <span className={cn(
-                  'text-[12px] font-bold text-on-surface/55',
-                  isToday && 'bg-[#FFE500] text-[#1A1A0E] w-[22px] h-[22px] rounded-[7px] flex items-center justify-center font-black',
-                )}>
-                  {cell.date.getDate()}
-                </span>
-                {dayEvents.slice(0, 2).map(ev => (
-                  <span
-                    key={ev.id}
-                    className={cn(
-                      'text-[9px] font-extrabold px-[6px] py-[3px] rounded-[6px] truncate',
-                      ev.origin === 'hr' && 'bg-[rgba(79,70,229,0.10)] dark:bg-[rgba(129,140,248,0.16)] text-[#4338CA] dark:text-[#A5B4FC]',
-                      ev.origin === 'task' && 'bg-[rgba(234,88,12,0.10)] dark:bg-[rgba(251,146,60,0.16)] text-[#C2410C] dark:text-[#FDBA74]',
-                      ev.origin === 'finance' && 'bg-[rgba(180,83,9,0.10)] dark:bg-[rgba(251,191,36,0.16)] text-[#92400E] dark:text-[#FCD34D]',
-                    )}
-                  >
-                    {ev.title}
-                  </span>
-                ))}
-                {dayEvents.length > 2 && (
-                  <span className="text-[9px] font-extrabold text-on-surface/30 px-[6px]">+{dayEvents.length - 2} mais</span>
-                )}
-              </button>
-            );
-          }
 
           return (
             <button

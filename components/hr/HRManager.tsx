@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Users, Plus, X, Trash2, ChevronLeft, ChevronRight, CalendarDays, ClipboardCheck, Wallet } from 'lucide-react';
+import { Plus, X, Trash2, ChevronLeft, ChevronRight, CalendarDays, ClipboardCheck, Wallet, List } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { squareTabCls } from '@/components/shared/squareTabs';
 import { supabase } from '@/lib/supabase';
 import {
   buildHrEvents, buildTaskEvents, buildFinanceEvents, groupEventsByDate, dateKey,
@@ -41,6 +42,23 @@ function emptyForm(date: Date): EventForm {
 }
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+const TABS: { key: HRView; label: string }[] = [
+  { key: 'calendario', label: 'Calendário' },
+  { key: 'financas', label: 'Finanças' },
+  { key: 'colaboradores', label: 'Colaboradores' },
+  { key: 'caderninho', label: 'Caderninho' },
+];
+
+// Padrão quadrado do site (mesmo dos modais de Fornecedor/Etiquetas).
+const sectionCls = 'bg-[#F1EAD3] dark:bg-[#181814] border border-[#E0D8BF] dark:border-white/[0.10]';
+const sectionHeadCls = 'h-7 flex items-center gap-2 px-2.5 bg-[#FFEC4D] border-b-[1.5px] border-[#8F7E10]';
+const sectionTitleCls = 'text-[9px] font-black uppercase tracking-[0.1em] text-[rgba(26,26,10,0.55)]';
+const sectionCountCls = 'ml-auto text-[10px] font-extrabold text-[rgba(26,26,10,0.55)]';
+const labelCls = 'block text-[9px] font-black uppercase tracking-[0.1em] text-[#1A1A0E]/[0.58] dark:text-[#F2F0E3]/55 pl-px mb-1';
+const inputCls = 'w-full min-w-0 h-[34px] px-2.5 bg-white dark:bg-[#1E1E18] text-[13px] font-semibold text-on-surface border border-[#E0D8BF] dark:border-white/[0.10] outline-none caret-[#D81E1E] hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] placeholder:text-on-surface/25 placeholder:font-medium transition-[border-color,box-shadow]';
+const btnCls = 'h-9 px-[18px] flex items-center justify-center gap-2 border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[12px] font-extrabold uppercase tracking-[0.04em] text-on-surface hover:bg-on-surface/[0.05] active:scale-[0.97] transition-all';
+const btnPrimaryCls = 'h-9 px-[18px] flex items-center justify-center gap-2 bg-[#D81E1E] hover:bg-[#B91818] text-white text-[12px] font-extrabold uppercase tracking-[0.04em] active:scale-[0.97] transition-all disabled:opacity-45 disabled:cursor-not-allowed';
 
 interface HRManagerProps {
   requests: any[];
@@ -191,50 +209,27 @@ export function HRManager({ requests, onOpenTask, onGoToFinance }: HRManagerProp
   const hrMonthLabel = viewDate.toLocaleDateString('pt-BR', { month: 'long' }).replace(/^\w/, c => c.toUpperCase())
     + ' ' + viewDate.getFullYear();
 
+  const isSelectedToday = selectedDate.toDateString() === new Date().toDateString();
+  const selectedDayLabel = selectedDate
+    .toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })
+    .replace(/^\w/, c => c.toUpperCase());
+
   return (
     <div className="w-full">
-      {/* Header */}
-      <div className="relative mb-14">
-        <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-tl-[20px] rounded-tr-[20px] rounded-br-[20px] px-6 py-5 flex items-center gap-3.5">
-          <div className="w-[52px] h-[52px] rounded-[14px] bg-[rgba(26,26,10,0.09)] dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center text-[#1A1A0E] dark:text-primary shrink-0">
-            <Users size={24} strokeWidth={2} />
-          </div>
-          <div>
-            <h1 className="text-[26px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight leading-tight">Recursos Humanos</h1>
-          </div>
-        </div>
-
-        <div className="absolute left-0 top-full flex">
-          {([
-            { key: 'calendario', label: 'Calendário' },
-            { key: 'financas', label: 'Finanças' },
-            { key: 'colaboradores', label: 'Colaboradores' },
-            { key: 'caderninho', label: 'Caderninho' },
-          ] as const).map((tab, i, arr) => {
-            const HEADER_TAB_LABEL_MAX = 12;
-            const label = tab.label.length > HEADER_TAB_LABEL_MAX
-              ? tab.label.slice(0, HEADER_TAB_LABEL_MAX - 1) + '…'
-              : tab.label;
+      {/* Abas — penduradas direto no cabeçalho do site (o título já fica nele).
+          -ml-7/-mt-5 desfazem o padding do conteúdo pra colar na barra e no menu lateral. */}
+      <div className="sticky top-11 z-20 -ml-7 -mt-5 mb-3 w-max">
+        <div className="flex">
+          {TABS.map((tab, i) => {
             const active = activeView === tab.key;
             const protectedTab = tab.key === 'colaboradores' || tab.key === 'caderninho';
             return (
               <button
                 key={tab.key}
-                title={tab.label}
                 onClick={() => protectedTab ? handleProtectedTabClick(tab.key) : setActiveView(tab.key)}
-                className={cn(
-                  'w-[136px] h-[34px] flex items-center justify-center shrink-0',
-                  'bg-[#FFE500] dark:bg-[#252520] border border-t-0 border-[#D4C000] dark:border-white/[0.07]',
-                  i === arr.length - 1 && 'rounded-br-[12px]',
-                  'text-[12px] font-extrabold uppercase tracking-wide truncate',
-                  'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35)] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55)]',
-                  'transition-[opacity,transform] duration-150 active:scale-[0.97]',
-                  active
-                    ? 'text-[#1A1A0E] dark:text-[#F2F0E3] opacity-100'
-                    : 'text-[#1A1A0E] dark:text-white/75 opacity-55 hover:opacity-85'
-                )}
+                className={squareTabCls(active, i === 0)}
               >
-                {label}
+                <span className={cn('transition-opacity', active ? 'opacity-100' : 'opacity-55 hover:opacity-85')}>{tab.label}</span>
               </button>
             );
           })}
@@ -242,109 +237,131 @@ export function HRManager({ requests, onOpenTask, onGoToFinance }: HRManagerProp
       </div>
 
       {activeView === 'calendario' ? (
-        <>
-          <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden">
-            <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center justify-between gap-2.5">
-              <div className="flex items-center gap-2">
-                <span className="text-[13px] font-black text-[#1A1A0E] capitalize whitespace-nowrap min-w-[140px]">{hrMonthLabel}</span>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))}
-                    className="w-[26px] h-[26px] rounded-[8px] bg-[rgba(26,26,10,0.08)] flex items-center justify-center text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)] transition-colors"
-                  >
-                    <ChevronLeft size={12} strokeWidth={2.5} />
-                  </button>
-                  <button
-                    onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))}
-                    className="w-[26px] h-[26px] rounded-[8px] bg-[rgba(26,26,10,0.08)] flex items-center justify-center text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)] transition-colors"
-                  >
-                    <ChevronRight size={12} strokeWidth={2.5} />
-                  </button>
-                </div>
-              </div>
+        <div className="space-y-2.5">
+          {/* Barra de ferramentas */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex items-center border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18]">
               <button
-                onClick={openCreateModal}
-                title="Novo Evento"
-                className="w-[26px] h-[26px] rounded-[8px] bg-[#D81E1E] text-white flex items-center justify-center active:scale-90 transition-transform"
+                onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))}
+                className="w-7 h-[26px] flex items-center justify-center text-on-surface/45 hover:text-on-surface transition-colors"
+                title="Mês anterior"
               >
-                <Plus size={14} strokeWidth={2.8} />
+                <ChevronLeft size={14} strokeWidth={2.5} />
+              </button>
+              <span className="h-[26px] min-w-[132px] px-2.5 flex items-center justify-center border-x border-[#E0D8BF] dark:border-white/[0.10] text-[12px] font-black text-on-surface whitespace-nowrap">
+                {hrMonthLabel}
+              </span>
+              <button
+                onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))}
+                className="w-7 h-[26px] flex items-center justify-center text-on-surface/45 hover:text-on-surface transition-colors"
+                title="Próximo mês"
+              >
+                <ChevronRight size={14} strokeWidth={2.5} />
               </button>
             </div>
-            <div className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <CalendarLegend size="full" />
-              </div>
-              <MonthCalendar
-                viewDate={viewDate} setViewDate={setViewDate}
-                selectedDate={selectedDate} setSelectedDate={setSelectedDate}
-                eventsByDate={eventsByDate} size="full" hideHeader
-              />
-            </div>
+            <button
+              onClick={() => { const now = new Date(); setViewDate(new Date(now.getFullYear(), now.getMonth(), 1)); setSelectedDate(now); }}
+              className="h-7 px-2.5 border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[10.5px] font-extrabold uppercase tracking-[0.05em] text-on-surface/55 hover:text-on-surface active:scale-[0.97] transition-all"
+            >
+              Hoje
+            </button>
+            <span className="w-px h-5 mx-1 bg-[#E0D8BF] dark:bg-white/[0.10]" />
+            <CalendarLegend size="full" />
+            <button
+              onClick={openCreateModal}
+              className="ml-auto h-[30px] px-3.5 flex items-center gap-1.5 bg-[#D81E1E] hover:bg-[#B91818] text-white text-[11px] font-extrabold uppercase tracking-[0.05em] active:scale-[0.97] transition-all"
+            >
+              <Plus size={13} strokeWidth={2.8} />
+              Novo evento
+            </button>
           </div>
 
-          <div className="mt-6 bg-surface-container border border-on-surface/[0.07] rounded-[20px] p-5">
-            <div className="flex items-center justify-between mb-3.5">
-              <span className="text-[15px] font-extrabold text-on-surface">
-                Eventos · {selectedDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
-              </span>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-on-surface/35">
-                {selectedDayEvents.length} {selectedDayEvents.length === 1 ? 'evento' : 'eventos'}
-              </span>
-            </div>
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-2.5 items-start">
+            <MonthCalendar
+              viewDate={viewDate} setViewDate={setViewDate}
+              selectedDate={selectedDate} setSelectedDate={setSelectedDate}
+              eventsByDate={eventsByDate} size="full" hideHeader
+            />
 
-            {selectedDayEvents.length === 0 ? (
-              <p className="text-sm text-on-surface/35 py-6 text-center">Nenhum evento neste dia.</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {selectedDayEvents.map(ev => (
-                  <button
-                    key={ev.id}
-                    onClick={() => handleEventClick(ev)}
-                    className="flex items-center justify-between gap-3.5 px-3.5 py-3 rounded-[14px] bg-surface border border-on-surface/[0.07] hover:border-on-surface/[0.14] transition-colors text-left"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={cn(
-                        'w-[38px] h-[38px] rounded-xl flex items-center justify-center flex-shrink-0',
-                        ev.origin === 'hr' && 'bg-[rgba(79,70,229,0.10)] dark:bg-[rgba(129,140,248,0.14)] text-[#4F46E5] dark:text-[#A5B4FC]',
-                        ev.origin === 'task' && 'bg-[rgba(234,88,12,0.10)] dark:bg-[rgba(251,146,60,0.14)] text-[#EA580C] dark:text-[#FDBA74]',
-                        ev.origin === 'finance' && 'bg-[rgba(180,83,9,0.10)] dark:bg-[rgba(251,191,36,0.14)] text-[#B45309] dark:text-[#FCD34D]',
-                      )}>
-                        {ev.origin === 'hr' && <CalendarDays size={17} strokeWidth={2.3} />}
-                        {ev.origin === 'task' && <ClipboardCheck size={17} strokeWidth={2.3} />}
-                        {ev.origin === 'finance' && <Wallet size={17} strokeWidth={2.3} />}
-                      </div>
-                      <div className="flex flex-col gap-0.5 min-w-0">
-                        <span className="text-[13.5px] font-extrabold text-on-surface truncate">{ev.title}</span>
-                        <span className="text-[11px] font-semibold text-on-surface/40 truncate">{ev.subtitle}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2.5 flex-shrink-0">
-                      {ev.classificacao && (
-                        <span className={cn(
-                          'text-[9.5px] font-extrabold uppercase tracking-wide px-2.5 py-1 rounded-lg',
-                          ev.classificacao === 'Alta' && 'bg-red-500/15 text-red-600 dark:text-red-400',
-                          ev.classificacao === 'Média' && 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
-                          ev.classificacao === 'Baixa' && 'bg-green-500/15 text-green-700 dark:text-green-400',
-                        )}>
-                          {ev.classificacao}
-                        </span>
-                      )}
-                      {ev.amount != null && (
-                        <span className={cn(
-                          'font-mono text-[13.5px] font-bold',
-                          ev.amountKind === 'rec' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400',
-                        )}>
-                          {ev.amountKind === 'rec' ? '+' : '−'}{fmt(ev.amount)}
-                        </span>
-                      )}
-                      <ChevronRight size={16} className="text-on-surface/25" />
-                    </div>
-                  </button>
-                ))}
+            {/* Eventos do dia selecionado */}
+            <div className={cn(sectionCls, 'xl:sticky xl:top-[92px]')}>
+              <div className={sectionHeadCls}>
+                <List size={12} strokeWidth={2.4} className="text-[#D81E1E] shrink-0" />
+                <span className={sectionTitleCls}>Eventos do dia</span>
+                <span className={sectionCountCls}>
+                  {selectedDayEvents.length} {selectedDayEvents.length === 1 ? 'evento' : 'eventos'}
+                </span>
               </div>
-            )}
+              <div className="p-2.5">
+                <div className="flex items-baseline gap-2 mb-2">
+                  <span className="text-[14px] font-black text-on-surface">{selectedDayLabel}</span>
+                  {isSelectedToday && <span className="text-[11px] font-bold text-on-surface/40">hoje</span>}
+                </div>
+
+                {selectedDayEvents.length === 0 ? (
+                  <div className="py-[18px] px-3 text-center border border-dashed border-[#E0D8BF] dark:border-white/[0.12] bg-white dark:bg-[#1E1E18] text-[11.5px] font-bold text-on-surface/40">
+                    Nenhum evento neste dia.
+                  </div>
+                ) : (
+                  <div className="flex flex-col">
+                    {selectedDayEvents.map((ev, idx) => (
+                      <button
+                        key={ev.id}
+                        onClick={() => handleEventClick(ev)}
+                        className={cn(
+                          'flex items-center gap-2.5 px-2.5 py-2 text-left bg-white dark:bg-[#1E1E18] border border-[#B5AA86] dark:border-white/[0.10] hover:bg-[#FFF8D0] dark:hover:bg-white/[0.04] transition-colors',
+                          idx > 0 && 'border-t-0',
+                        )}
+                      >
+                        <span className={cn(
+                          'w-[30px] h-[30px] flex items-center justify-center shrink-0',
+                          ev.origin === 'hr' && 'bg-[rgba(79,70,229,0.09)] dark:bg-[rgba(129,140,248,0.14)] text-[#4338CA] dark:text-[#A5B4FC]',
+                          ev.origin === 'task' && 'bg-[rgba(234,88,12,0.09)] dark:bg-[rgba(251,146,60,0.14)] text-[#C2410C] dark:text-[#FDBA74]',
+                          ev.origin === 'finance' && 'bg-[rgba(180,83,9,0.09)] dark:bg-[rgba(251,191,36,0.14)] text-[#92400E] dark:text-[#FCD34D]',
+                        )}>
+                          {ev.origin === 'hr' && <CalendarDays size={15} strokeWidth={2.3} />}
+                          {ev.origin === 'task' && <ClipboardCheck size={15} strokeWidth={2.3} />}
+                          {ev.origin === 'finance' && <Wallet size={15} strokeWidth={2.3} />}
+                        </span>
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-[12.5px] font-extrabold text-on-surface truncate">{ev.title}</span>
+                          <span className="block text-[10.5px] font-semibold text-on-surface/40 truncate">{ev.subtitle}</span>
+                        </span>
+                        {ev.classificacao && (
+                          <span className={cn(
+                            'shrink-0 px-1.5 py-0.5 border border-current text-[8.5px] font-black uppercase tracking-[0.06em]',
+                            ev.classificacao === 'Alta' && 'text-[#D81E1E] bg-[#D81E1E]/[0.06]',
+                            ev.classificacao === 'Média' && 'text-[#C2410C] dark:text-[#FDBA74] bg-orange-500/[0.06]',
+                            ev.classificacao === 'Baixa' && 'text-[#0A7A55] dark:text-[#34D399] bg-emerald-500/[0.06]',
+                          )}>
+                            {ev.classificacao}
+                          </span>
+                        )}
+                        {ev.amount != null && (
+                          <span className={cn(
+                            'shrink-0 font-mono text-[12.5px] font-medium',
+                            ev.amountKind === 'rec' ? 'text-[#0A7A55] dark:text-[#34D399]' : 'text-[#B91818] dark:text-red-400',
+                          )}>
+                            {ev.amountKind === 'rec' ? '+' : '−'}{fmt(ev.amount)}
+                          </span>
+                        )}
+                        <ChevronRight size={15} className="shrink-0 text-on-surface/25" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <button
+                  onClick={openCreateModal}
+                  className="mt-2 w-full h-7 flex items-center justify-center gap-1.5 border border-dashed border-[#D81E1E]/45 text-[10px] font-black uppercase tracking-[0.06em] text-[#D81E1E] hover:bg-[#D81E1E]/[0.06] transition-colors"
+                >
+                  <Plus size={12} strokeWidth={2.8} />
+                  Novo evento neste dia
+                </button>
+              </div>
+            </div>
           </div>
-        </>
+        </div>
       ) : activeView === 'financas' ? (
         <DespesasPage onBack={() => setActiveView('calendario')} />
       ) : activeView === 'colaboradores' ? (
@@ -379,116 +396,129 @@ export function HRManager({ requests, onOpenTask, onGoToFinance }: HRManagerProp
       {/* Modal criar/editar evento */}
       <AnimatePresence>
         {showModal && (
-          <>
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
             <motion.div
               key="overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/55 z-[60]" onClick={() => setShowModal(false)}
+              className="absolute inset-0 bg-black/55" onClick={() => setShowModal(false)}
             />
             <motion.div
               key="modal"
               initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}
               transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[61] w-[460px] max-h-[88vh] overflow-y-auto bg-surface-container border border-on-surface/[0.08] rounded-[24px] p-6 shadow-2xl"
+              className="relative w-full max-w-[480px] max-h-[88vh] flex flex-col overflow-hidden bg-[#FDFAF0] dark:bg-[#1E1E18] border border-black/[0.12] dark:border-white/[0.08] shadow-2xl"
             >
-              <div className="flex items-center justify-between mb-5">
-                <span className="text-[16px] font-extrabold text-on-surface">{editingEvent ? 'Editar Evento' : 'Novo Evento'}</span>
-                <button onClick={() => setShowModal(false)} className="w-[30px] h-[30px] rounded-[10px] bg-on-surface/[0.06] flex items-center justify-center text-on-surface/45">
-                  <X size={14} strokeWidth={2.5} />
-                </button>
-              </div>
-
-              <div className="mb-4">
-                <label className="text-[10px] font-extrabold uppercase tracking-wide text-on-surface/45 mb-1.5 block">Título</label>
-                <input
-                  value={form.titulo} onChange={e => setForm({ ...form, titulo: e.target.value })}
-                  placeholder="Ex: Reunião de Equipe"
-                  className="w-full bg-surface border border-on-surface/[0.10] rounded-xl px-3.5 py-2.5 text-[13px] text-on-surface outline-none focus:border-primary/50"
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="text-[10px] font-extrabold uppercase tracking-wide text-on-surface/45 mb-1.5 block">Descrição</label>
-                <textarea
-                  value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })}
-                  placeholder="Detalhes do evento..." rows={3}
-                  className="w-full bg-surface border border-on-surface/[0.10] rounded-xl px-3.5 py-2.5 text-[13px] text-on-surface outline-none focus:border-primary/50 resize-none"
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="text-[10px] font-extrabold uppercase tracking-wide text-on-surface/45 mb-1.5 block">Data</label>
-                <input
-                  type="date" value={form.data} onChange={e => setForm({ ...form, data: e.target.value })}
-                  className="w-full bg-surface border border-on-surface/[0.10] rounded-xl px-3.5 py-2.5 text-[13px] text-on-surface outline-none focus:border-primary/50"
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="text-[10px] font-extrabold uppercase tracking-wide text-on-surface/45 mb-1.5 block">Categoria</label>
-                <div className="flex gap-1.5 flex-wrap">
-                  {CATEGORIES.map(cat => (
-                    <button
-                      key={cat} onClick={() => setForm({ ...form, categoria: cat })}
-                      className={cn(
-                        'px-3.5 py-2 rounded-[11px] text-[11.5px] font-bold border-[1.5px] transition-colors',
-                        form.categoria === cat
-                          ? 'bg-primary/10 border-primary/30 text-primary'
-                          : 'border-on-surface/[0.10] text-on-surface/50',
-                      )}
-                    >
-                      {cat}
-                    </button>
-                  ))}
+              {/* Barra de título */}
+              <div className="h-12 pl-3.5 pr-3 flex items-center gap-[11px] bg-[#FBF35E] dark:bg-[#252520] border-b border-[#D9CF45] dark:border-white/[0.08] shrink-0">
+                <div className="w-[30px] h-[30px] flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
+                  <CalendarDays size={15} strokeWidth={2.3} />
                 </div>
-              </div>
-
-              <div className="mb-4">
-                <label className="text-[10px] font-extrabold uppercase tracking-wide text-on-surface/45 mb-1.5 block">Responsável</label>
-                <input
-                  value={form.responsavel} onChange={e => setForm({ ...form, responsavel: e.target.value })}
-                  placeholder="Nome do responsável"
-                  className="w-full bg-surface border border-on-surface/[0.10] rounded-xl px-3.5 py-2.5 text-[13px] text-on-surface outline-none focus:border-primary/50"
-                />
-              </div>
-
-              <div className="mb-5">
-                <label className="text-[10px] font-extrabold uppercase tracking-wide text-on-surface/45 mb-1.5 block">Cor</label>
-                <div className="flex gap-2.5">
-                  {COLORS.map(color => (
-                    <button
-                      key={color} onClick={() => setForm({ ...form, cor: color })}
-                      style={{ background: color }}
-                      className={cn(
-                        'w-[26px] h-[26px] rounded-[9px] border-2 transition-transform active:scale-90',
-                        form.cor === color ? 'border-on-surface' : 'border-transparent',
-                      )}
-                    />
-                  ))}
+                <div className="flex-1 min-w-0">
+                  <h4 className="truncate text-[15px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight">{editingEvent ? 'Editar Evento' : 'Novo Evento'}</h4>
+                  <p className="truncate text-[10.5px] font-bold text-[#1A1A0E]/50 dark:text-[#F2F0E3]/40">
+                    {form.data
+                      ? new Date(form.data + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())
+                      : 'Calendário do RH'}
+                  </p>
                 </div>
-              </div>
-
-              <div className="flex gap-2.5">
                 <button
                   onClick={() => setShowModal(false)}
-                  className="flex-1 bg-on-surface/[0.06] border border-on-surface/[0.12] text-on-surface/55 font-extrabold text-[12.5px] uppercase tracking-wide py-3.5 rounded-[13px]"
+                  title="Fechar"
+                  className="w-[30px] h-[30px] flex items-center justify-center shrink-0 border border-black/[0.14] dark:border-white/[0.10] text-black/50 dark:text-white/40 hover:bg-[#D81E1E]/[0.09] hover:text-[#D81E1E] hover:border-[#D81E1E]/25 active:scale-[0.93] transition-all duration-[130ms]"
                 >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleSave} disabled={saving || !form.titulo.trim()}
-                  className="flex-[1.4] bg-primary text-white font-extrabold text-[12.5px] uppercase tracking-wide py-3.5 rounded-[13px] shadow-lg shadow-primary/25 disabled:opacity-50"
-                >
-                  {saving ? 'Salvando...' : 'Salvar Evento'}
+                  <X size={15} strokeWidth={2.6} />
                 </button>
               </div>
 
-              {editingEvent && (
-                <button onClick={handleDelete} className="w-full text-center text-[11px] font-extrabold text-red-600 dark:text-red-400 uppercase tracking-wide mt-3.5 flex items-center justify-center gap-1.5">
-                  <Trash2 size={12} /> Excluir Evento
+              <div className="flex-1 min-h-0 overflow-y-auto px-3.5 py-3">
+                <div className={sectionCls}>
+                  <div className={sectionHeadCls}>
+                    <CalendarDays size={12} strokeWidth={2.4} className="text-[#D81E1E] shrink-0" />
+                    <span className={sectionTitleCls}>Evento</span>
+                  </div>
+                  <div className="p-2.5 grid grid-cols-2 gap-2.5">
+                    <div className="col-span-2 min-w-0">
+                      <label className={labelCls}>Título</label>
+                      <input
+                        value={form.titulo} onChange={e => setForm({ ...form, titulo: e.target.value })}
+                        placeholder="Ex: Reunião de Equipe"
+                        className={inputCls}
+                        autoFocus={!editingEvent}
+                      />
+                    </div>
+                    <div className="col-span-2 min-w-0">
+                      <label className={labelCls}>Descrição</label>
+                      <textarea
+                        value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })}
+                        placeholder="Detalhes do evento..." rows={3}
+                        className={cn(inputCls, 'h-auto py-2 resize-none leading-[1.45]')}
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label className={labelCls}>Data</label>
+                      <input
+                        type="date" value={form.data} onChange={e => setForm({ ...form, data: e.target.value })}
+                        className={inputCls}
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label className={labelCls}>Responsável</label>
+                      <input
+                        value={form.responsavel} onChange={e => setForm({ ...form, responsavel: e.target.value })}
+                        placeholder="Nome do responsável"
+                        className={inputCls}
+                      />
+                    </div>
+                    <div className="col-span-2 min-w-0">
+                      <label className={labelCls}>Categoria</label>
+                      <div className="flex flex-wrap gap-0.5 p-0.5 bg-on-surface/[0.06] border border-[#E0D8BF] dark:border-white/[0.10]">
+                        {CATEGORIES.map(cat => (
+                          <button
+                            key={cat} onClick={() => setForm({ ...form, categoria: cat })}
+                            className={cn(
+                              'h-[26px] px-2.5 text-[10px] font-black uppercase tracking-[0.05em] transition-colors duration-[130ms]',
+                              form.categoria === cat ? 'bg-[#D81E1E] text-white' : 'text-on-surface/50 hover:text-on-surface',
+                            )}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="col-span-2 min-w-0">
+                      <label className={labelCls}>Cor</label>
+                      <div className="flex gap-1.5">
+                        {COLORS.map(color => (
+                          <button
+                            key={color} onClick={() => setForm({ ...form, cor: color })}
+                            style={{ background: color }}
+                            title={color}
+                            className={cn(
+                              'w-[26px] h-[26px] transition-transform active:scale-90',
+                              form.cor === color && 'shadow-[0_0_0_2px_#FDFAF0,0_0_0_4px_#1A1A0E] dark:shadow-[0_0_0_2px_#1E1E18,0_0_0_4px_#F2F0E3]',
+                            )}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-3.5 py-2.5 bg-[#EFE7CD] dark:bg-[#181814] border-t border-[#DDD2B0] dark:border-white/[0.08] flex items-center gap-2 shrink-0">
+                {editingEvent && (
+                  <button onClick={handleDelete} className="flex items-center gap-1.5 text-[11px] font-extrabold text-[#D81E1E] hover:text-[#B91818] transition-colors">
+                    <Trash2 size={13} /> Excluir
+                  </button>
+                )}
+                <button onClick={() => setShowModal(false)} className={cn(btnCls, 'ml-auto')}>
+                  Cancelar
                 </button>
-              )}
+                <button onClick={handleSave} disabled={saving || !form.titulo.trim()} className={btnPrimaryCls}>
+                  {saving ? 'Salvando...' : 'Salvar evento'}
+                </button>
+              </div>
             </motion.div>
-          </>
+          </div>
         )}
       </AnimatePresence>
     </div>
