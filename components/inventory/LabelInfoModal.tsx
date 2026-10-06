@@ -5,6 +5,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Check, Plus, Save, Search, Lock, Factory, FlaskConical, AlignLeft, AlertCircle, Info, Loader2, Pencil } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
+import {
+  modalBackdropCls, modalCls, barCls, barChipCls, barTitleCls, barSubtitleCls, closeBtnCls,
+  labelCls, inputCls, segCls, segBtnCls, iconBtnCls, footerCls, btnCls, btnPrimaryCls,
+} from './labelUi';
 import { formatCNPJ } from './labelPrintUtils';
 import { AddManufacturerModal, type Manufacturer } from '@/components/manufacturers/AddManufacturerModal';
 
@@ -90,11 +94,11 @@ const VALIDADE_QUICK: { label: string; value: () => string }[] = [
   { label: 'Indet.', value: () => 'Indeterminada' },
 ];
 
-const fieldBase = 'flex-1 min-w-0 min-h-9 rounded-[10px] border-[1.5px] px-[11px] py-[7px] text-[12.5px] font-semibold flex items-center gap-2';
+const fieldBase = 'flex-1 min-w-0 min-h-[34px] border px-2.5 py-[7px] text-[12.5px] font-semibold flex items-center gap-2';
+const fieldEditCls = 'bg-white dark:bg-[#1E1E18] border-[#E0D8BF] dark:border-white/[0.10] text-on-surface outline-none caret-[#D81E1E] hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] placeholder:text-on-surface/25 transition-[border-color,box-shadow] duration-[130ms]';
 const segBtn = (on: boolean, disabled?: boolean) => cn(
-  'px-2 py-[5px] rounded-[7px] text-[9px] font-black uppercase tracking-wide transition-colors',
-  on ? 'bg-[#1A1A0E] text-[#FFE500] dark:bg-[#FFE500] dark:text-[#1A1A0E]' : 'text-secondary/50 hover:text-on-surface',
-  disabled && 'opacity-40 cursor-not-allowed hover:text-secondary/50'
+  segBtnCls(on),
+  disabled && 'opacity-40 cursor-not-allowed hover:text-on-surface/50'
 );
 
 interface LabelInfoModalProps {
@@ -171,41 +175,38 @@ export function LabelInfoModal({ isOpen, product, subtitle, config, manufacturer
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            className={modalBackdropCls}
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.97 }}
             transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-            className="relative bg-[#F0E7CC] dark:bg-[#1E1E18] rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-black/10 dark:border-white/[0.08] flex flex-col max-h-[90vh]"
+            className={cn(modalCls, 'max-w-[520px]')}
           >
             {/* Header */}
-            <div className="px-5 py-4 flex items-center gap-3 bg-[#FFE500] dark:bg-[#252520] border-b border-[#D4C000] dark:border-white/[0.07] flex-shrink-0">
-              <div className="w-10 h-10 rounded-[14px] flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
-                <AlignLeft size={18} />
+            <div className={barCls}>
+              <div className={barChipCls}>
+                <AlignLeft size={15} strokeWidth={2.3} />
               </div>
               <div className="flex-1 min-w-0">
-                <h2 className="text-base font-manrope font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight">Informações adicionais</h2>
-                <p className="text-[11.5px] font-bold text-[#1A1A0E]/55 dark:text-[#F2F0E3]/35 mt-0.5 truncate">{subtitle ?? product.name}</p>
+                <h4 className={barTitleCls}>Informações adicionais</h4>
+                <p className={barSubtitleCls}>{subtitle ?? product.name}</p>
               </div>
-              <button
-                onClick={onClose}
-                className="w-[34px] h-[34px] rounded-[11px] flex items-center justify-center shrink-0 bg-black/[0.08] dark:bg-white/[0.06] border border-black/10 dark:border-white/[0.08] text-black/50 dark:text-white/40 hover:bg-black/[0.14] dark:hover:bg-white/[0.10] transition-[background-color,transform] active:scale-[0.93]"
-              >
-                <X size={16} />
+              <button onClick={onClose} title="Fechar" className={closeBtnCls}>
+                <X size={15} strokeWidth={2.6} />
               </button>
             </div>
 
             {/* Body */}
-            <div className="px-5 py-4 flex flex-col gap-2.5 overflow-y-auto">
+            <div className="px-3.5 py-3 flex flex-col gap-1.5 overflow-y-auto">
               {manufacturer ? (
-                <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-black/[0.06] dark:bg-white/[0.07] text-[10.5px] font-semibold text-secondary/70">
+                <div className="flex items-center gap-1.5 px-2.5 py-2 mb-1 border border-[#E0D8BF] dark:border-white/[0.10] bg-[#F1EAD3] dark:bg-[#181814] text-[10.5px] font-semibold text-on-surface/60">
                   <Factory size={13} className="shrink-0" />
                   Fabricante vinculado: <b className="text-on-surface truncate">{manufacturer.name}</b>
                 </div>
               ) : (
-                <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[rgba(200,26,26,0.05)] dark:bg-[rgba(216,30,30,0.08)] text-[10.5px] font-bold text-[#B91818] dark:text-red-400">
+                <div className="flex items-center gap-1.5 px-2.5 py-2 mb-1 border border-[#D81E1E]/35 bg-[rgba(200,26,26,0.05)] dark:bg-[rgba(216,30,30,0.08)] text-[10.5px] font-bold text-[#B91818] dark:text-red-400">
                   <AlertCircle size={13} className="shrink-0" />
                   Produto sem fabricante vinculado
                 </div>
@@ -221,12 +222,12 @@ export function LabelInfoModal({ isOpen, product, subtitle, config, manufacturer
                   <div
                     key={field.key}
                     className={cn(
-                      'rounded-2xl border-[1.5px] transition-[border-color,background-color] duration-[130ms] overflow-hidden',
+                      'border transition-[border-color,background-color] duration-[130ms] overflow-hidden',
                       missing
                         ? 'border-[rgba(216,30,30,0.55)] bg-[#FFE500]/[0.14] dark:bg-[#FFE500]/[0.06]'
                         : selected
                           ? 'border-[#D4C000] dark:border-[#FFE500]/30 bg-[#FFE500]/[0.14] dark:bg-[#FFE500]/[0.06]'
-                          : 'border-black/10 dark:border-white/[0.08] bg-white dark:bg-[#252520]'
+                          : 'border-[#B5AA86] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18]'
                     )}
                   >
                     <div
@@ -234,27 +235,27 @@ export function LabelInfoModal({ isOpen, product, subtitle, config, manufacturer
                       tabIndex={0}
                       onClick={() => toggleField(field.key)}
                       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleField(field.key); } }}
-                      className="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer select-none"
+                      className="flex items-center gap-2.5 px-2.5 py-2 cursor-pointer select-none"
                     >
                       <div className={cn(
-                        'w-[18px] h-[18px] rounded-md flex items-center justify-center flex-shrink-0 transition-colors',
-                        selected ? 'bg-[#1A1A0E] dark:bg-[#FFE500]' : 'border-2 border-black/20 dark:border-white/20'
+                        'w-4 h-4 flex items-center justify-center flex-shrink-0 transition-colors',
+                        selected ? 'bg-[#D81E1E]' : 'border-[1.5px] border-black/25 dark:border-white/25 bg-white dark:bg-[#1E1E18]'
                       )}>
-                        {selected && <Check size={11} strokeWidth={3.5} className="text-[#FFE500] dark:text-[#1A1A0E]" />}
+                        {selected && <Check size={11} strokeWidth={3.5} className="text-white" />}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-[13px] font-extrabold text-on-surface">{field.label}</p>
+                        <p className="text-[12.5px] font-extrabold text-on-surface">{field.label}</p>
                         {!selected && (
-                          <p className="text-[10.5px] font-semibold text-secondary/50 mt-px truncate">
+                          <p className="text-[10.5px] font-semibold text-on-surface/45 mt-px truncate">
                             {isValidade ? 'Informada na hora da impressão' : (cadastro || 'Não cadastrado')}
                           </p>
                         )}
                         {selected && isValidade && (
-                          <p className="text-[10.5px] font-semibold text-secondary/50 mt-px">Informada na hora da impressão</p>
+                          <p className="text-[10.5px] font-semibold text-on-surface/45 mt-px">Informada na hora da impressão</p>
                         )}
                       </div>
                       {selected && (
-                        <div className="flex bg-black/[0.06] dark:bg-white/[0.07] rounded-[9px] p-0.5 gap-0.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                        <div className={segCls} onClick={e => e.stopPropagation()}>
                           <button type="button" disabled={isValidade} onClick={() => setSource(field.key, 'cadastro')} className={segBtn(cfg!.source === 'cadastro', isValidade)}>Cadastro</button>
                           <button type="button" onClick={() => setSource(field.key, 'manual')} className={segBtn(cfg!.source === 'manual')}>Manual</button>
                         </div>
@@ -263,7 +264,7 @@ export function LabelInfoModal({ isOpen, product, subtitle, config, manufacturer
 
                     {selected && (
                       <>
-                        <div className="pl-10 pr-3 pb-3 flex gap-2 items-stretch flex-wrap">
+                        <div className="pl-[36px] pr-2.5 pb-2.5 flex gap-2 items-stretch flex-wrap">
                           {cfg!.source === 'manual' ? (
                             isValidade ? (
                               <div className="flex items-center gap-1.5 flex-wrap">
@@ -272,7 +273,7 @@ export function LabelInfoModal({ isOpen, product, subtitle, config, manufacturer
                                   value={cfg!.manual}
                                   onChange={e => setManual(field.key, e.target.value)}
                                   placeholder="MM/AAAA"
-                                  className="w-[120px] h-9 rounded-[10px] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] bg-white dark:bg-[#252520] px-[11px] font-['DM_Mono',monospace] text-[12px] tracking-[0.02em] text-on-surface outline-none caret-[#D81E1E] focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.15)] transition-[border-color,box-shadow] duration-[130ms]"
+                                  className={cn('w-[120px] h-[34px] border px-2.5 font-mono text-[12px] tracking-[0.03em]', fieldEditCls)}
                                 />
                                 {VALIDADE_QUICK.map(q => {
                                   const v = q.value();
@@ -282,8 +283,8 @@ export function LabelInfoModal({ isOpen, product, subtitle, config, manufacturer
                                       type="button"
                                       onClick={() => setManual(field.key, v)}
                                       className={cn(
-                                        'px-2.5 py-1.5 rounded-[9px] text-[10px] font-extrabold transition-colors active:scale-[0.97]',
-                                        cfg!.manual === v ? 'bg-[#1A1A0E] text-[#FFE500] dark:bg-[#FFE500] dark:text-[#1A1A0E]' : 'bg-black/[0.06] dark:bg-white/[0.07] text-secondary/60 hover:text-on-surface'
+                                        'h-[30px] px-2.5 border text-[10px] font-extrabold transition-colors active:scale-[0.97]',
+                                        cfg!.manual === v ? 'bg-[#D81E1E] border-[#D81E1E] text-white' : 'bg-white dark:bg-[#1E1E18] border-[#E0D8BF] dark:border-white/[0.10] text-on-surface/60 hover:text-on-surface'
                                       )}
                                     >
                                       {q.label}
@@ -298,7 +299,7 @@ export function LabelInfoModal({ isOpen, product, subtitle, config, manufacturer
                                 value={cfg!.manual}
                                 onChange={e => setManual(field.key, e.target.value)}
                                 placeholder="Composição só pra esta etiqueta…"
-                                className={cn(fieldBase, 'resize-none bg-white dark:bg-[#252520] border-[#E0D8BF] dark:border-white/[0.08] text-on-surface outline-none caret-[#D81E1E] focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.15)] transition-[border-color,box-shadow] duration-[130ms]')}
+                                className={cn(fieldBase, 'resize-none', fieldEditCls)}
                               />
                             ) : (
                               <input
@@ -307,7 +308,7 @@ export function LabelInfoModal({ isOpen, product, subtitle, config, manufacturer
                                 onChange={e => setManual(field.key, e.target.value)}
                                 maxLength={field.key === 'cnpj' ? 18 : undefined}
                                 placeholder={field.key === 'cnpj' ? '00.000.000/0000-00' : 'Nome do fabricante'}
-                                className={cn(fieldBase, 'h-9 bg-white dark:bg-[#252520] border-[#E0D8BF] dark:border-white/[0.08] text-on-surface outline-none caret-[#D81E1E] focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.15)] transition-[border-color,box-shadow] duration-[130ms]', field.key === 'cnpj' && "font-['DM_Mono',monospace] text-[12px] tracking-[0.02em]")}
+                                className={cn(fieldBase, 'h-[34px]', fieldEditCls, field.key === 'cnpj' && 'font-mono text-[12px] tracking-[0.03em]')}
                               />
                             )
                           ) : missing ? (
@@ -318,26 +319,26 @@ export function LabelInfoModal({ isOpen, product, subtitle, config, manufacturer
                               <button
                                 type="button"
                                 onClick={() => setPicker(field.key === 'composicao' ? 'composicao' : 'fabricante')}
-                                className="flex-shrink-0 flex items-center gap-1 px-3 rounded-[10px] bg-[#D81E1E] text-white text-[11px] font-extrabold hover:opacity-90 transition-[opacity,transform] active:scale-[0.97]"
+                                className="flex-shrink-0 flex items-center gap-1 px-3 bg-[#D81E1E] hover:bg-[#B91818] text-white text-[10.5px] font-extrabold uppercase tracking-[0.04em] transition-all active:scale-[0.97]"
                               >
                                 <Plus size={12} strokeWidth={3} />
                                 Adicionar
                               </button>
                             </>
                           ) : (
-                            <div className={cn(fieldBase, 'bg-[#FAF7EE] dark:bg-[#1E1E18] border-[#E0D8BF] dark:border-white/[0.08] text-on-surface', field.key === 'cnpj' && "font-['DM_Mono',monospace] text-[12px] tracking-[0.02em]", field.key === 'composicao' && 'items-start leading-[1.45]')}>
+                            <div className={cn(fieldBase, 'bg-[#F1EAD3] dark:bg-[#181814] border-[#E0D8BF] dark:border-white/[0.10] text-on-surface', field.key === 'cnpj' && 'font-mono text-[12px] tracking-[0.03em]', field.key === 'composicao' && 'items-start leading-[1.45]')}>
                               <span className="min-w-0 flex-1 break-words">{cadastro}</span>
-                              <Lock size={12} className="shrink-0 text-secondary/35" />
+                              <Lock size={12} className="shrink-0 text-on-surface/35" />
                             </div>
                           )}
                         </div>
                         {cfg!.source === 'cadastro' && !missing && savedKeys.has(field.key) && (
-                          <p className="pl-10 pr-3 pb-2.5 -mt-1 text-[10px] font-bold text-[#0A7A55] dark:text-[#34D399] flex items-center gap-1">
+                          <p className="pl-[36px] pr-2.5 pb-2 -mt-1 text-[10px] font-bold text-[#0A7A55] dark:text-[#34D399] flex items-center gap-1">
                             <Check size={11} strokeWidth={3} /> Salvo no cadastro
                           </p>
                         )}
                         {cfg!.source === 'manual' && !isValidade && (
-                          <p className="pl-10 pr-3 pb-2.5 -mt-1 text-[10px] font-semibold text-secondary/50">
+                          <p className="pl-[36px] pr-2.5 pb-2 -mt-1 text-[10px] font-semibold text-on-surface/45">
                             Vale só pra esta etiqueta{cadastro ? ` — o cadastro continua "${cadastro}"` : ' — não altera o cadastro'}
                           </p>
                         )}
@@ -349,30 +350,19 @@ export function LabelInfoModal({ isOpen, product, subtitle, config, manufacturer
             </div>
 
             {/* Footer */}
-            <div className="px-5 pb-5 pt-2 flex flex-col gap-2 flex-shrink-0">
+            <div className={footerCls}>
               {incomplete && (
-                <p className="text-center text-[10.5px] font-semibold text-secondary/50">
+                <p className="flex-1 min-w-0 text-[10.5px] font-semibold text-on-surface/50">
                   Preencha ou desmarque os campos em vermelho/vazios pra salvar
                 </p>
               )}
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="flex-1 bg-black/[0.06] dark:bg-white/[0.07] text-secondary font-bold py-3 rounded-2xl hover:bg-black/[0.10] dark:hover:bg-white/[0.11] transition-[background-color,transform] active:scale-[0.97]"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={incomplete}
-                  className="flex-1 bg-primary text-white font-bold py-3 rounded-2xl hover:opacity-90 transition-[opacity,transform] shadow-lg shadow-primary/30 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97] flex items-center justify-center gap-2"
-                >
-                  <Save size={15} />
-                  Salvar na etiqueta
-                </button>
-              </div>
+              <button type="button" onClick={onClose} className={cn(btnCls, 'ml-auto')}>
+                Cancelar
+              </button>
+              <button type="button" onClick={handleSave} disabled={incomplete} className={btnPrimaryCls}>
+                <Save size={14} strokeWidth={2.6} />
+                Salvar na etiqueta
+              </button>
             </div>
           </motion.div>
 
@@ -415,32 +405,27 @@ function SubModal({ isOpen, icon, title, subtitle, onClose, children, footer }: 
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-black/35"
+            className={modalBackdropCls}
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.97 }}
             transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-            className="relative bg-[#F0E7CC] dark:bg-[#1E1E18] rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-black/10 dark:border-white/[0.08] flex flex-col max-h-[85vh]"
+            className={cn(modalCls, 'max-w-[440px] max-h-[85vh]')}
           >
-            <div className="px-5 py-4 flex items-center gap-3 bg-[#FFE500] dark:bg-[#252520] border-b border-[#D4C000] dark:border-white/[0.07] flex-shrink-0">
-              <div className="w-10 h-10 rounded-[14px] flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
-                {icon}
-              </div>
+            <div className={barCls}>
+              <div className={barChipCls}>{icon}</div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-base font-manrope font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight">{title}</h3>
-                <p className="text-[11.5px] font-bold text-[#1A1A0E]/55 dark:text-[#F2F0E3]/35 mt-0.5 truncate">{subtitle}</p>
+                <h4 className={barTitleCls}>{title}</h4>
+                <p className={barSubtitleCls}>{subtitle}</p>
               </div>
-              <button
-                onClick={onClose}
-                className="w-[34px] h-[34px] rounded-[11px] flex items-center justify-center shrink-0 bg-black/[0.08] dark:bg-white/[0.06] border border-black/10 dark:border-white/[0.08] text-black/50 dark:text-white/40 hover:bg-black/[0.14] dark:hover:bg-white/[0.10] transition-[background-color,transform] active:scale-[0.93]"
-              >
-                <X size={16} />
+              <button onClick={onClose} title="Fechar" className={closeBtnCls}>
+                <X size={15} strokeWidth={2.6} />
               </button>
             </div>
-            <div className="px-5 py-4 flex flex-col gap-3 overflow-y-auto">{children}</div>
-            <div className="px-5 pb-5 pt-1 flex gap-3 flex-shrink-0">{footer}</div>
+            <div className="px-3.5 py-3 flex flex-col gap-2.5 overflow-y-auto">{children}</div>
+            <div className={footerCls}>{footer}</div>
           </motion.div>
         </div>
       )}
@@ -448,8 +433,8 @@ function SubModal({ isOpen, icon, title, subtitle, onClose, children, footer }: 
   );
 }
 
-const cancelBtnCls = 'flex-1 bg-black/[0.06] dark:bg-white/[0.07] text-secondary font-bold py-3 rounded-2xl hover:bg-black/[0.10] dark:hover:bg-white/[0.11] transition-[background-color,transform] active:scale-[0.97]';
-const saveBtnCls = 'flex-1 bg-primary text-white font-bold py-3 rounded-2xl hover:opacity-90 transition-[opacity,transform] shadow-lg shadow-primary/30 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97] flex items-center justify-center gap-2';
+const cancelBtnCls = cn(btnCls, 'ml-auto');
+const saveBtnCls = btnPrimaryCls;
 
 function highlight(text: string, q: string) {
   if (!q) return text;
@@ -458,7 +443,7 @@ function highlight(text: string, q: string) {
   return (
     <>
       {text.slice(0, i)}
-      <mark className="bg-[#FFE500]/55 dark:bg-[#FFE500]/25 text-inherit rounded-[3px] px-px">{text.slice(i, i + q.length)}</mark>
+      <mark className="bg-[#FFE500]/55 dark:bg-[#FFE500]/25 text-inherit px-px">{text.slice(i, i + q.length)}</mark>
       {text.slice(i + q.length)}
     </>
   );
@@ -509,7 +494,7 @@ function ManufacturerPickerModal({ isOpen, product, manufacturers, onManufacture
     <>
       <SubModal
         isOpen={isOpen}
-        icon={<Factory size={18} />}
+        icon={<Factory size={15} strokeWidth={2.3} />}
         title="Vincular fabricante"
         subtitle={product?.name ?? ''}
         onClose={onClose}
@@ -525,28 +510,28 @@ function ManufacturerPickerModal({ isOpen, product, manufacturers, onManufacture
       >
         <div className="flex gap-2">
           <div className="relative flex-1">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary/40 pointer-events-none" />
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface/40 pointer-events-none" />
             <input
               autoFocus
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Buscar por nome ou CNPJ…"
-              className="w-full h-10 pl-9 pr-3 rounded-[14px] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] bg-white dark:bg-[#252520] text-[13px] font-semibold text-on-surface placeholder:text-secondary/40 outline-none caret-[#D81E1E] focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.15)] transition-[border-color,box-shadow] duration-[130ms]"
+              className={cn(inputCls, 'pl-8')}
             />
           </div>
           <button
             type="button"
             onClick={() => setAddOpen(true)}
             title="Cadastrar novo fabricante"
-            className="w-10 h-10 rounded-[14px] flex-shrink-0 bg-[#1A1A0E] dark:bg-[#FFE500] text-[#FFE500] dark:text-[#1A1A0E] flex items-center justify-center hover:opacity-85 transition-[opacity,transform] active:scale-[0.95]"
+            className="w-[34px] h-[34px] flex-shrink-0 bg-[#D81E1E] hover:bg-[#B91818] text-white flex items-center justify-center transition-all active:scale-[0.94]"
           >
             <Plus size={16} strokeWidth={2.8} />
           </button>
         </div>
 
-        <div className="rounded-[14px] border border-black/10 dark:border-white/[0.08] bg-white dark:bg-[#2E2E28] overflow-hidden">
+        <div className="border border-[#B5AA86] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] overflow-hidden">
           {results.length === 0 ? (
-            <p className="px-3 py-5 text-center text-[12px] font-semibold text-secondary/45">
+            <p className="px-3 py-5 text-center text-[11.5px] font-semibold text-on-surface/45">
               Nenhum fabricante encontrado — use o <b>+</b> pra cadastrar.
             </p>
           ) : results.map(m => {
@@ -559,7 +544,7 @@ function ManufacturerPickerModal({ isOpen, product, manufacturers, onManufacture
                 onClick={() => setSelectedId(m.id)}
                 onKeyDown={e => { if (e.key === 'Enter') setSelectedId(m.id); }}
                 className={cn(
-                  'flex items-center gap-2.5 px-3 py-2.5 border-b last:border-b-0 border-black/[0.07] dark:border-white/[0.06] cursor-pointer transition-colors',
+                  'flex items-center gap-2.5 px-2.5 py-2 border-b last:border-b-0 border-[#B5AA86] dark:border-white/[0.10] cursor-pointer transition-colors',
                   on ? 'bg-[#FFE500]/[0.14] dark:bg-[#FFE500]/[0.06]' : 'hover:bg-[#FFF8D0] dark:hover:bg-white/[0.03]'
                 )}
               >
@@ -567,7 +552,7 @@ function ManufacturerPickerModal({ isOpen, product, manufacturers, onManufacture
                 <div className="min-w-0 flex-1">
                   <p className="text-[12.5px] font-bold text-on-surface truncate">{highlight(m.name, query.trim())}</p>
                   {m.cnpj ? (
-                    <p className="text-[10.5px] font-['DM_Mono',monospace] text-secondary/50 mt-px">{formatCNPJ(m.cnpj)}</p>
+                    <p className="text-[10.5px] font-mono text-on-surface/45 mt-px">{formatCNPJ(m.cnpj)}</p>
                   ) : (
                     <p className="text-[10.5px] font-bold text-[#B91818] dark:text-red-400 mt-px">Sem CNPJ cadastrado</p>
                   )}
@@ -577,7 +562,7 @@ function ManufacturerPickerModal({ isOpen, product, manufacturers, onManufacture
                     type="button"
                     onClick={e => { e.stopPropagation(); setEditing(m); }}
                     title="Editar fabricante pra adicionar o CNPJ"
-                    className="w-[26px] h-[26px] rounded-lg flex-shrink-0 flex items-center justify-center bg-black/[0.05] dark:bg-white/[0.06] text-secondary/60 hover:text-on-surface transition-colors"
+                    className={iconBtnCls}
                   >
                     <Pencil size={12} />
                   </button>
@@ -587,7 +572,7 @@ function ManufacturerPickerModal({ isOpen, product, manufacturers, onManufacture
           })}
         </div>
 
-        <div className="flex gap-2 px-3 py-2.5 rounded-xl bg-black/[0.06] dark:bg-white/[0.07] text-[11px] font-semibold text-secondary/70 leading-relaxed">
+        <div className="flex gap-2 px-2.5 py-2 border border-[#E0D8BF] dark:border-white/[0.10] bg-[#F1EAD3] dark:bg-[#181814] text-[11px] font-semibold text-on-surface/60 leading-relaxed">
           <Info size={14} className="shrink-0 mt-px" />
           <span>
             {selected
@@ -640,7 +625,7 @@ function CompositionModal({ isOpen, product, onClose, onSaved }: {
   return (
     <SubModal
       isOpen={isOpen}
-      icon={<FlaskConical size={18} />}
+      icon={<FlaskConical size={15} strokeWidth={2.3} />}
       title="Composição"
       subtitle={product?.name ?? ''}
       onClose={onClose}
@@ -654,16 +639,16 @@ function CompositionModal({ isOpen, product, onClose, onSaved }: {
         </>
       }
     >
-      <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 -mb-1">Composição</span>
+      <span className={cn(labelCls, '-mb-2')}>Composição</span>
       <textarea
         autoFocus
         rows={4}
         value={value}
         onChange={e => setValue(e.target.value)}
         placeholder="Ingredientes / composição do produto..."
-        className="w-full rounded-[14px] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] bg-white dark:bg-[#252520] px-3.5 py-3 text-[13px] font-semibold leading-relaxed text-on-surface placeholder:text-secondary/40 outline-none resize-none caret-[#D81E1E] focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.15)] transition-[border-color,box-shadow] duration-[130ms]"
+        className={cn(inputCls, 'h-auto py-2 leading-relaxed resize-none')}
       />
-      <p className="text-right text-[10px] font-['DM_Mono',monospace] text-secondary/40 -mt-1.5">{value.trim().length} caracteres</p>
+      <p className="text-right text-[10px] font-mono text-on-surface/40 -mt-1.5">{value.trim().length} caracteres</p>
       {error && <p className="text-[11px] font-bold text-[#B91818] dark:text-red-400">{error}</p>}
     </SubModal>
   );
