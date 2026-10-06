@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Trash2, Camera, User, Pencil, Plus } from 'lucide-react';
+import { X, Trash2, Camera, User, Pencil, Plus, CalendarDays } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { type Employee, uploadEmployeePhoto, initials, fmtSalario, parseMoneyInput, toMoneyInput, maskCpf } from '@/lib/hrEmployees';
@@ -11,6 +11,7 @@ import {
 } from '@/lib/hrContratos';
 import { generateParcelasForPeriodo, deleteUnpaidParcelasForPeriodo } from '@/lib/hrSalarioFinance';
 import { SalaryEditModal } from './SalaryEditModal';
+import { useFinanceEstablishments } from '@/hooks/useFinanceEstablishments';
 
 type EmployeeForm = {
   nome: string;
@@ -67,6 +68,7 @@ interface EmployeeModalProps {
 }
 
 export function EmployeeModal({ open, employee, onClose, onSaved, variant = 'modal', autoAddPeriodoAno }: EmployeeModalProps) {
+  const { lojas } = useFinanceEstablishments();
   const [form, setForm] = useState<EmployeeForm>(emptyForm());
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -330,7 +332,13 @@ export function EmployeeModal({ open, employee, onClose, onSaved, variant = 'mod
                 <div className={cn(variant === 'sheet' ? 'flex flex-col gap-3' : 'flex gap-2.5', 'mb-3')}>
                   <div className={variant === 'sheet' ? 'w-full' : 'flex-1'}>
                     <label className={labelCls}>Loja</label>
-                    <input className={fieldCls} value={p.loja} onChange={e => updatePeriodo(p.localId, { loja: e.target.value })} placeholder="Castelo Real" />
+                    {/* Lista das empresas cadastradas (mesmos nomes do Controle Financeiro). Um valor antigo
+                        digitado à mão que não bate com nenhuma empresa continua aparecendo, para não se perder. */}
+                    <select className={cn(fieldCls, 'h-[42px]', !p.loja && 'text-on-surface/40')} value={p.loja} onChange={e => updatePeriodo(p.localId, { loja: e.target.value })}>
+                      <option value="">Escolha a loja…</option>
+                      {p.loja && !lojas.includes(p.loja) && <option value={p.loja}>{p.loja}</option>}
+                      {lojas.map(l => <option key={l} value={l}>{l}</option>)}
+                    </select>
                   </div>
                   <div className={variant === 'sheet' ? 'w-full' : 'flex-1'}>
                     <label className={labelCls}>Cargo</label>
@@ -391,6 +399,189 @@ export function EmployeeModal({ open, employee, onClose, onSaved, variant = 'mod
     </>
   );
 
+  // ── Desktop: padrão quadrado do site (barra amarela, seções, rodapé creme) ──
+  const sqSectionCls = 'bg-[#F1EAD3] dark:bg-[#181814] border border-[#E0D8BF] dark:border-white/[0.10]';
+  const sqSectionHeadCls = 'h-7 flex items-center gap-2 px-2.5 bg-[#FFEC4D] border-b-[1.5px] border-[#8F7E10]';
+  const sqSectionTitleCls = 'text-[9px] font-black uppercase tracking-[0.1em] text-[rgba(26,26,10,0.55)]';
+  const sqLabelCls = 'block text-[9px] font-black uppercase tracking-[0.1em] text-[#1A1A0E]/[0.58] dark:text-[#F2F0E3]/55 pl-px mb-1';
+  const sqInputCls = 'w-full min-w-0 h-[34px] px-2.5 bg-white dark:bg-[#1E1E18] text-[13px] font-semibold text-on-surface border border-[#E0D8BF] dark:border-white/[0.10] outline-none caret-[#D81E1E] hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] placeholder:text-on-surface/25 placeholder:font-medium transition-[border-color,box-shadow]';
+  const sqSelectSmCls = 'h-6 px-1.5 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] text-[10.5px] font-extrabold text-on-surface outline-none cursor-pointer';
+  const admissaoOriginal = periodos.map(p => p.dataAdmissao).filter(Boolean).sort()[0];
+
+  const modalBody = (
+    <>
+      {/* Barra de título */}
+      <div className="h-12 pl-3.5 pr-3 flex items-center gap-[11px] bg-[#FBF35E] dark:bg-[#252520] border-b border-[#D9CF45] dark:border-white/[0.08] shrink-0">
+        <div className="w-[30px] h-[30px] flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
+          <User size={15} strokeWidth={2.3} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h4 className="truncate text-[15px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight">{employee ? 'Editar Colaborador' : 'Novo Colaborador'}</h4>
+          <p className="truncate text-[10.5px] font-bold text-[#1A1A0E]/50 dark:text-[#F2F0E3]/40">
+            {employee
+              ? [form.nome, admissaoOriginal && `admitido em ${new Date(admissaoOriginal + 'T00:00:00').toLocaleDateString('pt-BR')}`].filter(Boolean).join(' · ')
+              : 'Cadastrar colaborador e período contratual'}
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          title="Fechar"
+          className="w-[30px] h-[30px] flex items-center justify-center shrink-0 border border-black/[0.14] dark:border-white/[0.10] text-black/50 dark:text-white/40 hover:bg-[#D81E1E]/[0.09] hover:text-[#D81E1E] hover:border-[#D81E1E]/25 active:scale-[0.93] transition-all duration-[130ms]"
+        >
+          <X size={15} strokeWidth={2.6} />
+        </button>
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-y-auto px-3.5 py-3 flex flex-col gap-2.5">
+        {/* Dados pessoais */}
+        <div className={sqSectionCls}>
+          <div className={sqSectionHeadCls}>
+            <User size={12} strokeWidth={2.4} className="text-[#D81E1E] shrink-0" />
+            <span className={sqSectionTitleCls}>Dados pessoais</span>
+          </div>
+          <div className="p-2.5 grid grid-cols-[110px_minmax(0,1fr)] gap-3">
+            <div className="flex flex-col items-center gap-1.5">
+              <div className="w-[110px] h-[110px] overflow-hidden flex items-center justify-center bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] text-[30px] font-black text-on-surface/40">
+                {photoPreview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={photoPreview} alt="" className="w-full h-full object-cover" />
+                ) : form.nome ? initials(form.nome) : <User size={30} />}
+              </div>
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+              <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.06em] text-[#D81E1E] hover:text-[#B91818] transition-colors">
+                <Camera size={12} /> Trocar foto
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 content-start">
+              <div className="col-span-2 min-w-0">
+                <label className={sqLabelCls}>Nome</label>
+                <input className={sqInputCls} value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="Nome completo" autoFocus={!employee} />
+              </div>
+              <div className="min-w-0">
+                <label className={sqLabelCls}>Data de nascimento</label>
+                <input type="date" className={sqInputCls} value={form.data_nascimento} onChange={e => setForm({ ...form, data_nascimento: e.target.value })} />
+              </div>
+              <div className="min-w-0">
+                <label className={sqLabelCls}>CPF</label>
+                <input
+                  className={cn(sqInputCls, 'font-mono tracking-[0.03em]')} value={form.cpf}
+                  onChange={e => setForm({ ...form, cpf: maskCpf(e.target.value) })}
+                  placeholder="000.000.000-00"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Informações contratuais */}
+        <div className={sqSectionCls}>
+          <div className={sqSectionHeadCls}>
+            <CalendarDays size={12} strokeWidth={2.4} className="text-[#D81E1E] shrink-0" />
+            <span className={sqSectionTitleCls}>Informações contratuais</span>
+            <span className="ml-auto text-[10px] font-extrabold text-[rgba(26,26,10,0.55)]">
+              {periodos.length} período{periodos.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="p-2.5 flex flex-col gap-2">
+            {overlapError && (
+              <p className="px-2.5 py-1.5 border border-[#D81E1E]/35 bg-[#D81E1E]/[0.06] text-[11px] font-bold text-[#B91818] dark:text-red-400">{overlapError}</p>
+            )}
+
+            {periodos.map(p => {
+              const total = parseMoneyInput(p.salarioBase) + parseMoneyInput(p.salarioComplementar);
+              const pct = parseMoneyInput(p.salarioBase) > 0 ? Math.round((parseMoneyInput(p.salarioComplementar) / parseMoneyInput(p.salarioBase)) * 100) : 0;
+              return (
+                <div key={p.localId} className="bg-white dark:bg-[#1E1E18] border border-[#B5AA86] dark:border-white/[0.10]">
+                  <div className="h-[34px] flex items-center gap-1 pl-2 pr-1.5 bg-[#FAF7EE] dark:bg-[#181814] border-b border-[#E0D8BF] dark:border-white/[0.10]">
+                    <select className={sqSelectSmCls} value={p.ano} onChange={e => updatePeriodo(p.localId, { ano: parseInt(e.target.value, 10) })}>
+                      {ANOS_FISCAIS.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                    <select className={sqSelectSmCls} value={p.mesInicio} onChange={e => updatePeriodo(p.localId, { mesInicio: parseInt(e.target.value, 10) })}>
+                      {MESES_ABREV.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                    </select>
+                    <span className="text-[11px] text-on-surface/40">–</span>
+                    <select className={sqSelectSmCls} value={p.mesFim} onChange={e => updatePeriodo(p.localId, { mesFim: parseInt(e.target.value, 10) })}>
+                      {MESES_ABREV.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                    </select>
+                    <button
+                      onClick={() => removePeriodo(p.localId)}
+                      title="Remover período"
+                      className="ml-auto w-6 h-6 flex items-center justify-center border border-[#D81E1E]/25 bg-[#D81E1E]/[0.06] text-[#D81E1E] hover:bg-[#D81E1E]/[0.14] active:scale-[0.94] transition-all"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                  <div className="p-2 grid grid-cols-2 gap-2">
+                    <div className="min-w-0">
+                      <label className={sqLabelCls}>Loja</label>
+                      <select className={cn(sqInputCls, 'cursor-pointer', !p.loja && 'text-on-surface/40')} value={p.loja} onChange={e => updatePeriodo(p.localId, { loja: e.target.value })}>
+                        <option value="">Escolha a loja…</option>
+                        {p.loja && !lojas.includes(p.loja) && <option value={p.loja}>{p.loja}</option>}
+                        {lojas.map(l => <option key={l} value={l}>{l}</option>)}
+                      </select>
+                    </div>
+                    <div className="min-w-0">
+                      <label className={sqLabelCls}>Cargo</label>
+                      <input className={sqInputCls} value={p.cargo} onChange={e => updatePeriodo(p.localId, { cargo: e.target.value })} placeholder="Gerente de Loja" />
+                    </div>
+                    <div className="min-w-0">
+                      <label className={sqLabelCls}>Data de admissão</label>
+                      <input type="date" className={sqInputCls} value={p.dataAdmissao} onChange={e => updatePeriodo(p.localId, { dataAdmissao: e.target.value })} />
+                    </div>
+                    <div className="min-w-0">
+                      <label className={sqLabelCls}>Salário</label>
+                      <div className="h-[34px] flex items-center gap-1.5 pl-2.5 pr-1 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10]">
+                        <span className="flex-1 min-w-0 font-mono text-[13px] font-medium text-on-surface truncate">{fmtSalario(total)}</span>
+                        {pct > 0 && (
+                          <span className="shrink-0 px-1 py-px font-mono text-[9.5px] bg-amber-700/10 dark:bg-amber-300/15 text-amber-800 dark:text-amber-300">▲{pct}%</span>
+                        )}
+                        <button
+                          type="button" onClick={() => openSalaryEdit(p.localId)}
+                          title="Editar salário"
+                          className="w-6 h-6 shrink-0 flex items-center justify-center border border-[#E0D8BF] dark:border-white/[0.10] text-on-surface/55 hover:text-[#D81E1E] hover:border-[#D81E1E]/30 hover:bg-[#D81E1E]/[0.06] transition-colors"
+                        >
+                          <Pencil size={12} strokeWidth={2.3} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            <button
+              onClick={addPeriodo}
+              className="h-7 flex items-center justify-center gap-1.5 border border-dashed border-[#D81E1E]/45 text-[10px] font-black uppercase tracking-[0.06em] text-[#D81E1E] hover:bg-[#D81E1E]/[0.06] transition-colors"
+            >
+              <Plus size={12} strokeWidth={2.8} /> Adicionar período
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Rodapé */}
+      <div className="px-3.5 py-2.5 bg-[#EFE7CD] dark:bg-[#181814] border-t border-[#DDD2B0] dark:border-white/[0.08] flex items-center gap-2 shrink-0">
+        {employee && (
+          <button onClick={handleDelete} className="flex items-center gap-1.5 text-[11px] font-extrabold text-[#D81E1E] hover:text-[#B91818] transition-colors">
+            <Trash2 size={13} /> Excluir colaborador
+          </button>
+        )}
+        <button
+          onClick={onClose}
+          className="ml-auto h-9 px-[18px] border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[12px] font-extrabold uppercase tracking-[0.04em] text-on-surface hover:bg-on-surface/[0.05] active:scale-[0.97] transition-all"
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={handleSave} disabled={saving || !form.nome.trim() || periodos.length === 0}
+          className="h-9 px-[18px] flex items-center justify-center gap-2 bg-[#D81E1E] hover:bg-[#B91818] text-white text-[12px] font-extrabold uppercase tracking-[0.04em] active:scale-[0.97] transition-all disabled:opacity-45 disabled:cursor-not-allowed"
+        >
+          {saving ? 'Salvando...' : 'Salvar colaborador'}
+        </button>
+      </div>
+    </>
+  );
+
   return (
     <>
       <AnimatePresence>
@@ -405,9 +596,9 @@ export function EmployeeModal({ open, employee, onClose, onSaved, variant = 'mod
                 key="modal"
                 initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}
                 transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[61] w-[520px] max-h-[88vh] overflow-y-auto bg-surface-container border border-on-surface/[0.08] rounded-[24px] p-6 shadow-2xl"
+                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[61] w-[560px] max-h-[88vh] flex flex-col overflow-hidden bg-[#FDFAF0] dark:bg-[#1E1E18] border border-black/[0.12] dark:border-white/[0.08] shadow-2xl"
               >
-                {body}
+                {modalBody}
               </motion.div>
             ) : (
               <motion.div
