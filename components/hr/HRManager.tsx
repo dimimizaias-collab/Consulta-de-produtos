@@ -363,7 +363,7 @@ export function HRManager({ requests, onOpenTask, onGoToFinance }: HRManagerProp
           </div>
         </div>
       ) : activeView === 'financas' ? (
-        <DespesasPage onBack={() => setActiveView('calendario')} />
+        <DespesasPage />
       ) : activeView === 'colaboradores' ? (
         <ColaboradoresYearAccordion
           employees={employees}

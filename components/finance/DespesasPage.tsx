@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, ChevronLeft, ChevronRight, X, ArrowLeft } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 
@@ -18,10 +17,6 @@ interface Expense {
   pago: boolean;
 }
 
-interface DespesasPageProps {
-  onBack: () => void;
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const fmt = (v: number) =>
@@ -35,8 +30,6 @@ const MONTHS_PT = [
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ];
 const DAYS_PT = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
-
-const EASE_OUT = [0.23, 1, 0.32, 1] as const;
 
 function today() {
   const d = new Date();
@@ -144,44 +137,44 @@ function CalendarWidget({ range, expenses, onRangeChange }: CalendarWidgetProps)
   };
 
   return (
-    <div className="bg-surface border border-on-surface/[0.07] rounded-[22px] p-5 select-none">
+    <div className="select-none border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18]">
       {/* Month nav */}
-      <div className="flex items-center justify-between mb-5">
-        <span className="font-dm-mono text-[15px] font-semibold text-on-surface tracking-tight">
+      <div className="h-[30px] flex items-center border-b border-[#E0D8BF] dark:border-white/[0.10]">
+        <button
+          onClick={prevMonth}
+          title="Mês anterior"
+          className="w-[30px] h-full flex items-center justify-center border-r border-[#E0D8BF] dark:border-white/[0.10] text-on-surface/50 hover:text-on-surface hover:bg-on-surface/[0.05] transition-colors"
+        >
+          <ChevronLeft size={13} strokeWidth={2.5} />
+        </button>
+        <span className="flex-1 text-center text-[12px] font-black text-on-surface">
           {MONTHS_PT[month]} {year}
         </span>
-        <div className="flex gap-1">
-          <button
-            onClick={prevMonth}
-            className="w-8 h-8 rounded-[9px] bg-on-surface/[0.06] border border-on-surface/[0.07] flex items-center justify-center text-on-surface/50 hover:text-on-surface hover:bg-on-surface/10 transition-[background,color,transform] duration-150 active:scale-90"
-          >
-            <ChevronLeft size={14} />
-          </button>
-          <button
-            onClick={nextMonth}
-            className="w-8 h-8 rounded-[9px] bg-on-surface/[0.06] border border-on-surface/[0.07] flex items-center justify-center text-on-surface/50 hover:text-on-surface hover:bg-on-surface/10 transition-[background,color,transform] duration-150 active:scale-90"
-          >
-            <ChevronRight size={14} />
-          </button>
-        </div>
+        <button
+          onClick={nextMonth}
+          title="Próximo mês"
+          className="w-[30px] h-full flex items-center justify-center border-l border-[#E0D8BF] dark:border-white/[0.10] text-on-surface/50 hover:text-on-surface hover:bg-on-surface/[0.05] transition-colors"
+        >
+          <ChevronRight size={13} strokeWidth={2.5} />
+        </button>
       </div>
 
       {/* Day-of-week header */}
-      <div className="grid grid-cols-7 mb-1">
+      <div className="grid grid-cols-7 bg-[#FFEC4D] shadow-[inset_0_-1.5px_0_#8F7E10]">
         {DAYS_PT.map((d, i) => (
-          <div key={i} className="text-center text-[9px] font-bold uppercase tracking-widest text-on-surface/30 py-1">
+          <div key={i} className="h-[22px] flex items-center justify-center text-[9px] font-black text-[rgba(26,26,10,0.55)]">
             {d}
           </div>
         ))}
       </div>
 
       {/* Day grid */}
-      <div className="grid grid-cols-7 gap-y-0.5">
+      <div className="grid grid-cols-7">
         {cells.map((cell, i) => {
-          const isToday = sameDay(cell.date, today());
           const isStart = isRangeStart(cell.date);
           const isEnd = isRangeEnd(cell.date);
           const inRange = isInRange(cell.date);
+          const isToday = sameDay(cell.date, today());
           const dot = expenseDateMap[cell.date.toDateString()];
 
           return (
@@ -191,25 +184,23 @@ function CalendarWidget({ range, expenses, onRangeChange }: CalendarWidgetProps)
               onMouseEnter={() => selecting && setHoveredDay(cell.date)}
               onMouseLeave={() => selecting && setHoveredDay(null)}
               className={cn(
-                'relative aspect-square rounded-[9px] flex items-center justify-center text-[12px] font-medium',
-                'transition-[background,color,transform] duration-[120ms]',
-                'active:scale-[0.85]',
+                'relative aspect-square flex items-center justify-center font-mono text-[11.5px] transition-colors duration-[120ms]',
                 !cell.current && 'opacity-30',
-                isToday && !isStart && !isEnd && 'bg-on-surface/[0.08] font-bold text-on-surface',
-                !isStart && !isEnd && !inRange && !isToday && 'text-on-surface/60 hover:bg-on-surface/[0.06] hover:text-on-surface',
-                inRange && !isStart && !isEnd && 'bg-primary/10 rounded-none text-on-surface',
-                isStart && 'bg-primary text-white font-bold shadow-[0_2px_12px_rgba(216,30,30,0.4)]',
-                isEnd && !isStart && 'bg-primary text-white font-bold shadow-[0_2px_12px_rgba(216,30,30,0.4)]',
+                isStart || isEnd
+                  ? 'bg-[#D81E1E] text-white'
+                  : inRange
+                    ? 'bg-[#D81E1E]/10 text-on-surface'
+                    : 'text-on-surface/70 hover:bg-[#FFF8D0] dark:hover:bg-white/[0.05] hover:text-on-surface',
+                isToday && !isStart && !isEnd && 'font-semibold text-on-surface shadow-[inset_0_0_0_1.5px_rgba(26,26,10,0.40)] dark:shadow-[inset_0_0_0_1.5px_rgba(242,240,227,0.40)]',
               )}
             >
               {cell.date.getDate()}
               {dot && (
                 <span className={cn(
-                  'absolute bottom-[3px] w-[4px] h-[4px] rounded-full',
-                  dot === 'overdue' && 'bg-primary shadow-[0_0_4px_rgba(216,30,30,0.8)]',
-                  dot === 'soon' && 'bg-amber-400',
-                  dot === 'future' && 'bg-on-surface/30',
-                  (isStart || isEnd) && 'bg-white/70',
+                  'absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1',
+                  isStart || isEnd
+                    ? 'bg-white/75'
+                    : dot === 'overdue' ? 'bg-[#D81E1E]' : dot === 'soon' ? 'bg-amber-500' : 'bg-on-surface/25',
                 )} />
               )}
             </button>
@@ -218,85 +209,96 @@ function CalendarWidget({ range, expenses, onRangeChange }: CalendarWidgetProps)
       </div>
 
       {/* Legend */}
-      <div className="flex gap-4 mt-4 pt-4 border-t border-on-surface/[0.06]">
+      <div className="flex gap-3 px-2.5 py-2 border-t border-[#E0D8BF] dark:border-white/[0.10]">
         {[
-          { color: 'bg-primary shadow-[0_0_4px_rgba(216,30,30,0.7)]', label: 'Vencida' },
-          { color: 'bg-amber-400', label: 'A vencer' },
-          { color: 'bg-on-surface/30', label: 'Futura' },
+          { color: 'bg-[#D81E1E]', label: 'Vencida' },
+          { color: 'bg-amber-500', label: 'A vencer' },
+          { color: 'bg-on-surface/25', label: 'Futura' },
         ].map(({ color, label }) => (
-          <div key={label} className="flex items-center gap-1.5">
-            <span className={cn('w-[6px] h-[6px] rounded-full flex-shrink-0', color)} />
-            <span className="text-[10px] text-on-surface/40 font-medium">{label}</span>
-          </div>
+          <span key={label} className="flex items-center gap-[5px] text-[10px] font-extrabold uppercase tracking-[0.05em] text-on-surface/55">
+            <span className={cn('w-2 h-2 shrink-0', color)} />
+            {label}
+          </span>
         ))}
       </div>
     </div>
   );
 }
 
-// ── Expense Card ──────────────────────────────────────────────────────────────
+// ── Linhas da tabela ──────────────────────────────────────────────────────────
 
-function ExpenseCard({ expense, urgency, index }: {
-  expense: Expense;
-  urgency: 'overdue' | 'soon' | 'future';
-  index: number;
-}) {
-  const barColor = urgency === 'overdue' ? 'bg-primary' : urgency === 'soon' ? 'bg-amber-400' : 'bg-on-surface/20';
-  const valueColor = urgency === 'overdue' ? 'text-primary' : urgency === 'soon' ? 'text-amber-400' : 'text-on-surface/50';
-  const tagColor = urgency === 'overdue'
-    ? 'bg-primary/15 text-red-400'
-    : urgency === 'soon'
-      ? 'bg-amber-400/15 text-amber-400'
-      : 'bg-on-surface/[0.06] text-on-surface/40';
+type Urgency = 'overdue' | 'soon' | 'future';
 
-  const t = today();
-  const d = isoToLocal(expense.vencimento);
-  const diff = Math.ceil((d.getTime() - t.getTime()) / 86400000);
-  const tagLabel = diff < 0
+const URGENCY_GROUP: Record<Urgency, { label: string; dot: string; total: string }> = {
+  overdue: { label: 'Vencidas',        dot: 'bg-[#D81E1E]',      total: 'text-[#D81E1E]' },
+  soon:    { label: 'Próximos 7 dias', dot: 'bg-amber-500',      total: 'text-[#B45309] dark:text-[#FCD34D]' },
+  future:  { label: 'Mais adiante',    dot: 'bg-on-surface/25',  total: 'text-on-surface' },
+};
+
+function dueLabel(vencimento: string) {
+  const diff = Math.ceil((isoToLocal(vencimento).getTime() - today().getTime()) / 86400000);
+  return diff < 0
     ? `${Math.abs(diff)} dia${Math.abs(diff) > 1 ? 's' : ''} atraso`
     : diff === 0 ? 'Hoje'
     : diff === 1 ? 'Em 1 dia'
     : `Em ${diff} dias`;
+}
 
+function ExpenseGroup({ urgency, expenses }: { urgency: Urgency; expenses: Expense[] }) {
+  if (expenses.length === 0) return null;
+  const g = URGENCY_GROUP[urgency];
+  const subtotal = expenses.reduce((s, e) => s + e.valor_final, 0);
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05, ease: EASE_OUT, duration: 0.25 }}
-      className="bg-surface border border-on-surface/[0.07] rounded-[18px] px-4 py-3.5 flex items-center gap-3.5 hover:bg-on-surface/[0.03] transition-[background,transform] duration-150 hover:-translate-y-px active:scale-[0.985] cursor-pointer"
-    >
-      {/* Urgency bar */}
-      <div className={cn('w-[3px] h-11 rounded-full flex-shrink-0', barColor)} />
-
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <p className="text-[13.5px] font-semibold text-on-surface truncate leading-tight">
-          {expense.favorecido || expense.estabelecimento}
-        </p>
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-[11px] text-on-surface/40">Vence {fmtDate(expense.vencimento)}</span>
-          <span className={cn('text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full', tagColor)}>
-            {tagLabel}
-          </span>
-        </div>
-      </div>
-
-      {/* Amount */}
-      <div className="text-right flex-shrink-0">
-        <p className={cn('font-dm-mono text-[14px] font-semibold tracking-tight', valueColor)}>
-          {fmt(expense.valor_final)}
-        </p>
-        <p className="text-[9px] text-on-surface/30 uppercase tracking-widest mt-0.5">
-          {expense.tipo_pagamento}
-        </p>
-      </div>
-    </motion.div>
+    <>
+      <tr className="bg-[#F1EAD3] dark:bg-[#181814]">
+        <td colSpan={4} className="!h-7 text-[9px] font-black uppercase tracking-[0.1em] text-on-surface/55">
+          <span className={cn('inline-block w-2 h-2 mr-1.5', g.dot)} />
+          {g.label} · {expenses.length}
+        </td>
+        <td className={cn('!h-7 text-right font-mono text-[11.5px] font-medium', g.total)}>{fmt(subtotal)}</td>
+      </tr>
+      {expenses.map((e, idx) => (
+        <tr
+          key={e.id}
+          className={cn(
+            'transition-colors hover:bg-[#FFF8D0] dark:hover:bg-white/[0.04]',
+            idx % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]',
+          )}
+        >
+          <td className="font-mono">{fmtDate(e.vencimento)}</td>
+          <td className="font-extrabold text-on-surface max-w-[320px] truncate" title={e.favorecido || e.estabelecimento}>
+            {e.favorecido || e.estabelecimento}
+          </td>
+          <td>
+            <span className={cn(
+              'inline-flex px-1.5 py-0.5 border text-[9px] font-black uppercase tracking-[0.06em]',
+              urgency === 'overdue' && 'border-current text-[#D81E1E] bg-[#D81E1E]/[0.06]',
+              urgency === 'soon' && 'border-current text-[#B45309] dark:text-[#FCD34D] bg-amber-500/[0.07]',
+              urgency === 'future' && 'border-[#E0D8BF] dark:border-white/[0.12] text-on-surface/40',
+            )}>
+              {dueLabel(e.vencimento)}
+            </span>
+          </td>
+          <td>
+            <span className="inline-flex px-1.5 py-0.5 border border-[#E0D8BF] dark:border-white/[0.12] text-[10px] font-bold text-on-surface/70">
+              {e.tipo_pagamento}
+            </span>
+          </td>
+          <td className={cn(
+            'text-right font-mono font-medium',
+            urgency === 'overdue' ? 'text-[#D81E1E]' : urgency === 'soon' ? 'text-[#B45309] dark:text-[#FCD34D]' : 'text-on-surface',
+          )}>
+            {fmt(e.valor_final)}
+          </td>
+        </tr>
+      ))}
+    </>
   );
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export function DespesasPage({ onBack }: DespesasPageProps) {
+export function DespesasPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<CalRange>({ start: null, end: null });
@@ -346,12 +348,11 @@ export function DespesasPage({ onBack }: DespesasPageProps) {
   const totalOverdue = useMemo(() => overdue.reduce((s, e) => s + e.valor_final, 0), [overdue]);
   const totalSoon    = useMemo(() => soon.reduce((s, e) => s + e.valor_final, 0), [soon]);
   const totalAll     = useMemo(() => filteredExpenses.reduce((s, e) => s + e.valor_final, 0), [filteredExpenses]);
-  const totalMonth   = useMemo(() => {
+  const monthExpenses = useMemo(() => {
     const t = today();
-    return filteredExpenses
-      .filter(e => { const d = isoToLocal(e.vencimento); return d.getMonth() === t.getMonth() && d.getFullYear() === t.getFullYear(); })
-      .reduce((s, e) => s + e.valor_final, 0);
+    return filteredExpenses.filter(e => { const d = isoToLocal(e.vencimento); return d.getMonth() === t.getMonth() && d.getFullYear() === t.getFullYear(); });
   }, [filteredExpenses]);
+  const totalMonth = useMemo(() => monthExpenses.reduce((s, e) => s + e.valor_final, 0), [monthExpenses]);
 
   const hasRange = range.start !== null;
   const rangeLabel = hasRange
@@ -362,147 +363,106 @@ export function DespesasPage({ onBack }: DespesasPageProps) {
 
   const clearRange = useCallback(() => setRange({ start: null, end: null }), []);
 
+  const plural = (n: number) => `${n} despesa${n === 1 ? '' : 's'}`;
+  const thisMonthLabel = today().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const kpis = [
+    { label: 'Total a pagar',   value: totalAll,     cls: 'text-on-surface',                     sub: plural(filteredExpenses.length) },
+    { label: 'Vencidas',        value: totalOverdue, cls: 'text-[#D81E1E]',                       sub: plural(overdue.length) },
+    { label: 'Próximos 7 dias', value: totalSoon,    cls: 'text-[#B45309] dark:text-[#FCD34D]',   sub: plural(soon.length) },
+    { label: 'Este mês',        value: totalMonth,   cls: 'text-on-surface',                     sub: thisMonthLabel },
+  ];
+
   return (
-    <div className="flex gap-7 items-start min-h-0">
-
-      {/* ── LEFT COLUMN ── */}
-      <div className="flex-1 min-w-0 flex flex-col gap-6">
-
-        {/* Header */}
-        <div className="flex items-start gap-4">
-          <button
-            onClick={onBack}
-            className="mt-1 w-9 h-9 rounded-full bg-on-surface/[0.06] border border-on-surface/[0.07] flex items-center justify-center text-on-surface/50 hover:text-on-surface hover:bg-on-surface/10 transition-[background,color,transform] duration-150 active:scale-90 flex-shrink-0"
-            title="Voltar"
-          >
-            <ArrowLeft size={15} />
-          </button>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-on-surface/30 mb-1">
-              Controle Financeiro
-            </p>
-            <h1 className="text-[26px] font-black text-on-surface tracking-tight leading-none font-manrope">
-              Despesas <span className="text-primary">para Vencer</span>
-            </h1>
+    <div className="space-y-2.5">
+      {/* Indicadores */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 border-l border-t border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18]">
+        {kpis.map(k => (
+          <div key={k.label} className="px-3 py-2.5 border-r border-b border-[#E0D8BF] dark:border-white/[0.10]">
+            <div className="text-[9px] font-black uppercase tracking-[0.10em] text-on-surface/40">{k.label}</div>
+            <div className={cn('mt-0.5 text-[16px] font-mono font-medium tabular-nums', k.cls)}>{loading ? '—' : fmt(k.value)}</div>
+            <div className="text-[10.5px] font-bold text-on-surface/40">{loading ? '' : k.sub}</div>
           </div>
-        </div>
+        ))}
+      </div>
 
-        {/* Summary chips */}
-        <div className="flex gap-3 flex-wrap">
-          {[
-            { label: 'Total a pagar',    value: totalAll,     color: '' },
-            { label: 'Vencidas',         value: totalOverdue, color: 'text-primary' },
-            { label: 'Próximos 7 dias',  value: totalSoon,    color: 'text-amber-400' },
-            { label: 'Este mês',         value: totalMonth,   color: '' },
-          ].map(({ label, value, color }) => (
-            <div
-              key={label}
-              className="bg-surface border border-on-surface/[0.07] rounded-2xl px-4 py-3 min-w-[130px] hover:bg-on-surface/[0.03] transition-[background,transform] duration-150 hover:-translate-y-px"
-            >
-              <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-on-surface/30 mb-1">{label}</p>
-              <p className={cn('font-dm-mono text-[17px] font-semibold tracking-tight', color || 'text-on-surface')}>
-                {loading ? '—' : fmt(value)}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        {/* Expense groups */}
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-2.5 items-start">
+        {/* Despesas */}
         {loading ? (
-          <div className="flex flex-col items-center py-20 text-on-surface/20">
-            <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin mb-4" />
-            <p className="text-xs font-bold uppercase tracking-widest">Carregando despesas…</p>
+          <div className="flex items-center justify-center gap-3 py-20 border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-on-surface/30">
+            <Loader2 size={22} className="animate-spin" />
+            <span className="text-[12px] font-bold uppercase tracking-[0.06em]">Carregando despesas…</span>
           </div>
         ) : filteredExpenses.length === 0 ? (
-          <div className="flex flex-col items-center py-20 text-on-surface/20">
-            <Calendar size={40} className="mb-3 opacity-20" />
-            <p className="text-sm font-black uppercase tracking-widest">Nenhuma despesa encontrada</p>
+          <div className="flex flex-col items-center gap-1.5 text-center py-16 px-4 border border-dashed border-[#E0D8BF] dark:border-white/[0.12] bg-white dark:bg-[#1E1E18] text-on-surface/45">
+            <Calendar size={22} className="opacity-55" />
+            <p className="text-[12px] font-black uppercase tracking-[0.06em]">Nenhuma despesa encontrada</p>
             {hasRange && (
-              <button onClick={clearRange} className="mt-3 text-xs font-bold text-primary hover:underline">
+              <button onClick={clearRange} className="text-[11px] font-extrabold text-[#D81E1E] hover:underline underline-offset-2">
                 Limpar período
               </button>
             )}
           </div>
         ) : (
-          <div className="flex flex-col gap-5">
-            {overdue.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.15em] text-on-surface/30">
-                  <span className="w-[5px] h-[5px] rounded-full bg-primary shadow-[0_0_5px_rgba(216,30,30,0.8)]" />
-                  Vencidas
-                  <div className="flex-1 h-px bg-on-surface/[0.06]" />
-                </div>
-                {overdue.map((e, i) => (
-                  <ExpenseCard key={e.id} expense={e} urgency="overdue" index={i} />
-                ))}
-              </div>
-            )}
-
-            {soon.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.15em] text-on-surface/30">
-                  <span className="w-[5px] h-[5px] rounded-full bg-amber-400" />
-                  Próximos 7 dias
-                  <div className="flex-1 h-px bg-on-surface/[0.06]" />
-                </div>
-                {soon.map((e, i) => (
-                  <ExpenseCard key={e.id} expense={e} urgency="soon" index={i} />
-                ))}
-              </div>
-            )}
-
-            {future.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.15em] text-on-surface/30">
-                  <span className="w-[5px] h-[5px] rounded-full bg-on-surface/20" />
-                  Mais adiante
-                  <div className="flex-1 h-px bg-on-surface/[0.06]" />
-                </div>
-                {future.map((e, i) => (
-                  <ExpenseCard key={e.id} expense={e} urgency="future" index={i} />
-                ))}
-              </div>
-            )}
+          <div className="bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] overflow-x-auto [&_td]:h-9 [&_td]:px-2.5 [&_td]:text-[12px] [&_td]:whitespace-nowrap [&_td]:border-r [&_td]:border-b [&_td]:border-[#A8A290] dark:[&_td]:border-white/20 [&_td:last-child]:border-r-0">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-[#FFEC4D]">
+                  {[
+                    { label: 'Vencimento', cls: 'w-[110px]' },
+                    { label: 'Favorecido', cls: '' },
+                    { label: 'Situação', cls: 'w-[130px]' },
+                    { label: 'Pagamento', cls: 'w-[110px]' },
+                    { label: 'Valor', cls: 'w-[130px] text-right' },
+                  ].map(c => (
+                    <th
+                      key={c.label}
+                      className={cn(
+                        'h-8 px-2.5 text-left whitespace-nowrap text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.55)] shadow-[inset_-1px_0_0_#B8A31F,inset_0_-1.5px_0_#8F7E10] last:shadow-[inset_0_-1.5px_0_#8F7E10]',
+                        c.cls,
+                      )}
+                    >
+                      {c.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <ExpenseGroup urgency="overdue" expenses={overdue} />
+                <ExpenseGroup urgency="soon" expenses={soon} />
+                <ExpenseGroup urgency="future" expenses={future} />
+              </tbody>
+            </table>
           </div>
         )}
-      </div>
 
-      {/* ── RIGHT COLUMN ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ ease: EASE_OUT, duration: 0.3, delay: 0.08 }}
-        className="w-[300px] flex-shrink-0 flex flex-col gap-3"
-        style={{ paddingTop: '46px' }} /* Align button with page title */
-      >
-        {/* Selector button */}
-        <button
-          onClick={() => setRange({ start: null, end: null })}
-          className="w-full bg-primary text-white border-none rounded-[14px] py-3.5 font-manrope text-[11px] font-bold uppercase tracking-[0.12em] flex items-center justify-center gap-2 transition-[background,transform] duration-150 hover:bg-[#b91919] active:scale-[0.97]"
-        >
-          <Calendar size={14} />
-          Selecionar período
-        </button>
-
-        {/* Range display */}
-        <div className="bg-surface border border-on-surface/[0.07] rounded-2xl px-4 py-3 flex items-center justify-between">
-          <div>
-            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-on-surface/30 mb-0.5">Exibindo</p>
-            <p className="font-dm-mono text-[12.5px] font-medium text-on-surface">{rangeLabel}</p>
+        {/* Período */}
+        <div className="bg-[#F1EAD3] dark:bg-[#181814] border border-[#E0D8BF] dark:border-white/[0.10] xl:sticky xl:top-[92px]">
+          <div className="h-7 flex items-center gap-2 px-2.5 bg-[#FFEC4D] border-b-[1.5px] border-[#8F7E10]">
+            <Calendar size={12} strokeWidth={2.4} className="text-[#D81E1E] shrink-0" />
+            <span className="text-[9px] font-black uppercase tracking-[0.1em] text-[rgba(26,26,10,0.55)]">Período</span>
           </div>
-          {hasRange && (
-            <button
-              onClick={clearRange}
-              className="text-[10px] font-bold uppercase tracking-widest text-primary px-2.5 py-1.5 rounded-lg hover:bg-primary/10 transition-[background,transform] duration-150 active:scale-95 flex-shrink-0"
-            >
-              Limpar
-            </button>
-          )}
+          <div className="p-2.5">
+            <div className="flex items-center gap-2 px-2.5 py-2 mb-2 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10]">
+              <div className="min-w-0">
+                <p className="text-[9px] font-black uppercase tracking-[0.1em] text-on-surface/40">Exibindo</p>
+                <p className="font-mono text-[12.5px] font-medium text-on-surface truncate">{rangeLabel}</p>
+              </div>
+              {hasRange && (
+                <button
+                  onClick={clearRange}
+                  className="ml-auto shrink-0 h-[26px] px-2 border border-[#D81E1E]/30 text-[10px] font-black uppercase tracking-[0.06em] text-[#D81E1E] hover:bg-[#D81E1E]/[0.08] active:scale-[0.96] transition-all"
+                >
+                  Limpar
+                </button>
+              )}
+            </div>
+            <CalendarWidget range={range} expenses={expenses} onRangeChange={setRange} />
+            <p className="mt-1.5 text-[10.5px] font-semibold text-on-surface/40">
+              Clique num dia para começar o período e em outro para terminar.
+            </p>
+          </div>
         </div>
-
-        {/* Calendar */}
-        <CalendarWidget range={range} expenses={expenses} onRangeChange={setRange} />
-      </motion.div>
+      </div>
     </div>
   );
 }
