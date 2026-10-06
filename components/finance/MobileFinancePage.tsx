@@ -24,6 +24,7 @@ import { LinkedNotesSection, LinkedNoteLite, linkNotesToTransactions, cleanupNot
 import type { PaymentType, TransactionType as TxType, Transaction, BankAccount, FinanceCard, Favorecido, Supplier } from '@/types/finance';
 import { calcularFatura } from '@/lib/creditoFatura';
 import { ESTABLISHMENTS } from '@/lib/financeEstablishments';
+import { useFinanceEstablishments } from '@/hooks/useFinanceEstablishments';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -297,6 +298,7 @@ function TxSheet({
   pendingNotes: LinkedNoteLite[];
   onPendingChange: (notes: LinkedNoteLite[]) => void;
 }) {
+  const { todos: estabelecimentos } = useFinanceEstablishments();
   const [favSearch, setFavSearch] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -501,7 +503,7 @@ function TxSheet({
         <div>
           <span className={labelCls}>Estabelecimento</span>
           <div className="flex gap-2">
-            {ESTABLISHMENTS.map(e => (
+            {estabelecimentos.map(e => (
               <button
                 key={e}
                 onClick={() => setForm({ ...form, estabelecimento: e })}
@@ -990,6 +992,7 @@ function TxDetailSheet({
   onRequestUnmarkPaid?: () => void;
   onTogglePago?: (tx: Transaction) => void;
 }) {
+  const { todos: estabelecimentos } = useFinanceEstablishments();
   const isHrSalario = tx.origem === 'hr_salario';
   const isFaturaRow = !!tx.is_fatura_consolidada;
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -1375,7 +1378,7 @@ function TxDetailSheet({
           <span className={labelCls}>Estabelecimento</span>
           {isEdit && !isHrSalario && !isFaturaRow ? (
             <div className="flex gap-2">
-              {ESTABLISHMENTS.map(e => (
+              {estabelecimentos.map(e => (
                 <button
                   key={e}
                   onClick={() => setForm({ ...form, estabelecimento: e })}

@@ -6,7 +6,7 @@ import { X, Upload, FileSpreadsheet, Loader2, AlertTriangle, Check, ChevronRight
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import type { FinanceTag, GrupoDre } from '@/hooks/useFinanceTags';
-import { ESTABLISHMENTS } from '@/lib/financeEstablishments';
+import { useFinanceEstablishments } from '@/hooks/useFinanceEstablishments';
 import { hashArquivo } from '@/lib/redeImport';
 import {
   parsePdvFile, agregarPdvPorDia, carregarPdvConfig, salvarPdvConfig, vendasPdvPorId, sincronizarDiasPdv,
@@ -65,6 +65,7 @@ interface DinheiroImportModalProps {
 }
 
 export function DinheiroImportModal({ tags, createTag, updateTag, onClose, onImported, onVerFluxo }: DinheiroImportModalProps) {
+  const { todos: estabelecimentos } = useFinanceEstablishments();
   const [passo, setPasso] = useState<Passo>('arquivo');
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [parsed, setParsed] = useState<PdvParsed | null>(null);
@@ -379,7 +380,7 @@ export function DinheiroImportModal({ tags, createTag, updateTag, onClose, onImp
                       className={cn(selCls, estabMap[l.cnpj] ? 'border-[#E0D8BF] dark:border-white/[0.08]' : 'border-amber-400/60 text-[#92400E] dark:text-[#FCD34D]')}
                     >
                       <option value="">Escolha a loja…</option>
-                      {ESTABLISHMENTS.map(x => <option key={x} value={x}>{x}</option>)}
+                      {estabelecimentos.map(x => <option key={x} value={x}>{x}</option>)}
                     </select>
                   </div>
                 ))}

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Building2, Hash, ImagePlus, MapPin, Save, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { recarregarEstabelecimentos } from '@/hooks/useFinanceEstablishments';
 
 export interface Company {
   id: string;
@@ -78,6 +79,7 @@ export function CompanyModal({ open, company, onClose, onSaved, onDeleted }: Com
       } else {
         await supabase.from('companies').insert({ ...form });
       }
+      recarregarEstabelecimentos();
       onSaved();
     } finally {
       setSaving(false);
@@ -90,6 +92,7 @@ export function CompanyModal({ open, company, onClose, onSaved, onDeleted }: Com
     setDeleting(true);
     try {
       await supabase.from('companies').delete().eq('id', company.id);
+      recarregarEstabelecimentos();
       onDeleted();
     } finally {
       setDeleting(false);

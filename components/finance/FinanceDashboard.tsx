@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
-import { ESTABLISHMENTS } from '@/lib/financeEstablishments';
+import { useFinanceEstablishments } from '@/hooks/useFinanceEstablishments';
 
 
 const fmtBRL = (v: number) =>
@@ -79,6 +79,7 @@ function ChartTooltip({ active, payload, label }: TooltipProps) {
 type Panel = 'estab' | 'data' | 'fav' | null;
 
 export function FinanceDashboard() {
+  const { todos: estabelecimentos } = useFinanceEstablishments();
   const [txs, setTxs] = useState<TxLight[]>([]);
   const [accounts, setAccounts] = useState<{ saldo_inicial: number }[]>([]);
   const [dailyBalances, setDailyBalances] = useState<DailyBalance[]>([]);
@@ -278,7 +279,7 @@ export function FinanceDashboard() {
                   transition={{ duration: 0.15 }}
                   className="absolute left-0 top-full mt-2 bg-surface-container-low border border-on-surface/10 rounded-2xl shadow-xl z-30 min-w-[220px] overflow-hidden"
                 >
-                  {ESTABLISHMENTS.map(e => (
+                  {estabelecimentos.map(e => (
                     <button
                       key={e}
                       onClick={() => toggleEstab(e)}

@@ -6,7 +6,7 @@ import { X, Upload, FileSpreadsheet, Loader2, AlertTriangle, Check, ChevronRight
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { TAG_COLOR_MAP, type FinanceTag, type GrupoDre } from '@/hooks/useFinanceTags';
-import { ESTABLISHMENTS } from '@/lib/financeEstablishments';
+import { useFinanceEstablishments } from '@/hooks/useFinanceEstablishments';
 import {
   parseRedeFile, agregarPorDia, carregarRedeConfig, salvarRedeConfig, vendasExistentesNoPeriodo,
   vendasDosDias, movimentacoesPorRef, sincronizarDias, saleKey, diaKey, redeRef, valorDoKind, hashArquivo,
@@ -77,6 +77,7 @@ interface RedeImportModalProps {
 }
 
 export function RedeImportModal({ tags, createTag, updateTag, onClose, onImported, onVerFluxo }: RedeImportModalProps) {
+  const { todos: estabelecimentos } = useFinanceEstablishments();
   const [passo, setPasso] = useState<Passo>('arquivo');
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [parsed, setParsed] = useState<RedeParsed | null>(null);
@@ -378,7 +379,7 @@ export function RedeImportModal({ tags, createTag, updateTag, onClose, onImporte
                         className={cn(selCls, estabMap[e.numero] ? 'border-[#E0D8BF] dark:border-white/[0.08]' : 'border-amber-400/60 text-[#92400E] dark:text-[#FCD34D]')}
                       >
                         <option value="">Escolha a loja…</option>
-                        {ESTABLISHMENTS.map(x => <option key={x} value={x}>{x}</option>)}
+                        {estabelecimentos.map(x => <option key={x} value={x}>{x}</option>)}
                       </select>
                     </div>
                   ))}

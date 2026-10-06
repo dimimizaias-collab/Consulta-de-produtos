@@ -26,6 +26,7 @@ import { searchFavorecidos } from '@/lib/favorecidoSearch';
 import type { PaymentType, TransactionType, Transaction, BankAccount, FinanceCard, Favorecido, Supplier } from '@/types/finance';
 import { calcularFatura } from '@/lib/creditoFatura';
 import { ESTABLISHMENTS } from '@/lib/financeEstablishments';
+import { useFinanceEstablishments } from '@/hooks/useFinanceEstablishments';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -351,6 +352,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
 
   // tags
   const { tags, createTag, updateTag, deleteTag } = useFinanceTags();
+  const { todos: estabelecimentos } = useFinanceEstablishments();
   const [showTagGuide, setShowTagGuide] = useState(false);
 
   // mini calendar
@@ -4304,7 +4306,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                     <div className={viewBlockCls}>{txForm.estabelecimento || '—'}</div>
                   ) : (
                     <select value={txForm.estabelecimento} onChange={e => setTxForm(f => ({ ...f, estabelecimento: e.target.value }))} className={inputCls}>
-                      {ESTABLISHMENTS.map(e => <option key={e} value={e}>{e}</option>)}
+                      {estabelecimentos.map(e => <option key={e} value={e}>{e}</option>)}
                     </select>
                   )}
                 </div>
@@ -4640,7 +4642,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                 <div className="flex flex-col gap-1.5">
                   <label className={labelCls}>Estabelecimento</label>
                   <select value={importEstab} onChange={e => setImportEstab(e.target.value)} className={inputCls}>
-                    {ESTABLISHMENTS.map(e => <option key={e} value={e}>{e}</option>)}
+                    {estabelecimentos.map(e => <option key={e} value={e}>{e}</option>)}
                   </select>
                 </div>
 

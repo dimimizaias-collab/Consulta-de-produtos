@@ -10,7 +10,7 @@ import {
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import type { ReviewNote } from './LogisticsCenter';
-import { STORE_ESTABLISHMENTS as ESTABLISHMENTS } from '@/lib/financeEstablishments';
+import { useFinanceEstablishments } from '@/hooks/useFinanceEstablishments';
 
 const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
 
@@ -130,6 +130,7 @@ interface Props {
 }
 
 export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
+  const { lojas: estabelecimentos } = useFinanceEstablishments();
   // ── Data ─────────────────────────────────────────────────────────────────
   const [transactions,  setTransactions]  = useState<Transaction[]>([]);
   const [accounts,      setAccounts]      = useState<BankAccount[]>([]);
@@ -957,7 +958,7 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
                         <div className="flex flex-col gap-1.5">
                           <label className={labelCls}>Estabelecimento</label>
                           <select value={txForm.estabelecimento} onChange={e => setTxForm(f => ({ ...f, estabelecimento: e.target.value }))} className={inputCls}>
-                            {ESTABLISHMENTS.map(e => <option key={e} value={e}>{e}</option>)}
+                            {estabelecimentos.map(e => <option key={e} value={e}>{e}</option>)}
                           </select>
                         </div>
                       </div>

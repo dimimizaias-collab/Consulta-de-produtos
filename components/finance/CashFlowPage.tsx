@@ -6,7 +6,8 @@ import { cn } from '@/lib/utils';
 import { TAG_COLOR_MAP, type FinanceTag, type GrupoDre } from '@/hooks/useFinanceTags';
 import type { Transaction } from '@/types/finance';
 import { TagGroupsBoard } from './TagGroupsBoard';
-import { ESTABLISHMENTS, PERSONAL_ESTABLISHMENT } from '@/lib/financeEstablishments';
+import { PERSONAL_ESTABLISHMENT } from '@/lib/financeEstablishments';
+import { useFinanceEstablishments } from '@/hooks/useFinanceEstablishments';
 
 // Aba "Fluxo de Caixa" do Controle Financeiro — visão mensal no formato de DRE.
 //
@@ -105,14 +106,14 @@ export function CashFlowPage({ transactions, tags, loading, onUpdateTag }: CashF
   const [vista, setVista] = useState<Vista>('dre');
   const [buscaTag, setBuscaTag] = useState('');
   const [estab, setEstab] = useState<string>(LOJAS);
+  const { lojas: lojasCadastradas } = useFinanceEstablishments();
 
   const estabelecimentos = useMemo(() => {
-    const s = new Set(ESTABLISHMENTS);
+    const s = new Set([...lojasCadastradas, PERSONAL_ESTABLISHMENT]);
     const extras = new Set<string>();
     for (const t of transactions) if (t.estabelecimento && !s.has(t.estabelecimento)) extras.add(t.estabelecimento);
-    const lojas = ESTABLISHMENTS.filter(e => e !== PERSONAL_ESTABLISHMENT);
-    return [...lojas, ...[...extras].sort((a, b) => a.localeCompare(b)), PERSONAL_ESTABLISHMENT];
-  }, [transactions]);
+    return [...lojasCadastradas, ...[...extras].sort((a, b) => a.localeCompare(b)), PERSONAL_ESTABLISHMENT];
+  }, [transactions, lojasCadastradas]);
   const estabLabel = estab === LOJAS ? 'Todas as lojas' : estab === TUDO ? 'Lojas + Pessoal' : estab;
 
   const tagById = useMemo(() => new Map(tags.map(t => [t.id, t])), [tags]);
