@@ -38,7 +38,7 @@ import { maskCnpj } from '@/lib/masks';
 import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight,
   ChevronLeft,
   ChevronsLeft,
-  ChevronsRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, ArrowDown, ArrowUp, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft, Columns3, Boxes, Info, ScrollText, FileCode2, Upload, DollarSign, Printer } from 'lucide-react';
+  ChevronsRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, ArrowDown, ArrowUp, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft, Columns3, Boxes, Info, ScrollText, FileCode2, Upload, DollarSign, Printer, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback, Fragment, type ReactNode } from 'react';
@@ -54,6 +54,10 @@ import Papa from 'papaparse';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import JsBarcode from 'jsbarcode';
+import { calcularDistribuicaoDasNotas, movimentacoesRateaveisDaNota, aplicarRateioDistribuicao, linhasProporcionais, type DistribuicaoInfo } from '@/lib/rateioDistribuicao';
+import { dividirValor } from '@/lib/rateio';
+import { RATEIO_CORES } from '@/components/finance/RateioEditor';
+import type { Transaction } from '@/types/finance';
 
 const staticProducts: any[] = [];
 
@@ -977,6 +981,9 @@ export default function Page() {
   const [statusConfirmTarget, setStatusConfirmTarget] = useState<NoteStatus | null>(null);
   const [savingNoteStatus, setSavingNoteStatus] = useState(false);
   const [distribSendConfirmOpen, setDistribSendConfirmOpen] = useState(false);
+  // Depois de enviar a distribuição: pagamento vinculado à nota pode ser rateado pela distribuição
+  const [rateioDistPrompt, setRateioDistPrompt] = useState<{ notaNumero: string; txs: Transaction[]; info: DistribuicaoInfo } | null>(null);
+  const [aplicandoRateioDist, setAplicandoRateioDist] = useState(false);
   const [sendingDistribution, setSendingDistribution] = useState(false);
   // Combobox de Fornecedor no cabeçalho da nota (mesmo padrão do campo Favorecido em Nova Movimentação)
   const [noteSupplierQuery, setNoteSupplierQuery] = useState('');
@@ -2342,6 +2349,15 @@ export default function Page() {
       setViewingReviewNote(updatedNote);
       setReviewNotes(prev => prev.map(n => n.id === note.id ? updatedNote : n));
       setNotification({ type: 'success', message: `Distribuição enviada — ${destCompanyIds.length} manifesto(s) criado(s).` });
+
+      // Pagamento já vinculado à nota? Oferece ratear pela distribuição (proporcional ao custo)
+      try {
+        const txs = await movimentacoesRateaveisDaNota(note.id);
+        if (txs.length > 0) {
+          const info = await calcularDistribuicaoDasNotas([note.id]);
+          if (info) setRateioDistPrompt({ notaNumero: note.noteNumber || note.fileName || '', txs, info });
+        }
+      } catch { /* a pergunta é opcional — sem ela, dá para ratear depois pela movimentação */ }
     } catch (err: any) {
       setNotification({ type: 'error', message: err.message || 'Erro ao enviar distribuição.' });
     } finally {
@@ -14928,6 +14944,83 @@ export default function Page() {
             </motion.div>
           </div>
         )}
+      </AnimatePresence>
+
+      {/* Ratear o pagamento da nota pela distribuição recém-enviada */}
+      <AnimatePresence>
+        {rateioDistPrompt && (() => {
+          const { notaNumero, txs, info } = rateioDistPrompt;
+          const total = txs.reduce((a, t) => a + t.valor_final, 0);
+          const linhas = linhasProporcionais(info);
+          const partes = dividirValor(total, linhas.map(l => l.pct));
+          const fmtV = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          const descPagamento = txs.length === 1
+            ? `${txs[0].tipo_pagamento.toLowerCase()} de R$ ${fmtV(total)}${txs[0].vencimento ? `, vence ${txs[0].vencimento.slice(8, 10)}/${txs[0].vencimento.slice(5, 7)}` : ''}`
+            : `${txs.length} lançamentos, total de R$ ${fmtV(total)}`;
+          const fechar = () => { if (!aplicandoRateioDist) setRateioDistPrompt(null); };
+          return (
+            <div className="fixed inset-0 z-[230] flex items-center justify-center p-4">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={fechar} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}
+                transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                className="relative w-full max-w-[560px] bg-[#FDFAF0] dark:bg-[#1E1E18] border border-black/[0.12] dark:border-white/[0.08] shadow-2xl"
+              >
+                <div className="h-12 pl-3.5 pr-3 flex items-center gap-[11px] bg-[#FBF35E] dark:bg-[#252520] border-b border-[#D9CF45] dark:border-white/[0.08]">
+                  <span className="w-[30px] h-[30px] grid place-items-center bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]"><ArrowLeftRight size={15} /></span>
+                  <h2 className="flex-1 text-[15px] font-black text-[#1A1A0E] dark:text-[#F2F0E3]">Ratear o pagamento desta nota?</h2>
+                  <button onClick={fechar} className="w-[30px] h-[30px] grid place-items-center border border-black/[0.14] dark:border-white/[0.10] text-[#1A1A0E]/50 dark:text-white/40 hover:text-[#D81E1E] active:scale-[0.93] transition-[color,transform]"><X size={15} /></button>
+                </div>
+                <div className="p-3.5 flex flex-col gap-2.5">
+                  <p className="text-[12.5px] leading-normal text-on-surface">
+                    A distribuição da <b>NF {notaNumero}</b> foi enviada. O pagamento vinculado a ela (<b>{descPagamento}</b>) está todo em {info.lojas.find(l => l.origem)?.estab ?? 'uma loja só'}.
+                  </p>
+                  <p className="text-[12px] text-on-surface/50">Dividindo pela proporção do custo distribuído, fica assim:</p>
+                  <div className="bg-white dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.10]">
+                    {info.lojas.map((l, i) => (
+                      <div key={l.estab} className="flex items-center gap-2 px-2.5 h-8 border-b border-[#EFE8D2] dark:border-white/[0.06] last:border-b-0 text-[12.5px]">
+                        <i className="w-2.5 h-2.5 shrink-0" style={{ background: RATEIO_CORES[i % RATEIO_CORES.length] }} />
+                        <span className="flex-1 font-bold text-on-surface">{l.estab}{l.origem && <span className="ml-1.5 text-[8.5px] font-black uppercase tracking-[0.05em] text-on-surface/40">origem</span>}</span>
+                        <span className="w-[56px] text-right text-[11px] font-bold text-on-surface/45">{(Math.round(linhas[i].pct * 100) / 100).toLocaleString('pt-BR')}%</span>
+                        <span className="w-[100px] text-right font-mono text-[12px] text-on-surface">{fmtV(partes[i])}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {info.itensSemCusto > 0 && (
+                    <p className="text-[11.5px] text-[#92400E] dark:text-[#FCD34D]">{info.itensSemCusto} {info.itensSemCusto === 1 ? 'item distribuído está' : 'itens distribuídos estão'} sem custo e {info.itensSemCusto === 1 ? 'ficou' : 'ficaram'} fora do cálculo.</p>
+                  )}
+                  <p className="text-[11px] text-on-surface/35">Você pode ajustar depois abrindo a movimentação no Controle Financeiro.</p>
+                </div>
+                <div className="px-3.5 py-2.5 flex items-center gap-2 bg-[#EFE7CD] dark:bg-[#181814] border-t border-[#DDD2B0] dark:border-white/[0.08]">
+                  <button onClick={fechar} disabled={aplicandoRateioDist} className="h-9 px-4 border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[11.5px] font-extrabold uppercase tracking-[0.04em] text-on-surface/60 active:scale-[0.97] transition-transform disabled:opacity-50">Agora não</button>
+                  <button
+                    onClick={() => { const id = txs[0].id; setRateioDistPrompt(null); handleGoToTransaction(id); }}
+                    disabled={aplicandoRateioDist}
+                    className="h-9 px-4 border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[11.5px] font-extrabold uppercase tracking-[0.04em] text-on-surface active:scale-[0.97] transition-transform disabled:opacity-50"
+                  >Abrir movimentação</button>
+                  <button
+                    disabled={aplicandoRateioDist}
+                    onClick={async () => {
+                      setAplicandoRateioDist(true);
+                      try {
+                        await aplicarRateioDistribuicao(txs, info);
+                        setNotification({ type: 'success', message: `Pagamento da NF ${notaNumero} rateado entre ${info.lojas.length} lojas.` });
+                        setRateioDistPrompt(null);
+                      } catch (err: any) {
+                        setNotification({ type: 'error', message: err.message || 'Erro ao ratear o pagamento.' });
+                      } finally {
+                        setAplicandoRateioDist(false);
+                      }
+                    }}
+                    className="ml-auto h-9 px-[18px] flex items-center gap-2 bg-[#D81E1E] hover:bg-[#B91818] text-white text-[12px] font-extrabold uppercase tracking-[0.04em] active:scale-[0.97] transition-all disabled:opacity-60"
+                  >
+                    {aplicandoRateioDist && <Loader2 size={14} className="animate-spin" />} Ratear
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          );
+        })()}
       </AnimatePresence>
 
       {/* Mode choice — Administrador vs Estoque, ao abrir uma nota no mobile */}

@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="pt-BR" class="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rateio pela Distribuição</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FFFCEC; --text: #1A1A0E; --muted: rgba(26,26,10,0.45); --faint: rgba(26,26,10,0.28); --ghost: rgba(26,26,10,0.16);
+    --hdr: #FBF35E; --hdr-border: #D9CF45; --chip: rgba(26,26,10,0.09); --chip-c: #1A1A0E;
+    --modal: #FDFAF0; --section: #F1EAD3; --card: #FFFFFF; --border: #E0D8BF; --border-hover: #CFC4A2;
+    --th: #FFEC4D; --th-bottom: #8F7E10; --th-line: #B8A31F; --th-text: rgba(26,26,10,0.55); --grid: #A8A290;
+    --row-odd: #FAF7EE; --row-hover: #FFF8D0; --sub: #FDFBF4; --foot: #FFF7B0; --foot-border: #DDD000;
+    --view: rgba(0,0,0,0.035);
+    --green: #0A7A55; --green-bg: rgba(10,122,85,0.08); --red: #D81E1E; --amber: #92400E; --amber-bg: #FFFBEB; --amber-border: rgba(251,191,36,0.55);
+    --s1: #D81E1E; --s2: #2563EB; --s3: #0A7A55; --s4: #B45309; --s5: #7C3AED;
+    --tabshadow: inset 0 6px 8px -5px rgba(26,26,10,0.35);
+  }
+  html.dark {
+    --bg: #161612; --text: #F2F0E3; --muted: rgba(242,240,227,0.42); --faint: rgba(242,240,227,0.25); --ghost: rgba(242,240,227,0.14);
+    --hdr: #252520; --hdr-border: rgba(242,240,227,0.08); --chip: rgba(216,30,30,0.16); --chip-c: #D81E1E;
+    --modal: #1E1E18; --section: #181814; --card: #1E1E18; --border: rgba(242,240,227,0.10); --border-hover: rgba(242,240,227,0.20);
+    --grid: rgba(242,240,227,0.18); --th-text: rgba(26,26,10,0.58);
+    --row-odd: #1A1A15; --row-hover: rgba(255,229,0,0.06); --sub: #1B1B16; --foot: #252520; --foot-border: rgba(242,240,227,0.06);
+    --view: rgba(255,255,255,0.03);
+    --green: #34D399; --green-bg: rgba(52,211,153,0.08); --amber: #FCD34D; --amber-bg: rgba(251,191,36,0.07); --amber-border: rgba(251,191,36,0.40);
+    --s2: #60A5FA; --s3: #34D399; --s4: #FBBF24; --s5: #A78BFA;
+    --tabshadow: inset 0 6px 8px -5px rgba(0,0,0,0.55);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+  button, select, input { font-family: inherit; }
+  .mono { font-family: 'DM Mono', monospace; font-variant-numeric: tabular-nums; }
+
+  .anno { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 100; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: center; padding: 8px 10px; border-radius: 14px; background: #1A1A0E; color: #F2F0E3; font-size: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.35); max-width: calc(100vw - 24px); }
+  .anno b { color: #FFE500; margin-right: 4px; }
+  .anno button { border: 1px solid rgba(242,240,227,.18); background: transparent; color: #F2F0E3; padding: 5px 10px; border-radius: 999px; cursor: pointer; font-weight: 700; font-size: 11px; }
+  .anno button.on { background: #FFE500; color: #1A1A0E; border-color: #FFE500; }
+  .anno a { color: rgba(242,240,227,.6); font-size: 11px; margin-left: 4px; }
+
+  .hdr { position: fixed; top: 0; left: 0; right: 0; z-index: 10; height: 44px; display: flex; align-items: center; background: #2B2B26; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .hdr .logo { width: 64px; display: grid; place-items: center; }
+  .hdr .logo span { width: 32px; height: 32px; display: grid; place-items: center; background: #fff; color: #D81E1E; font-size: 8.5px; font-weight: 900; }
+  .hdr h1 { margin: 0; font-size: 15px; font-weight: 900; color: #F2F0E3; }
+  .rail { position: fixed; left: 0; top: 44px; bottom: 0; width: 64px; background: var(--hdr); border-right: 1px solid var(--hdr-border); }
+  main { margin-left: 64px; padding-top: 44px; }
+  .tabs { display: flex; width: max-content; }
+  .tab { height: 32px; min-width: 120px; padding: 0 14px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--hdr-border); border-top: 0; margin-left: -1px; background: var(--hdr); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; box-shadow: var(--tabshadow); }
+  .tab:first-child { margin-left: 0; border-left: 0; }
+  .tab span { opacity: .55; } .tab.on { box-shadow: var(--tabshadow), inset 0 -3px 0 #D81E1E; } .tab.on span { opacity: 1; }
+  .page { padding: 14px 28px 90px; }
+
+  /* Tabela principal */
+  .tbl { background: var(--card); border: 1px solid var(--border); overflow-x: auto; }
+  table { width: 100%; min-width: 1000px; table-layout: fixed; border-collapse: collapse; font-size: 13px; }
+  th { height: 32px; padding: 0 10px; background: var(--th); text-align: left; box-shadow: inset -1px 0 0 var(--th-line), inset 0 -1.5px 0 var(--th-bottom); font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: var(--th-text); white-space: nowrap; }
+  th.r, td.r { text-align: right; }
+  td { height: 36px; padding: 0 10px; border-right: 1px solid var(--grid); border-bottom: 1px solid var(--grid); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  td:last-child { border-right: 0; }
+  tr.ev { background: var(--card); } tr.od { background: var(--row-odd); }
+  tr.rw:hover { background: var(--row-hover); }
+  tr.grp { cursor: pointer; }
+  tr.child td { background: var(--sub); font-size: 12px; color: var(--muted); height: 32px; }
+  tr.child td:first-child { padding-left: 34px; }
+  .v { font-family: 'DM Mono', monospace; font-variant-numeric: tabular-nums; font-size: 12px; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; padding: 0 5px; line-height: 15px; border: 1px solid currentColor; vertical-align: 1px; }
+  .badge.rt { color: #7C3AED; } html.dark .badge.rt { color: #A78BFA; }
+  .badge.ok { color: var(--green); } .badge.op { color: var(--amber); }
+  .estab-rt { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; }
+  .estab-rt .rt-ic { width: 18px; height: 18px; flex-shrink: 0; display: grid; place-items: center; background: rgba(124,58,237,.12); color: #7C3AED; font-size: 10px; font-weight: 900; }
+  html.dark .estab-rt .rt-ic { background: rgba(167,139,250,.16); color: #A78BFA; }
+  .estab-rt .nm { font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+  .estab-rt .rt-tag { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; color: #7C3AED; }
+  html.dark .estab-rt .rt-tag { color: #A78BFA; }
+  .estab-rt .minibar { margin-left: 2px; flex-shrink: 0; }
+  .filt { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 11px; font-weight: 700; color: var(--muted); }
+  .filt button { height: 24px; padding: 0 9px; border: 1px solid var(--border); background: var(--card); color: var(--muted); font-size: 10px; font-weight: 800; cursor: pointer; }
+  .filt button.on { background: #D81E1E; border-color: #D81E1E; color: #fff; }
+  .chev { display: inline-block; width: 12px; font-size: 8px; color: var(--muted); transition: transform .18s cubic-bezier(.23,1,.32,1); }
+  .chev.open { transform: rotate(90deg); }
+  .sw { display: inline-block; width: 8px; height: 8px; margin-right: 6px; vertical-align: 0; }
+  .minibar { display: inline-flex; width: 70px; height: 6px; vertical-align: 1px; margin-left: 6px; border: 1px solid var(--border); }
+  .minibar i { display: block; height: 100%; }
+
+  /* Modal */
+  .ov { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.6); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 16px; }
+  .modal { width: min(896px, 100%); max-height: 90vh; display: flex; flex-direction: column; background: var(--modal); border: 1px solid rgba(0,0,0,.12); box-shadow: 0 25px 50px -12px rgba(0,0,0,.4); animation: mopen .2s cubic-bezier(.23,1,.32,1); }
+  @keyframes mopen { from { opacity: 0; transform: scale(.97); } }
+  .mh { height: 48px; padding: 0 12px 0 14px; display: flex; align-items: center; gap: 11px; background: var(--hdr); border-bottom: 1px solid var(--hdr-border); flex-shrink: 0; }
+  .mh .ic { width: 30px; height: 30px; display: grid; place-items: center; background: var(--chip); color: var(--chip-c); font-weight: 900; }
+  .mh h2 { flex: 1; margin: 0; font-size: 15px; font-weight: 900; }
+  .mh .x { width: 30px; height: 30px; border: 1px solid rgba(0,0,0,.14); background: transparent; color: var(--muted); cursor: pointer; font-weight: 900; }
+  html.dark .mh .x { border-color: rgba(255,255,255,.1); }
+  .mb { flex: 1; overflow: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+  .sec { background: var(--section); border: 1px solid var(--border); }
+  .sh { height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: var(--th); border-bottom: 1.5px solid var(--th-bottom); }
+  .sh .i { color: #D81E1E; font-weight: 900; font-size: 12px; }
+  .sh b { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: var(--th-text); }
+  .sh .r { margin-left: auto; font-size: 10.5px; font-weight: 700; color: var(--th-text); }
+  .sb { margin: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .f { display: flex; flex-direction: column; gap: 6px; }
+  .f.full { grid-column: 1 / -1; }
+  .lbl { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: rgba(26,26,10,.58); padding-left: 1px; display: flex; align-items: center; gap: 8px; }
+  html.dark .lbl { color: rgba(242,240,227,.55); }
+  .in { height: 34px; padding: 0 10px; background: var(--card); color: var(--text); border: 1px solid var(--border); font-size: 13px; font-weight: 600; outline: none; width: 100%; caret-color: #D81E1E; transition: border-color .13s, box-shadow .13s; }
+  .in:hover { border-color: var(--border-hover); }
+  .in:focus { border-color: #D81E1E; box-shadow: 0 0 0 2px rgba(216,30,30,.12); }
+  .in.num { text-align: right; font-family: 'DM Mono', monospace; font-size: 12.5px; }
+  .in.ro { background: var(--view); color: var(--muted); display: flex; align-items: center; justify-content: flex-end; font-family: 'DM Mono', monospace; font-size: 12.5px; }
+  .in.bad { border-color: #D81E1E; color: #D81E1E; }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tg { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; border: 1px solid; font-size: 11px; font-weight: 700; }
+
+  .seg { display: inline-flex; border: 1px solid var(--border); background: var(--card); margin-left: auto; }
+  .seg button { height: 22px; padding: 0 9px; border: 0; background: transparent; color: var(--muted); font-size: 9.5px; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button.on { background: #D81E1E; color: #fff; }
+  .seg.big button { height: 26px; font-size: 10px; padding: 0 10px; }
+
+  /* Rateio */
+  .rateio { border: 1px solid var(--border); background: var(--card); animation: rin .2s cubic-bezier(.23,1,.32,1); transform-origin: top; }
+  @keyframes rin { from { opacity: 0; transform: translateY(-4px) scale(.99); } }
+  .rhead { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  .rhead .t { font-size: 12px; font-weight: 800; }
+  .rhead .t small { display: block; font-size: 10.5px; font-weight: 600; color: var(--muted); }
+  .bar { display: flex; height: 10px; margin: 10px 10px 2px; background: var(--view); border: 1px solid var(--border); overflow: hidden; }
+  .bar i { display: block; height: 100%; transition: width .25s cubic-bezier(.23,1,.32,1); }
+  .bar i.rest { background: repeating-linear-gradient(45deg, transparent 0 4px, var(--amber-border) 4px 6px); }
+  .bar i.over { background: repeating-linear-gradient(45deg, transparent 0 4px, rgba(216,30,30,.45) 4px 6px); }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; padding: 4px 10px 8px; font-size: 10.5px; color: var(--muted); font-weight: 700; }
+  .rt { width: 100%; border-collapse: collapse; min-width: 0; table-layout: fixed; }
+  .rt th { height: 26px; font-size: 8.5px; position: static; }
+  .rt td { height: 42px; border-right: 0; border-bottom: 1px solid var(--border); padding: 0 6px; overflow: visible; }
+  .rt tr:last-child td { border-bottom: 0; }
+  .rt .sw { margin: 0; width: 10px; height: 10px; }
+  .rm { width: 28px; height: 28px; border: 1px solid transparent; background: transparent; color: var(--faint); cursor: pointer; font-weight: 900; font-size: 13px; }
+  .rm:hover { color: #D81E1E; border-color: rgba(216,30,30,.3); background: rgba(216,30,30,.06); }
+  .rt tr .rm { opacity: .35; } .rt tr:hover .rm { opacity: 1; }
+  .add { margin: 8px 10px 10px; height: 32px; width: calc(100% - 20px); border: 1.5px dashed rgba(26,26,10,.22); background: transparent; color: var(--faint); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; cursor: pointer; }
+  html.dark .add { border-color: rgba(242,240,227,.18); }
+  .add:hover { border-color: #D81E1E; color: #D81E1E; }
+  .rstat { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-top: 1px solid var(--border); font-size: 12px; font-weight: 700; }
+  .rstat.ok { background: var(--green-bg); color: var(--green); }
+  .rstat.rest { background: var(--amber-bg); color: var(--amber); }
+  .rstat.over { background: rgba(216,30,30,.06); color: #D81E1E; }
+  .rstat .fix { margin-left: auto; height: 24px; padding: 0 9px; border: 1px solid currentColor; background: transparent; color: inherit; font-size: 9.5px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; cursor: pointer; }
+  .pctwrap { position: relative; } .pctwrap::after { content: '%'; position: absolute; right: 9px; top: 50%; transform: translateY(-50%); font-size: 11px; color: var(--faint); font-weight: 700; pointer-events: none; }
+  .pctwrap .in { padding-right: 22px; }
+
+  .grid-parc { margin: 0 10px 10px; border: 1px solid var(--border); background: var(--card); overflow-x: auto; }
+  .grid-parc table { min-width: 520px; font-size: 12px; }
+  .grid-parc td { height: 30px; }
+
+  .banner { display: flex; gap: 8px; align-items: flex-start; padding: 9px 12px; border: 1px solid rgba(124,58,237,.35); background: rgba(124,58,237,.06); color: #6D28D9; font-size: 12px; line-height: 1.45; }
+  html.dark .banner { color: #C4B5FD; }
+  .mf { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--foot); border-top: 1px solid var(--foot-border); flex-shrink: 0; }
+  .mf .tot { font-size: 12px; color: var(--muted); font-weight: 700; }
+  .mf .tot b { color: var(--text); font-family: 'DM Mono', monospace; font-size: 14px; margin-left: 4px; }
+  .mf .warn { font-size: 11.5px; font-weight: 700; color: #D81E1E; }
+  .btn { height: 34px; padding: 0 16px; border: 1px solid rgba(26,26,10,.14); background: rgba(26,26,10,.08); color: rgba(26,26,10,.55); font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; cursor: pointer; transition: transform .15s; }
+  html.dark .btn { border-color: rgba(242,240,227,.10); background: rgba(242,240,227,.07); color: rgba(242,240,227,.5); }
+  .btn:active { transform: scale(.97); }
+  .btn.pri { background: #D81E1E; border-color: #D81E1E; color: #fff; }
+  .btn.pri:disabled { opacity: .4; cursor: default; }
+  .ml { margin-left: auto; }
+</style>
+<style>
+  .nf { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--card); border: 1px solid var(--border); }
+  .nf + .nf { border-top: 0; }
+  .nf .ic { width: 30px; height: 30px; display: grid; place-items: center; background: rgba(216,30,30,.08); color: #D81E1E; font-size: 10px; font-weight: 900; flex-shrink: 0; }
+  .nf b { display: block; font-size: 12.5px; font-weight: 800; }
+  .nf small { display: block; font-size: 10.5px; color: var(--muted); font-weight: 600; }
+  .nf .v { margin-left: auto; font-size: 12.5px; font-weight: 700; }
+  .dist { margin-top: 8px; border: 1px solid rgba(37,99,235,.35); background: rgba(37,99,235,.05); }
+  html.dark .dist { border-color: rgba(96,165,250,.35); background: rgba(96,165,250,.06); }
+  .dist .dh { display: flex; align-items: center; gap: 10px; padding: 9px 12px; }
+  .dist .dh .ic { width: 28px; height: 28px; display: grid; place-items: center; background: rgba(37,99,235,.12); color: #2563EB; font-weight: 900; flex-shrink: 0; }
+  html.dark .dist .dh .ic { color: #60A5FA; background: rgba(96,165,250,.14); }
+  .dist .dh p { margin: 0; font-size: 12px; line-height: 1.45; color: var(--text); }
+  .dist .dh p small { display: block; color: var(--muted); font-weight: 600; font-size: 11px; }
+  .bluebtn { margin-left: auto; height: 30px; padding: 0 12px; border: 1px solid #2563EB; background: #2563EB; color: #fff; font-size: 10.5px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; cursor: pointer; white-space: nowrap; transition: transform .15s; }
+  .bluebtn:active { transform: scale(.97); }
+  .bluebtn.ghost { background: transparent; color: #2563EB; }
+  html.dark .bluebtn.ghost { color: #60A5FA; border-color: #60A5FA; }
+  .calc { border-top: 1px solid rgba(37,99,235,.25); background: var(--card); }
+  .calc table { min-width: 0; font-size: 12px; }
+  .calc td { height: 32px; }
+  .calc th { position: static; }
+  .calc tr.tot td { background: var(--foot); font-weight: 900; border-top: 1.5px solid var(--th-bottom); }
+  .calc .note { padding: 8px 12px; font-size: 11px; color: var(--muted); line-height: 1.45; border-top: 1px solid var(--border); }
+  .orig { display: inline-block; margin-left: 6px; font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; padding: 0 5px; line-height: 15px; border: 1px solid currentColor; color: var(--muted); vertical-align: 1px; }
+  .origem-pill { font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .from-dist { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; color: #2563EB; }
+  html.dark .from-dist { color: #60A5FA; }
+  .stale { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--amber-border); background: var(--amber-bg); color: var(--amber); font-size: 12px; line-height: 1.45; }
+  .stale b { font-weight: 900; }
+  .diff { font-family: 'DM Mono', monospace; font-size: 11.5px; }
+  .diff .old { text-decoration: line-through; color: var(--faint); margin-right: 6px; }
+  .dlg { width: min(560px, 100%); background: var(--modal); border: 1px solid rgba(0,0,0,.12); box-shadow: 0 25px 50px -12px rgba(0,0,0,.4); animation: mopen .2s cubic-bezier(.23,1,.32,1); }
+  .dlg .mb { gap: 10px; }
+  .dlg p { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--text); }
+  .pv { border: 1px solid var(--border); background: var(--card); }
+  .pv div { display: flex; align-items: center; gap: 8px; padding: 0 10px; height: 32px; border-bottom: 1px solid var(--line, #EFE8D2); font-size: 12.5px; }
+  .pv div:last-child { border-bottom: 0; }
+  .pv .sw { margin: 0; }
+  .pv .n { flex: 1; font-weight: 700; }
+  .pv .p { color: var(--muted); font-weight: 700; font-size: 11px; width: 52px; text-align: right; }
+  .pv .val { width: 100px; text-align: right; font-family: 'DM Mono', monospace; font-size: 12px; }
+  .nota-scr { background: var(--card); border: 1px solid var(--border); }
+  .nota-scr .nh { height: 40px; display: flex; align-items: center; gap: 10px; padding: 0 12px; background: var(--th); border-bottom: 1.5px solid var(--th-bottom); font-size: 12px; font-weight: 900; color: #1A1A0E; }
+  .stt { display: flex; gap: 0; border: 1px solid var(--border); width: max-content; }
+  .stt span { height: 28px; padding: 0 12px; display: flex; align-items: center; font-size: 10.5px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .stt span + span { border-left: 1px solid var(--border); }
+  .stt span.on { background: #2563EB; color: #fff; }
+</style>
+</head>
+<body>
+  <header class="hdr"><div class="logo"><span>CR</span></div><h1 id="ttl">Controle Financeiro</h1></header>
+  <nav class="rail"></nav>
+  <main>
+    <div class="tabs" id="tabs"></div>
+    <div class="page" id="page"></div>
+  </main>
+  <div id="modal"></div>
+  <div class="anno" id="anno"></div>
+
+<script>
+// Exemplo: NF 4.512 da Universo, R$ 10.000,00 em mercadoria (custo) — pagamento de R$ 10.450,00
+// (boleto, inclui frete/IPI). Distribuído: Castelo Real R$ 2.000,00 · Loja Nova Centro R$ 1.200,00.
+const COR = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)', 'var(--s5)'];
+const fmt = v => Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pctFmt = v => (Math.round(v * 100) / 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+const r2 = n => Math.round(n * 100) / 100;
+
+const NOTA = { num: '4.512', forn: 'Distribuidora Alfa Ltda', loja: 'Universo do R$1,99', custo: 10000 };
+const PAG = 10450;
+const DIST_V1 = [{ e: 'Castelo Real', v: 2000, itens: 38, man: 'DM-0091' }, { e: 'Loja Nova Centro', v: 1200, itens: 21, man: 'DM-0092' }];
+const DIST_V2 = [{ e: 'Castelo Real', v: 2600, itens: 47, man: 'DM-0091' }, { e: 'Loja Nova Centro', v: 1200, itens: 21, man: 'DM-0092' }];
+
+const S = { step: 1, semCusto: false, dist: DIST_V1 };
+
+function partes(dist) {
+  const lojas = [{ e: NOTA.loja, v: NOTA.custo - dist.reduce((a, d) => a + d.v, 0), origem: true }, ...dist];
+  let acc = 0;
+  return lojas.map((l, i) => {
+    const p = l.v / NOTA.custo;
+    const val = i === lojas.length - 1 ? r2(PAG - acc) : r2(PAG * p);
+    acc = r2(acc + val);
+    return { ...l, p: p * 100, val };
+  });
+}
+
+function notasSection(estado) {
+  const dist = S.dist, somaDist = dist.reduce((a, d) => a + d.v, 0);
+  const ps = partes(dist);
+  let extra = '';
+  if (estado === 'aviso') {
+    extra = `<div class="dist"><div class="dh"><span class="ic">⇄</span>
+      <p>A NF ${NOTA.num} teve <b>R$ ${fmt(somaDist)}</b> em mercadoria distribuída para ${dist.length} lojas.
+      <small>${dist.map(d => `${d.e}: R$ ${fmt(d.v)}`).join(' · ')} — ${pctFmt(somaDist / NOTA.custo * 100)}% do custo da nota</small></p>
+      <button class="bluebtn" onclick="go(2)">⇄ Ratear pela distribuição</button></div>
+      ${S.semCusto ? `<div class="stale" style="border-left:0;border-right:0;border-bottom:0">⚠ <span><b>3 itens distribuídos estão sem custo</b> (criados pelo "Criar e Vincular" no manifesto DM-0092) e ficaram fora do cálculo. Corrija o custo na distribuição para o rateio ficar exato.</span></div>` : ''}
+    </div>`;
+  }
+  if (estado === 'aplicado' || estado === 'desatualizado') {
+    extra = `<div class="dist"><div class="dh"><span class="ic">⇄</span>
+      <p>Rateio calculado pela distribuição da NF ${NOTA.num} — <b>proporcional ao custo</b> de cada loja.
+      <small>O frete e os impostos da nota (R$ ${fmt(PAG - NOTA.custo)}) se dividem na mesma proporção.</small></p>
+      <button class="bluebtn ghost" onclick="S.showCalc=!S.showCalc;render()">${S.showCalc ? 'Ocultar' : 'Ver'} cálculo</button></div>
+      ${S.showCalc ? calcTable(ps) : ''}
+    </div>`;
+  }
+  return `<div class="sec"><div class="sh"><span class="i">▤</span><b>Notas fiscais vinculadas</b><span class="r">1 nota</span></div>
+    <div style="margin:10px">
+      <div class="nf"><span class="ic">NF</span><span><b>NF ${NOTA.num} · ${NOTA.forn}</b><small>${NOTA.loja} · entrada 02/10/2026 · ${dist.length} manifestos de distribuição enviados</small></span><span class="v mono">R$ ${fmt(NOTA.custo)}</span></div>
+      ${extra}
+    </div></div>`;
+}
+
+function calcTable(ps) {
+  return `<div class="calc"><table>
+    <colgroup><col><col style="width:150px"><col style="width:100px"><col style="width:150px"></colgroup>
+    <thead><tr><th>Loja</th><th class="r">Custo da mercadoria</th><th class="r">Proporção</th><th class="r">Parte do pagamento</th></tr></thead>
+    <tbody>${ps.map((l, i) => `<tr class="${i % 2 ? 'od' : 'ev'}">
+      <td><i class="sw" style="background:${COR[i]}"></i>${l.e}${l.origem ? '<span class="orig">origem · fica com o resto</span>' : ` <span style="color:var(--faint);font-size:11px">${l.man} · ${l.itens} itens</span>`}</td>
+      <td class="r"><span class="v">${fmt(l.v)}</span></td><td class="r"><span class="v">${pctFmt(l.p)}%</span></td><td class="r"><span class="v" style="font-weight:800">${fmt(l.val)}</span></td></tr>`).join('')}
+      <tr class="tot"><td>Total</td><td class="r"><span class="v">${fmt(NOTA.custo)}</span></td><td class="r"><span class="v">100%</span></td><td class="r"><span class="v">${fmt(PAG)}</span></td></tr>
+    </tbody></table>
+    <div class="note">Parte do pagamento = valor do pagamento × proporção do custo. Os centavos fecham na última loja. Itens com custo zero não entram.</div></div>`;
+}
+
+function rateioBox(ps, editavel) {
+  return `<div class="rateio">
+    <div class="rhead"><span class="t">Dividir o valor entre estabelecimentos<small>Total da movimentação: <b class="mono">R$ ${fmt(PAG)}</b> · <span class="from-dist">⇄ preenchido pela distribuição</span></small></span>
+      <div class="seg big"><button>Igual</button><button class="on">Por %</button><button>Por valor</button></div></div>
+    <div class="bar">${ps.map((l, i) => `<i style="width:${l.val / PAG * 100}%;background:${COR[i]}"></i>`).join('')}</div>
+    <div class="legend">${ps.map((l, i) => `<span><i class="sw" style="background:${COR[i]}"></i>${l.e} · ${pctFmt(l.p)}%</span>`).join('')}</div>
+    <table class="rt"><colgroup><col style="width:22px"><col><col style="width:110px"><col style="width:150px"><col style="width:36px"></colgroup>
+      <thead><tr><th></th><th>Estabelecimento</th><th class="r">%</th><th class="r">Valor (R$)</th><th></th></tr></thead>
+      <tbody>${ps.map((l, i) => `<tr><td><i class="sw" style="background:${COR[i]}"></i></td>
+        <td><div style="display:flex;align-items:center;gap:8px"><select class="in"><option>${l.e}</option></select>${l.origem ? '<span class="origem-pill" style="white-space:nowrap">origem</span>' : ''}</div></td>
+        <td><div class="pctwrap"><input class="in num" value="${pctFmt(l.p)}"></div></td>
+        <td><div class="in ro">${fmt(l.val)}</div></td><td><button class="rm">✕</button></td></tr>`).join('')}</tbody></table>
+    <div class="rstat ok">✓ Rateio fechado: ${ps.length} estabelecimentos somam R$ ${fmt(PAG)}</div>
+  </div>`;
+}
+
+function modalMov() {
+  const st = S.step;
+  const estadoNotas = st === 1 || st === 5 ? 'aviso' : st === 6 ? 'desatualizado' : 'aplicado';
+  const ps = partes(S.dist);
+  const rateioOn = st >= 2 && st !== 5;
+  let staleBox = '';
+  if (st === 6) {
+    const novo = partes(DIST_V2);
+    staleBox = `<div class="stale">⚠ <span><b>Rateio desatualizado:</b> a distribuição da NF ${NOTA.num} mudou depois que o rateio foi feito (manifesto DM-0091 ganhou 9 itens).
+      <span style="display:block;margin-top:4px">${novo.map((l, i) => { const old = ps[i]; return `<span class="diff" style="margin-right:12px">${l.e}: <span class="old">${fmt(old.val)}</span>${fmt(l.val)}</span>`; }).join('')}</span></span>
+      <button class="bluebtn" style="margin-left:auto" onclick="S.dist=DIST_V2;S.step=3;render()">Recalcular</button></div>`;
+  }
+  return `<div class="ov"><div class="modal">
+    <div class="mh"><span class="ic">▣</span><h2>Editar Movimentação</h2>${rateioOn ? '<span class="badge rt" style="height:22px;padding:0 8px">Rateio · ' + ps.length + ' estab.</span>' : ''}<button class="x" onclick="go(7)">✕</button></div>
+    <div class="mb">
+      ${staleBox}
+      <div class="sec"><div class="sh"><span class="i">◉</span><b>Dados</b></div>
+        <div class="sb">
+          <div class="f full"><span class="lbl">Favorecido / Descrição</span><input class="in" value="${NOTA.forn}"></div>
+          <div class="f"><span class="lbl">Tipo de Pagamento</span><select class="in"><option>Boleto</option></select></div>
+          <div class="f"><span class="lbl">Vencimento / Parcelas</span><div class="in" style="display:flex;align-items:center">Vencimento: 02/11/2026</div></div>
+          <div class="f"><span class="lbl">Valor (R$)</span><input class="in num" value="${fmt(PAG)}"></div>
+          <div class="f"><span class="lbl">Conta</span><select class="in"><option>Itaú — Universo</option></select></div>
+        </div>
+      </div>
+      <div class="sec"><div class="sh"><span class="i">☑</span><b>Classificação</b></div>
+        <div class="sb">
+          <div class="f full"><span class="lbl">Tags</span><div class="tags"><span class="tg" style="color:#1E40AF;border-color:#BFDBFE;background:#EFF6FF">Fornecedor</span></div></div>
+          <div class="f full">
+            <span class="lbl">Estabelecimento<span class="seg" style="margin-left:auto"><button class="${!rateioOn ? 'on' : ''}">Único</button><button class="${rateioOn ? 'on' : ''}">◩ Rateio</button></span></span>
+            ${rateioOn ? rateioBox(st === 3 || st === 4 ? partes(S.dist) : ps) : `<select class="in"><option>${NOTA.loja}</option></select>`}
+          </div>
+        </div>
+      </div>
+      ${notasSection(estadoNotas)}
+    </div>
+    <div class="mf"><span class="tot">Total<b>R$ ${fmt(PAG)}</b></span>${rateioOn ? `<span class="tot" style="margin-left:8px">· ${ps.length} estabelecimentos</span>` : ''}
+      <button class="btn ml" onclick="go(7)">Cancelar</button><button class="btn pri" onclick="go(7)">Salvar alterações</button></div>
+  </div></div>`;
+}
+
+function dialogNota() {
+  const ps = partes(S.dist);
+  return `<div class="ov"><div class="dlg">
+    <div class="mh"><span class="ic">⇄</span><h2>Ratear o pagamento desta nota?</h2><button class="x" onclick="go(7)">✕</button></div>
+    <div class="mb">
+      <p>A distribuição da <b>NF ${NOTA.num}</b> foi enviada. O pagamento vinculado a ela (<b>boleto de R$ ${fmt(PAG)}</b>, vence 02/11) está todo na ${NOTA.loja}.</p>
+      <p style="color:var(--muted);font-size:12px">Dividindo pela proporção do custo distribuído, fica assim:</p>
+      <div class="pv">${ps.map((l, i) => `<div><i class="sw" style="background:${COR[i]}"></i><span class="n">${l.e}${l.origem ? ' <span class="origem-pill">origem</span>' : ''}</span><span class="p">${pctFmt(l.p)}%</span><span class="val">${fmt(l.val)}</span></div>`).join('')}</div>
+      <p style="color:var(--faint);font-size:11px">Você pode ajustar depois abrindo a movimentação no Controle Financeiro.</p>
+    </div>
+    <div class="mf"><button class="btn" onclick="go(7)">Agora não</button><button class="btn" onclick="S.step=2;render()">Abrir movimentação</button><button class="btn pri ml" onclick="go(7)">Ratear</button></div>
+  </div></div>`;
+}
+
+function tabela() {
+  const ps = partes(S.dist);
+  const rate = S.step >= 7 && S.rated;
+  return `<div class="tbl"><table>
+    <colgroup><col style="width:80px"><col><col style="width:330px"><col style="width:120px"><col style="width:90px"><col style="width:120px"><col style="width:100px"></colgroup>
+    <thead><tr><th>Data</th><th>Favorecido</th><th>Estabelecimento</th><th>Pagamento</th><th>Vencimento</th><th class="r">Valor</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr class="rw ev" style="cursor:pointer" onclick="go(${rate ? 3 : 1})"><td>02/10</td><td>${NOTA.forn}</td>
+        <td>${rate ? `<span class="estab-rt"><span class="rt-ic">◩</span><span class="nm">Rateio · ${ps.length} estabelecimentos</span><span class="minibar">${ps.map((l, i) => `<i style="width:${l.val / PAG * 100}%;background:${COR[i]}"></i>`).join('')}</span></span>` : NOTA.loja}</td>
+        <td>Boleto</td><td>02/11</td><td class="r"><span class="v">${fmt(PAG)}</span></td><td><span class="badge op">Em aberto</span></td></tr>
+      <tr class="rw od"><td>01/10</td><td>CEMIG — Energia elétrica</td><td>Castelo Real</td><td>Boleto</td><td>15/10</td><td class="r"><span class="v">1.840,00</span></td><td><span class="badge op">Em aberto</span></td></tr>
+    </tbody></table></div>
+    <p style="font-size:11px;color:var(--faint)">${rate ? 'Depois de ratear, a linha da nota mostra o rateio como qualquer outro.' : 'Clique na linha para abrir a movimentação vinculada à nota.'}</p>`;
+}
+
+function notaPage() {
+  return `<div class="nota-scr"><div class="nh">NF ${NOTA.num} · ${NOTA.forn} <span style="margin-left:auto;font-size:10.5px;font-weight:800;color:rgba(26,26,10,.55)">${NOTA.loja}</span></div>
+    <div style="padding:14px;display:flex;flex-direction:column;gap:10px">
+      <span class="lbl">Situação da Distribuição</span>
+      <div class="stt"><span>Separação</span><span class="on">Distribuição enviada</span></div>
+      <p style="margin:0;font-size:12px;color:var(--muted)">2 manifestos gerados: DM-0091 (Castelo Real) e DM-0092 (Loja Nova Centro).</p>
+    </div></div>`;
+}
+
+function render() {
+  const nota = S.step === 8;
+  document.getElementById('ttl').textContent = nota ? 'Entrada de Mercadoria' : 'Controle Financeiro';
+  document.getElementById('tabs').innerHTML = nota
+    ? '<div class="tab"><span>Notas</span></div><div class="tab on"><span>Revisão</span></div><div class="tab"><span>Distribuição</span></div>'
+    : '<div class="tab on"><span>Controle Financeiro</span></div><div class="tab"><span>Fluxo de Caixa</span></div><div class="tab"><span>Favorecidos</span></div><div class="tab"><span>Contas</span></div>';
+  document.getElementById('page').innerHTML = nota ? notaPage() : tabela();
+  document.getElementById('modal').innerHTML = nota ? dialogNota() : (S.step >= 1 && S.step <= 6 ? modalMov() : '');
+  renderAnno();
+}
+function go(n) { S.step = n; if (n === 7) S.rated = true; render(); }
+
+const STEPS = [
+  ['1 · Aviso na nota vinculada', () => Object.assign(S, { step: 1, semCusto: false, dist: DIST_V1, showCalc: false, rated: false })],
+  ['2 · Rateio preenchido', () => Object.assign(S, { step: 2, semCusto: false, dist: DIST_V1, showCalc: false })],
+  ['3 · Ver cálculo', () => Object.assign(S, { step: 3, semCusto: false, dist: DIST_V1, showCalc: true })],
+  ['4 · Itens sem custo', () => Object.assign(S, { step: 5, semCusto: true, dist: DIST_V1, showCalc: false })],
+  ['5 · Rateio desatualizado', () => Object.assign(S, { step: 6, semCusto: false, dist: DIST_V1, showCalc: false })],
+  ['6 · Pela Entrada de Mercadoria', () => Object.assign(S, { step: 8, dist: DIST_V1 })],
+  ['7 · Na tabela', () => Object.assign(S, { step: 7, rated: true, dist: DIST_V1 })],
+];
+let cur = 0;
+function renderAnno() {
+  const dark = document.documentElement.classList.contains('dark');
+  document.getElementById('anno').innerHTML = `<b>Fluxo</b>${STEPS.map((s, i) => `<button class="${i === cur ? 'on' : ''}" onclick="cur=${i};STEPS[${i}][1]();render()">${s[0]}</button>`).join('')}<a href="mockup-rateio-distribuicao-${dark ? 'light' : 'dark'}.html">${dark ? 'ver claro' : 'ver escuro'}</a>`;
+}
+STEPS[0][1](); render();
+</script>
+</body>
+</html>

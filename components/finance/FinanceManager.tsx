@@ -20,6 +20,9 @@ import { RedeImportModal } from './RedeImportModal';
 import { DinheiroImportModal } from './DinheiroImportModal';
 import { RateioEditor, RATEIO_CORES } from './RateioEditor';
 import { calcularRateio, dividirValor, rateioPermitido, agruparRateios, rateioVazio, round2, type RateioState } from '@/lib/rateio';
+import { calcularDistribuicaoDasNotas, linhasProporcionais, snapshotDe, mesmaDistribuicao, type DistribuicaoInfo } from '@/lib/rateioDistribuicao';
+import { DistribuicaoAviso, RateioDesatualizado } from './DistribuicaoRateio';
+import type { RateioDistribuicaoSnapshot } from '@/types/finance';
 import { LinkedNotesSection, LinkedNoteLite, linkNotesToTransactions, cleanupNoteLinksForDeletedTxs } from './LinkedNotesSection';
 import { FavorecidoEditModal } from './FavorecidoEditModal';
 import { FavorecidoDetailsModal } from './FavorecidoDetailsModal';
@@ -280,6 +283,10 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   const [txLocked, setTxLocked] = useState(false);
   const [txSnapshot, setTxSnapshot] = useState<{ form: string; parcelas: string; parcelasEnabled: boolean; rateio: string } | null>(null);
   const [rateio, setRateio] = useState<RateioState>(rateioVazio(ESTABLISHMENTS));
+  // Rateio pela distribuição: notas vinculadas no modal, distribuição delas e o retrato salvo
+  const [notasDaTx, setNotasDaTx] = useState<string[]>([]);
+  const [distInfo, setDistInfo] = useState<DistribuicaoInfo | null>(null);
+  const [rateioDist, setRateioDist] = useState<RateioDistribuicaoSnapshot | null>(null);
   const [showDiscardEditConfirm, setShowDiscardEditConfirm] = useState(false);
   const [deleteTxConfirmId, setDeleteTxConfirmId] = useState<string | null>(null);
   // Quando preenchido, o salvar faz um diff (update/insert/delete) contra essas linhas —
@@ -578,6 +585,8 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     setParcelasEnabled(false);
     setParcelas([]);
     setRateio(rateioVazio(estabelecimentos));
+    setRateioDist(null);
+    setDistInfo(null);
     setEditingGroupIds(null);
     setEditingParcelamentoId(null);
     setFavOpen(false);
@@ -599,6 +608,8 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
       ? { on: true, modo: 'valor', linhas: partes.map(x => ({ estab: x.estabelecimento, pct: Number(x.rateio_percentual) || 0, valor: x.valor_final })) }
       : { ...rateioVazio(estabelecimentos), linhas: [t.estabelecimento, ...estabelecimentos.filter(e => e !== t.estabelecimento)].slice(0, 2).map(estab => ({ estab, pct: 0, valor: 0 })) };
     setRateio(nextRateio);
+    setRateioDist(partes ? (partes[0].rateio_distribuicao ?? null) : null);
+    setDistInfo(null);
     setEditingId(t.id);
     setPendingNotes([]);
     const nextForm: TxForm = { ...t, vencimento: t.vencimento ?? '', tag_ids: t.tag_ids ?? [] };
@@ -680,6 +691,24 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     setEditingParcelamentoId(siblings[0].parcelamento_id ?? crypto.randomUUID());
   };
 
+  // Distribuição das notas vinculadas (para "Ratear pela distribuição")
+  const notasKey = notasDaTx.slice().sort().join('|');
+  useEffect(() => {
+    if (!showTxModal || !notasKey) { setDistInfo(null); return; }
+    let vivo = true;
+    calcularDistribuicaoDasNotas(notasKey.split('|'))
+      .then(info => { if (vivo) setDistInfo(info); })
+      .catch(() => { if (vivo) setDistInfo(null); });
+    return () => { vivo = false; };
+  }, [showTxModal, notasKey]);
+
+  // Preenche o rateio do formulário com a proporção da distribuição (modo Por %)
+  const aplicarDistribuicao = (info: DistribuicaoInfo) => {
+    setRateio({ on: true, modo: 'pct', linhas: linhasProporcionais(info).map(l => ({ estab: l.estab, pct: l.pct, valor: 0 })) });
+    setRateioDist(snapshotDe(info));
+    setTxLocked(false);
+  };
+
   // ── Rateio ──
   // Salva a movimentação rateada: cada parcela lógica (ou o pagamento único) vira uma linha
   // por estabelecimento, com o mesmo rateio_id. Em edição, as partes antigas são trocadas
@@ -740,6 +769,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
         numero_parcela: L.numero_parcela, total_parcelas: L.total_parcelas, parcelamento_id: L.parcelamento_id,
         codigo_barras: L.codigo_barras,
         rateio_id: rateioId, rateio_ordem: k, rateio_percentual: somaPesos ? Math.round((pesos[k] / somaPesos) * 1e6) / 1e4 : null,
+        ...(rateioDist ? { rateio_distribuicao: rateioDist } : {}),
         pago,
         total_pago: pago ? partes[k] : 0,
         account_id: pago ? (L.keep?.account_id ?? null) : (txForm.account_id ?? null),
@@ -4089,6 +4119,16 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
 
               <div className="px-3.5 py-3 grid grid-cols-1 md:grid-cols-2 gap-2.5 overflow-y-auto">
 
+              {rateioAtivo && rateioDist && distInfo && rateioCalc && !mesmaDistribuicao(snapshotDe(distInfo), rateioDist) && (
+                <RateioDesatualizado
+                  info={distInfo}
+                  total={round2(footerTotal)}
+                  atuais={Object.fromEntries(rateioCalc.linhas.map(l => [l.estab, l.valor]))}
+                  podeRecalcular={podeRatear}
+                  onRecalcular={() => aplicarDistribuicao(distInfo)}
+                />
+              )}
+
               {editandoRateio && (
                 <div className="md:col-span-2 flex items-start gap-2 px-3 py-2 border border-[#7C3AED]/35 bg-[#7C3AED]/[0.06] text-[12px] leading-[1.45] text-[#6D28D9] dark:text-[#C4B5FD]">
                   <Split size={14} className="shrink-0 mt-px" />
@@ -4531,9 +4571,9 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                           <button
                             key={label}
                             type="button"
-                            onClick={() => setRateio(r => on && !r.on
+                            onClick={() => (on && !rateio.on && setRateioDist(null), setRateio(r => on && !r.on
                               ? { on: true, modo: 'igual', linhas: [txForm.estabelecimento, ...estabelecimentos.filter(e => e !== txForm.estabelecimento)].slice(0, 2).map(estab => ({ estab, pct: 0, valor: 0 })) }
-                              : { ...r, on })}
+                              : { ...r, on }))}
                             className={cn(
                               'h-[22px] px-2.5 flex items-center gap-1 text-[9.5px] font-black uppercase tracking-[0.06em] transition-colors active:scale-[0.97]',
                               i > 0 && 'border-l border-[#E0D8BF] dark:border-white/[0.10]',
@@ -4563,6 +4603,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                       state={rateio}
                       onChange={setRateio}
                       estabelecimentos={estabelecimentos}
+                      origemLabel={rateioDist ? 'preenchido pela distribuição' : undefined}
                       parcelas={parcelasEnabled ? parcelas.filter(p => p.data && parseFloat(p.valor) > 0).map(p => ({ seq: p.seq, data: p.data, valor: parseFloat(p.valor) || 0 })) : undefined}
                     />
                   ) : isLockedView || isHrSalario || isFaturaRow ? (
@@ -4591,7 +4632,17 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                   pendingNotes={pendingNotes}
                   onPendingChange={setPendingNotes}
                   siblingTxs={editingTxSiblings}
+                  onNotesChange={setNotasDaTx}
                 />
+                {distInfo && podeRatear && (
+                  <DistribuicaoAviso
+                    info={distInfo}
+                    total={round2(footerTotal)}
+                    aplicado={rateioAtivo && !!rateioDist}
+                    podeAplicar={podeRatear}
+                    onAplicar={() => aplicarDistribuicao(distInfo)}
+                  />
+                )}
               </div>
               )}
 

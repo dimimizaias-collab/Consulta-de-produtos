@@ -24,9 +24,11 @@ interface RateioEditorProps {
   estabelecimentos: string[];
   /** Parcelas do formulário (para mostrar como cada parcela fica dividida). */
   parcelas?: { seq: number; data: string; valor: number }[];
+  /** Ex.: "preenchido pela distribuição" — mostrado ao lado do total. */
+  origemLabel?: string;
 }
 
-export function RateioEditor({ total, state, onChange, estabelecimentos, parcelas }: RateioEditorProps) {
+export function RateioEditor({ total, state, onChange, estabelecimentos, parcelas, origemLabel }: RateioEditorProps) {
   const calc = calcularRateio(state, total);
   const usados = state.linhas.map(l => l.estab);
   const status = calc.erro ? 'erro' : calc.fechado ? 'ok' : calc.diferenca > 0 ? 'falta' : 'passou';
@@ -83,6 +85,7 @@ export function RateioEditor({ total, state, onChange, estabelecimentos, parcela
           <b className="block text-[12px] font-extrabold text-on-surface">Dividir {parcelas && parcelas.length > 1 ? 'cada parcela' : 'o valor'} entre estabelecimentos</b>
           <small className="block text-[10.5px] font-semibold text-on-surface/45">
             Total da movimentação: <b className="font-mono text-on-surface/70">R$ {fmt(total)}</b>{parcelas && parcelas.length > 1 && ` em ${parcelas.length} parcelas`}
+            {origemLabel && <span className="ml-1.5 text-[9px] font-black uppercase tracking-[0.05em] text-[#2563EB] dark:text-[#60A5FA]">· {origemLabel}</span>}
           </small>
         </div>
         <div className="ml-auto flex border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] shrink-0">
@@ -147,7 +150,7 @@ export function RateioEditor({ total, state, onChange, estabelecimentos, parcela
                     inputMode="decimal"
                     placeholder="0"
                     onFocus={e => e.target.select()}
-                    onBlur={e => setLinha(i, { pct: parse(e.target.value) })}
+                    onBlur={e => { if (e.target.value !== e.target.defaultValue) setLinha(i, { pct: parse(e.target.value) }); }}
                     onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                     className={cn(inCls, 'pr-6 text-right font-mono text-[12.5px] border-[#E0D8BF] dark:border-white/[0.10]')}
                   />
@@ -163,7 +166,7 @@ export function RateioEditor({ total, state, onChange, estabelecimentos, parcela
                   inputMode="decimal"
                   placeholder="0,00"
                   onFocus={e => e.target.select()}
-                  onBlur={e => setLinha(i, { valor: round2(parse(e.target.value)) })}
+                  onBlur={e => { if (e.target.value !== e.target.defaultValue) setLinha(i, { valor: round2(parse(e.target.value)) }); }}
                   onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                   className={cn(inCls, 'text-right font-mono text-[12.5px]', status === 'passou' ? 'border-[#D81E1E] text-[#D81E1E]' : 'border-[#E0D8BF] dark:border-white/[0.10]')}
                 />

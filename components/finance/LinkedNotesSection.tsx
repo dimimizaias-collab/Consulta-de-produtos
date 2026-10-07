@@ -22,7 +22,7 @@ const NOTE_COLUMNS = 'id, note_number, supplier_name, timestamp_label, file_name
 const noteDateOnly = (label: string | null) => label ? label.split(',')[0].trim() : null;
 
 // Soma o custo (preço/multiplicador × qtd) de cada item — mesmo cálculo usado no total da nota na revisão
-const noteTotalValue = (items: any[] | null | undefined): number => {
+export const noteTotalValue = (items: any[] | null | undefined): number => {
   if (!items || items.length === 0) return 0;
   return items.reduce((sum, it) => {
     const cost = (it?.price ?? 0) / (it?.multiplier || 1);
@@ -111,11 +111,13 @@ interface Props {
   // Parcelas irmãs (mesmo parcelamento) — quando presente, vincular uma nota aqui
   // vincula automaticamente a todas elas, não só à parcela sendo vista.
   siblingTxs?: { id: string; favorecido: string; valor_final: number }[];
+  /** Avisa quais notas estão vinculadas (ex.: para o rateio pela distribuição). */
+  onNotesChange?: (noteIds: string[]) => void;
 }
 
 const noteLabel = (n: LinkedNoteLite) => n.note_number || n.file_name || 'Sem número';
 
-export function LinkedNotesSection({ txId, editable, variant, txMeta, pendingNotes, onPendingChange, siblingTxs }: Props) {
+export function LinkedNotesSection({ txId, editable, variant, txMeta, pendingNotes, onPendingChange, siblingTxs, onNotesChange }: Props) {
   const isDesktop = variant === 'desktop';
   const isCreate = txId === null;
 
@@ -128,6 +130,8 @@ export function LinkedNotesSection({ txId, editable, variant, txMeta, pendingNot
   const [busyNoteId, setBusyNoteId] = useState<string | null>(null);
 
   const notes = isCreate ? (pendingNotes ?? []) : linkedNotes;
+  const noteIdsKey = notes.map(n => n.id).sort().join('|');
+  useEffect(() => { onNotesChange?.(noteIdsKey ? noteIdsKey.split('|') : []); }, [noteIdsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchLinked = useCallback(async () => {
     if (!txId) return;

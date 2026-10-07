@@ -33,6 +33,8 @@ export interface Transaction {
   rateio_ordem?: number | null;
   /** % do total que esta parte representa (informativo). */
   rateio_percentual?: number | null;
+  /** Retrato da distribuição usada quando o rateio veio de "Ratear pela distribuição". */
+  rateio_distribuicao?: RateioDistribuicaoSnapshot | null;
   /** Chave da origem automática (ex.: 'rede:41209966:2026-09-08:credito'), única. */
   origem_ref?: string | null;
   data_pagamento?: string | null;
@@ -86,4 +88,11 @@ export interface Supplier {
   nome_fantasia?: string;
   razao_social?: string;
   documento?: string;
+}
+
+/** Custos por loja da distribuição das notas usada para calcular um rateio (ver lib/rateioDistribuicao.ts). */
+export interface RateioDistribuicaoSnapshot {
+  notas: string[];
+  custos: Record<string, number>;
+  total: number;
 }
