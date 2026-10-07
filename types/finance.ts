@@ -27,6 +27,12 @@ export interface Transaction {
   tag_ids: string[];
   observacoes: string | null;
   origem?: 'manual' | 'hr_salario' | 'rede' | 'retaguarda';
+  /** Rateio entre estabelecimentos: partes da mesma movimentação compartilham o rateio_id. */
+  rateio_id?: string | null;
+  /** Posição da parte no rateio (0 = principal, usada como representante na tabela). */
+  rateio_ordem?: number | null;
+  /** % do total que esta parte representa (informativo). */
+  rateio_percentual?: number | null;
   /** Chave da origem automática (ex.: 'rede:41209966:2026-09-08:credito'), única. */
   origem_ref?: string | null;
   data_pagamento?: string | null;

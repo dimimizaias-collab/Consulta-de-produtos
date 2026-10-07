@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Plus, X, TrendingDown, Wallet, Monitor,
+  Plus, X, TrendingDown, Wallet, Monitor, Split,
   Search, Filter, CheckSquare, Calendar, ChevronLeft, ChevronRight, Clock,
   Check, Loader2, Trash2, Pencil, Lock, CreditCard, AlertTriangle, Info,
   Building2, Users, ImageIcon, Edit2, Eye, ArrowLeft,
@@ -994,6 +994,9 @@ function TxDetailSheet({
 }) {
   const { todos: estabelecimentos } = useFinanceEstablishments();
   const isHrSalario = tx.origem === 'hr_salario';
+  // Parte de um rateio: editar ou pagar só uma parte dessincronizaria o grupo — no celular
+  // fica somente leitura; o Controle Financeiro no computador edita/paga o grupo inteiro.
+  const isRateio = !!tx.rateio_id;
   const isFaturaRow = !!tx.is_fatura_consolidada;
   const [showDatePicker, setShowDatePicker] = useState(false);
   const isEdit = mode === 'edit';
@@ -1032,7 +1035,12 @@ function TxDetailSheet({
               <Lock size={11} /> RH
             </span>
           )}
-          <button
+          {isRateio && (
+            <span className="flex items-center gap-1 px-2.5 h-8 rounded-full bg-[rgba(124,58,237,0.10)] text-[#7C3AED] dark:text-[#A78BFA] text-[9px] font-black uppercase tracking-wide">
+              <Split size={11} /> Rateio
+            </span>
+          )}
+          {!isRateio && <button
             onClick={onToggleMode}
             className={cn(
               'w-8 h-8 rounded-full border-[1.5px] flex items-center justify-center active:scale-90 transition-all',
@@ -1043,7 +1051,7 @@ function TxDetailSheet({
             title="Editar"
           >
             <Pencil size={13} />
-          </button>
+          </button>}
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-full bg-[rgba(26,26,10,0.07)] dark:bg-white/[0.07] flex items-center justify-center text-[rgba(26,26,10,0.45)] dark:text-white/35 active:scale-90 transition-transform"
@@ -1055,6 +1063,12 @@ function TxDetailSheet({
 
       {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto overscroll-none px-4 space-y-3 pb-3">
+        {isRateio && (
+          <div className="flex items-start gap-2 px-3 py-2 rounded-xl border border-[rgba(124,58,237,0.30)] bg-[rgba(124,58,237,0.06)] text-[12px] leading-snug text-[#6D28D9] dark:text-[#C4B5FD]">
+            <Split size={14} className="shrink-0 mt-0.5" />
+            <span>Esta é a parte de <b>{tx.estabelecimento}</b> numa movimentação rateada entre estabelecimentos. Para editar ou marcar como paga, use o Controle Financeiro no computador — lá o rateio é tratado por inteiro.</span>
+          </div>
+        )}
         {/* Tipo */}
         <div>
           <span className={labelCls}>Tipo</span>
@@ -1138,13 +1152,13 @@ function TxDetailSheet({
                   Pago em {new Date(form.data_pagamento + 'T00:00:00').toLocaleDateString('pt-BR')}
                 </span>
               )}
-              <button
+              {!isRateio && <button
                 type="button"
                 onClick={() => onRequestMarkPaid?.()}
                 className="self-start flex items-center gap-1 text-[11px] font-bold text-[#D81E1E]"
               >
                 <Edit2 size={11} /> Alterar conta do pagamento
-              </button>
+              </button>}
             </div>
           ) : isEdit ? (
             <select
@@ -2707,7 +2721,12 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
 
   async function confirmDeleteSelected() {
     setShowDeleteSelectedConfirm(false);
-    const ids = [...selectedIds].filter(id => transactions.find(t => t.id === id)?.origem !== 'hr_salario');
+    const ids = [...new Set([...selectedIds]
+      .filter(id => transactions.find(t => t.id === id)?.origem !== 'hr_salario')
+      .flatMap(id => {
+        const t = transactions.find(x => x.id === id);
+        return t?.rateio_id ? transactions.filter(x => x.rateio_id === t.rateio_id).map(x => x.id) : [id];
+      }))];
     if (ids.length === 0) { setSelectedIds(new Set()); setSelectionMode(false); return; }
     await supabase.from('finance_transactions').delete().in('id', ids);
     await cleanupNoteLinksForDeletedTxs(ids);

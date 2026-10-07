@@ -7,7 +7,7 @@ import {
   Wallet, Search, ChevronLeft, ChevronRight, Building2, CreditCard, Upload,
   ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Filter, Clock, CheckCircle2,
   AlertTriangle, Info, Lock, Unlock, Link2Off, Landmark,
-  ArrowUp, ArrowDown, Eye, ChevronDown, Banknote,
+  ArrowUp, ArrowDown, Eye, ChevronDown, Banknote, Split,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
@@ -18,6 +18,8 @@ import { TagGuide } from './TagGuide';
 import { CashFlowPage } from './CashFlowPage';
 import { RedeImportModal } from './RedeImportModal';
 import { DinheiroImportModal } from './DinheiroImportModal';
+import { RateioEditor, RATEIO_CORES } from './RateioEditor';
+import { calcularRateio, dividirValor, rateioPermitido, agruparRateios, rateioVazio, round2, type RateioState } from '@/lib/rateio';
 import { LinkedNotesSection, LinkedNoteLite, linkNotesToTransactions, cleanupNoteLinksForDeletedTxs } from './LinkedNotesSection';
 import { FavorecidoEditModal } from './FavorecidoEditModal';
 import { FavorecidoDetailsModal } from './FavorecidoDetailsModal';
@@ -31,6 +33,10 @@ import { useFinanceEstablishments } from '@/hooks/useFinanceEstablishments';
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type TxForm = Omit<Transaction, 'id'> & { vencimento: string };
+
+// Linha da tabela: movimentação comum, ou o grupo de um rateio (valor total, _rateio = partes),
+// ou uma parte do rateio quando a tabela está filtrada por estabelecimento (_rateioParte).
+type TxRow = Transaction & { _rateio?: Transaction[]; _rateioParte?: boolean };
 
 interface AccountForm {
   nome: string;
@@ -272,7 +278,8 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   // botão de lápis habilita a edição. Snapshot guarda o estado no momento em que abriu,
   // para detectar alterações não salvas ao tentar sair do modo de edição.
   const [txLocked, setTxLocked] = useState(false);
-  const [txSnapshot, setTxSnapshot] = useState<{ form: string; parcelas: string; parcelasEnabled: boolean } | null>(null);
+  const [txSnapshot, setTxSnapshot] = useState<{ form: string; parcelas: string; parcelasEnabled: boolean; rateio: string } | null>(null);
+  const [rateio, setRateio] = useState<RateioState>(rateioVazio(ESTABLISHMENTS));
   const [showDiscardEditConfirm, setShowDiscardEditConfirm] = useState(false);
   const [deleteTxConfirmId, setDeleteTxConfirmId] = useState<string | null>(null);
   // Quando preenchido, o salvar faz um diff (update/insert/delete) contra essas linhas —
@@ -570,6 +577,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     setPendingNotes([]);
     setParcelasEnabled(false);
     setParcelas([]);
+    setRateio(rateioVazio(estabelecimentos));
     setEditingGroupIds(null);
     setEditingParcelamentoId(null);
     setFavOpen(false);
@@ -580,7 +588,17 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     setShowTxModal(true);
   };
 
-  const openEditTx = (t: Transaction) => {
+  const openEditTx = (row: Transaction) => {
+    // Rateio: o modal sempre edita o grupo inteiro, a partir da parte principal com o valor total
+    const real = transactions.find(x => x.id === row.id) ?? row;
+    const partes = real.rateio_id ? rateioGroups.get(real.rateio_id) ?? [real] : null;
+    const t: Transaction = partes
+      ? { ...partes[0], valor_final: round2(partes.reduce((a, x) => a + x.valor_final, 0)), total_pago: round2(partes.reduce((a, x) => a + (x.total_pago || 0), 0)) }
+      : real;
+    const nextRateio: RateioState = partes
+      ? { on: true, modo: 'valor', linhas: partes.map(x => ({ estab: x.estabelecimento, pct: Number(x.rateio_percentual) || 0, valor: x.valor_final })) }
+      : { ...rateioVazio(estabelecimentos), linhas: [t.estabelecimento, ...estabelecimentos.filter(e => e !== t.estabelecimento)].slice(0, 2).map(estab => ({ estab, pct: 0, valor: 0 })) };
+    setRateio(nextRateio);
     setEditingId(t.id);
     setPendingNotes([]);
     const nextForm: TxForm = { ...t, vencimento: t.vencimento ?? '', tag_ids: t.tag_ids ?? [] };
@@ -606,7 +624,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     setFavOpen(false);
     setFavFreeMode(false);
     setTxLocked(true);
-    setTxSnapshot({ form: JSON.stringify(nextForm), parcelas: JSON.stringify(nextParcelas), parcelasEnabled: nextParcelasEnabled });
+    setTxSnapshot({ form: JSON.stringify(nextForm), parcelas: JSON.stringify(nextParcelas), parcelasEnabled: nextParcelasEnabled, rateio: JSON.stringify(nextRateio) });
     fetchFavorecidos();
     setShowTxModal(true);
   };
@@ -628,7 +646,8 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     const dirty = !txSnapshot
       || JSON.stringify(txForm) !== txSnapshot.form
       || JSON.stringify(parcelas) !== txSnapshot.parcelas
-      || parcelasEnabled !== txSnapshot.parcelasEnabled;
+      || parcelasEnabled !== txSnapshot.parcelasEnabled
+      || JSON.stringify(rateio) !== txSnapshot.rateio;
     if (dirty) setShowDiscardEditConfirm(true);
     else setTxLocked(true);
   };
@@ -638,6 +657,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
       setTxForm(JSON.parse(txSnapshot.form));
       setParcelas(JSON.parse(txSnapshot.parcelas));
       setParcelasEnabled(txSnapshot.parcelasEnabled);
+      setRateio(JSON.parse(txSnapshot.rateio));
     }
     setTxLocked(true);
     setShowDiscardEditConfirm(false);
@@ -648,13 +668,110 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   const loadGroupIntoEditor = (t: Transaction) => {
     const key = parcelaGroupKey(t);
     const siblings = transactions
-      .filter(s => s.total_parcelas && s.total_parcelas > 1 && parcelaGroupKey(s) === key)
+      .filter(s => s.total_parcelas && s.total_parcelas > 1 && parcelaGroupKey(s) === key && (!s.rateio_id || (s.rateio_ordem ?? 0) === 0))
       .sort((a, b) => (a.numero_parcela ?? 0) - (b.numero_parcela ?? 0));
     if (siblings.length === 0) return;
+    const valorDaParcela = (s: Transaction) => s.rateio_id
+      ? round2((rateioGroups.get(s.rateio_id) ?? [s]).reduce((a, x) => a + x.valor_final, 0))
+      : s.valor_final;
     setParcelasEnabled(true);
-    setParcelas(siblings.map((s, i) => ({ seq: i + 1, data: s.vencimento ?? s.data, valor: String(s.valor_final), codigo_barras: s.codigo_barras ?? '', id: s.id })));
+    setParcelas(siblings.map((s, i) => ({ seq: i + 1, data: s.vencimento ?? s.data, valor: String(valorDaParcela(s)), codigo_barras: s.codigo_barras ?? '', id: s.id })));
     setEditingGroupIds(siblings.map(s => s.id));
     setEditingParcelamentoId(siblings[0].parcelamento_id ?? crypto.randomUUID());
+  };
+
+  // ── Rateio ──
+  // Salva a movimentação rateada: cada parcela lógica (ou o pagamento único) vira uma linha
+  // por estabelecimento, com o mesmo rateio_id. Em edição, as partes antigas são trocadas
+  // pelas novas (preservando pago/conta/data do pagamento e as notas vinculadas).
+  const salvarComRateio = async (originalRows: Transaction[]) => {
+    const totalForm = parcelasEnabled
+      ? parcelas.filter(p => p.data && parseFloat(p.valor) > 0).reduce((a, p) => a + (parseFloat(p.valor) || 0), 0)
+      : txForm.valor_final || 0;
+    const calc = calcularRateio(rateio, round2(totalForm));
+    if (!calc.fechado || totalForm <= 0) return;
+    const pesos = calc.linhas.map(l => l.valor);
+    const somaPesos = pesos.reduce((a, v) => a + v, 0);
+    const boleto = txForm.tipo_pagamento === 'Boleto';
+    const base = {
+      tipo: txForm.tipo,
+      tipo_pagamento: txForm.tipo_pagamento,
+      favorecido: txForm.favorecido,
+      numero_cheque: txForm.tipo_pagamento === 'Cheque' ? (txForm.numero_cheque || null) : null,
+      identificacao: (txForm.tipo_pagamento !== 'Cheque' && !boleto) ? (txForm.identificacao?.trim() || null) : null,
+      tag_ids: txForm.tag_ids ?? [],
+      observacoes: txForm.observacoes?.trim() || null,
+      card_id: null, fatura_periodo: null, is_fatura_consolidada: false, import_id: null,
+    };
+    const achar = (id?: string) => (id ? transactions.find(t => t.id === id) : undefined);
+    type Logica = { data: string; vencimento: string | null; valor: number; numero_parcela: number | null; total_parcelas: number | null; parcelamento_id: string | null; codigo_barras: string | null; keep?: Transaction };
+    let logicas: Logica[];
+    if (parcelasEnabled) {
+      const valid = parcelas.filter(p => p.data && parseFloat(p.valor) > 0);
+      if (valid.length === 0) return;
+      if (valid.length === 1) {
+        logicas = [{ data: txForm.data, vencimento: valid[0].data, valor: parseFloat(valid[0].valor) || 0, numero_parcela: null, total_parcelas: null, parcelamento_id: null,
+          codigo_barras: boleto ? (valid[0].codigo_barras || null) : null, keep: achar(valid[0].id) ?? achar(editingId ?? undefined) }];
+      } else {
+        const parcelamentoId = editingParcelamentoId ?? originalRows.find(r => r.parcelamento_id)?.parcelamento_id ?? crypto.randomUUID();
+        logicas = valid.map((p, i) => ({ data: p.data, vencimento: p.data, valor: parseFloat(p.valor) || 0, numero_parcela: i + 1, total_parcelas: valid.length,
+          parcelamento_id: parcelamentoId, codigo_barras: boleto ? (p.codigo_barras || null) : null, keep: achar(p.id) }));
+      }
+    } else {
+      logicas = [{ data: txForm.data, vencimento: null, valor: txForm.valor_final || 0, numero_parcela: null, total_parcelas: null, parcelamento_id: null,
+        codigo_barras: boleto ? (txForm.codigo_barras || null) : null, keep: achar(editingId ?? undefined) }];
+    }
+
+    const oldIds = [...new Set(originalRows.flatMap(r => (r.rateio_id ? (rateioGroups.get(r.rateio_id) ?? [r]) : [r]).map(x => x.id)))];
+    let noteIds = pendingNotes.map(n => n.id);
+    if (oldIds.length > 0) {
+      const { data: links } = await supabase.from('finance_transaction_notes').select('note_id').in('transaction_id', oldIds);
+      noteIds = [...new Set((links ?? []).map(l => l.note_id as string))];
+    }
+
+    const rows = logicas.flatMap(L => {
+      const rateioId = crypto.randomUUID();
+      const partes = dividirValor(L.valor, pesos);
+      const pago = !!L.keep?.pago;
+      return calc.linhas.map((linha, k) => ({
+        ...base,
+        estabelecimento: linha.estab,
+        data: L.data, vencimento: L.vencimento, valor_final: partes[k],
+        numero_parcela: L.numero_parcela, total_parcelas: L.total_parcelas, parcelamento_id: L.parcelamento_id,
+        codigo_barras: L.codigo_barras,
+        rateio_id: rateioId, rateio_ordem: k, rateio_percentual: somaPesos ? Math.round((pesos[k] / somaPesos) * 1e6) / 1e4 : null,
+        pago,
+        total_pago: pago ? partes[k] : 0,
+        account_id: pago ? (L.keep?.account_id ?? null) : (txForm.account_id ?? null),
+        data_pagamento: pago ? (L.keep?.data_pagamento ?? null) : null,
+      }));
+    });
+    const { data: inserted, error } = await supabase.from('finance_transactions').insert(rows).select('id, favorecido, valor_final');
+    if (error) throw new Error(error.message);
+    if (oldIds.length > 0) await supabase.from('finance_transactions').delete().in('id', oldIds);
+    if (inserted && noteIds.length > 0) await linkNotesToTransactions(inserted, noteIds);
+    await fetchAll();
+    setShowTxModal(false);
+  };
+
+  // Rateio desligado numa movimentação que era rateada: junta as partes de volta na parte
+  // principal (valor total, sem rateio) e apaga as demais — depois o salvar segue o fluxo normal.
+  const desfazerRateios = async (originalRows: Transaction[]) => {
+    for (const r of originalRows) {
+      if (!r.rateio_id) continue;
+      const partes = rateioGroups.get(r.rateio_id) ?? [r];
+      const principal = partes.find(x => x.id === r.id) ?? partes[0];
+      const outros = partes.filter(x => x.id !== principal.id).map(x => x.id);
+      await supabase.from('finance_transactions').update({
+        valor_final: round2(partes.reduce((a, x) => a + x.valor_final, 0)),
+        total_pago: round2(partes.reduce((a, x) => a + (x.total_pago || 0), 0)),
+        rateio_id: null, rateio_ordem: null, rateio_percentual: null,
+      }).eq('id', principal.id);
+      if (outros.length > 0) {
+        await supabase.from('finance_transactions').delete().in('id', outros);
+        await cleanupNoteLinksForDeletedTxs(outros);
+      }
+    }
   };
 
   const handleTxSubmit = async () => {
@@ -676,6 +793,12 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
         : [];
     for (const r of originalRows) addSyncTarget(r.card_id, r.fatura_periodo);
     try {
+      const usaRateio = rateio.on && rateioPermitido(txForm.tipo_pagamento, editingTx?.origem, !!editingTx?.is_fatura_consolidada);
+      if (usaRateio) {
+        await salvarComRateio(originalRows);
+        return;
+      }
+      if (originalRows.some(r => r.rateio_id)) await desfazerRateios(originalRows);
       if (parcelasEnabled) {
         const valid = parcelas.filter(p => p.data && parseFloat(p.valor) > 0);
         if (valid.length === 0) {
@@ -827,6 +950,9 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
           card_id: null,
           fatura_periodo: null,
           is_fatura_consolidada: false,
+          // Chega aqui sem rateio (o rateio tem caminho próprio) — não herda o do formulário.
+          // Só manda as colunas quando havia rateio, para não depender delas no resto.
+          ...(txForm.rateio_id ? { rateio_id: null, rateio_ordem: null, rateio_percentual: null } : {}),
         };
         if (editingId) {
           await supabase.from('finance_transactions').update(payload).eq('id', editingId);
@@ -962,10 +1088,11 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     if (!id) return;
     const tx = transactions.find(t => t.id === id);
     setDeleteTxConfirmId(null);
-    const { error } = await supabase.from('finance_transactions').delete().eq('id', id);
+    const ids = idsDoGrupo(id);
+    const { error } = await supabase.from('finance_transactions').delete().in('id', ids);
     if (error) return;
-    setTransactions(prev => prev.filter(t => t.id !== id));
-    await cleanupNoteLinksForDeletedTxs([id]);
+    setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
+    await cleanupNoteLinksForDeletedTxs(ids);
     await cleanupOrphanedLogs([tx?.import_id]);
     // Excluir uma compra de crédito precisa refazer o total da fatura daquele período.
     if (tx?.card_id && !tx.is_fatura_consolidada && tx.fatura_periodo) {
@@ -989,7 +1116,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   const selectAll = () => setSelectedIds(new Set(filtered.map(t => t.id)));
 
   const handleDeleteSelected = async () => {
-    const ids = [...selectedIds].filter(id => transactions.find(t => t.id === id)?.origem !== 'hr_salario');
+    const ids = [...new Set([...selectedIds].filter(id => transactions.find(t => t.id === id)?.origem !== 'hr_salario').flatMap(idsDoGrupo))];
     const importIds = transactions
       .filter(t => ids.includes(t.id))
       .map(t => t.import_id);
@@ -1033,15 +1160,29 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   const [unmarkPaidTx, setUnmarkPaidTx] = useState<Transaction | null>(null);
   const [unmarkPaidSubmitting, setUnmarkPaidSubmitting] = useState(false);
 
-  const openMarkPaidModal = (t: Transaction) => {
+  // Rateio: as ações de pagamento/exclusão valem para todas as partes do grupo.
+  const idsDoGrupo = (id: string): string[] => {
+    const t = transactions.find(x => x.id === id);
+    return t?.rateio_id ? (rateioGroups.get(t.rateio_id) ?? [t]).map(x => x.id) : [id];
+  };
+  // Representante do grupo com o valor total (para os modais de pagamento)
+  const comValorDoGrupo = (t: Transaction): Transaction => {
+    if (!t.rateio_id) return t;
+    const partes = rateioGroups.get(t.rateio_id) ?? [t];
+    return { ...partes[0], valor_final: round2(partes.reduce((a, x) => a + x.valor_final, 0)), total_pago: round2(partes.reduce((a, x) => a + (x.total_pago || 0), 0)) };
+  };
+
+  const openMarkPaidModal = (tx: Transaction) => {
+    const t = comValorDoGrupo(tx);
     setMarkPaidTx(t);
     setMarkPaidAccountId(t.account_id ?? '');
     setMarkPaidDate(t.data_pagamento || new Date().toISOString().split('T')[0]);
   };
 
   const togglePago = async (id: string) => {
-    const t = transactions.find(t => t.id === id);
-    if (!t) return;
+    const raw = transactions.find(t => t.id === id);
+    if (!raw) return;
+    const t = comValorDoGrupo(raw);
     if (t.pago) {
       setUnmarkPaidTx(t);
       return;
@@ -1050,8 +1191,10 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
       openMarkPaidModal(t);
       return;
     }
-    await supabase.from('finance_transactions').update({ pago: true, total_pago: t.valor_final }).eq('id', id);
-    setTransactions(prev => prev.map(x => x.id === id ? { ...x, pago: true, total_pago: t.valor_final } : x));
+    const ids = new Set(idsDoGrupo(id));
+    await Promise.all(transactions.filter(x => ids.has(x.id)).map(x =>
+      supabase.from('finance_transactions').update({ pago: true, total_pago: x.valor_final }).eq('id', x.id)));
+    setTransactions(prev => prev.map(x => ids.has(x.id) ? { ...x, pago: true, total_pago: x.valor_final } : x));
   };
 
   // Usada tanto para marcar como paga (primeira vez) quanto para o botão "Alterar conta
@@ -1068,6 +1211,16 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
       if (!markPaidTx.pago) {
         patch.pago = true;
         patch.total_pago = markPaidTx.valor_final;
+      }
+      if (markPaidTx.rateio_id) {
+        // Rateio: um pagamento só quita todas as partes (cada uma com o próprio valor)
+        const ids = new Set(idsDoGrupo(markPaidTx.id));
+        const partes = transactions.filter(x => ids.has(x.id));
+        await Promise.all(partes.map(x => supabase.from('finance_transactions').update(
+          patch.pago ? { ...patch, total_pago: x.valor_final } : patch).eq('id', x.id)));
+        setTransactions(prev => prev.map(x => ids.has(x.id) ? { ...x, ...patch, ...(patch.pago ? { total_pago: x.valor_final } : {}) } : x));
+        setMarkPaidTx(null);
+        return;
       }
       await supabase.from('finance_transactions').update(patch).eq('id', markPaidTx.id);
       setTransactions(prev => prev.map(x => x.id === markPaidTx.id ? { ...x, ...patch } : x));
@@ -1096,8 +1249,9 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     setUnmarkPaidSubmitting(true);
     try {
       const patch = { pago: false, total_pago: 0, data_pagamento: null as string | null };
-      await supabase.from('finance_transactions').update(patch).eq('id', unmarkPaidTx.id);
-      setTransactions(prev => prev.map(x => x.id === unmarkPaidTx.id ? { ...x, ...patch } : x));
+      const ids = idsDoGrupo(unmarkPaidTx.id);
+      await supabase.from('finance_transactions').update(patch).in('id', ids);
+      setTransactions(prev => prev.map(x => ids.includes(x.id) ? { ...x, ...patch } : x));
 
       if (unmarkPaidTx.is_fatura_consolidada && unmarkPaidTx.card_id && unmarkPaidTx.fatura_periodo) {
         await supabase.from('finance_transactions').update(patch)
@@ -1522,6 +1676,22 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     return dateStr === toIsoDay(calDefaultDate);
   };
 
+  // Partes de cada rateio e a lista "de exibição": cada rateio vira uma linha só (a parte
+  // principal com o valor total e _rateio = partes).
+  const rateioGroups = useMemo(() => agruparRateios(transactions), [transactions]);
+  const viewTransactions = useMemo<TxRow[]>(() => transactions.flatMap(t => {
+    if (!t.rateio_id) return [t];
+    const partes = rateioGroups.get(t.rateio_id) ?? [t];
+    if (partes[0].id !== t.id) return [];
+    return [{
+      ...t,
+      valor_final: round2(partes.reduce((a, x) => a + x.valor_final, 0)),
+      total_pago: round2(partes.reduce((a, x) => a + (x.total_pago || 0), 0)),
+      pago: partes.every(x => x.pago),
+      _rateio: partes,
+    }];
+  }), [transactions, rateioGroups]);
+
   const getColumnValues = (t: Transaction, key: string): string[] => {
     switch (key) {
       case 'data': return [fmtDate(t.data)];
@@ -1529,7 +1699,10 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
       case 'cartao': return [cards.find(c => c.id === t.card_id)?.nome ?? '—'];
       case 'pagamento': return [t.tipo_pagamento];
       case 'favorecido': return [t.favorecido];
-      case 'estabelecimento': return [t.estabelecimento];
+      case 'estabelecimento': {
+        const row = t as TxRow;
+        return row._rateio && !row._rateioParte ? row._rateio.map(x => x.estabelecimento) : [t.estabelecimento];
+      }
       case 'tags': {
         const names = (t.tag_ids ?? [])
           .map(id => tags.find(tg => tg.id === id)?.nome)
@@ -1563,7 +1736,8 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     }
     if (search) {
       const q = search.toLowerCase();
-      if (!t.favorecido.toLowerCase().includes(q) && !t.estabelecimento.toLowerCase().includes(q)) return false;
+      const estabs = (t as TxRow)._rateio?.map(x => x.estabelecimento) ?? [t.estabelecimento];
+      if (!t.favorecido.toLowerCase().includes(q) && !estabs.some(e => e.toLowerCase().includes(q))) return false;
     }
     // Parcelas de salário compartilham a mesma "data" de lançamento (a do último mês
     // do período) — filtrar por ela lotaria o dia com todas as parcelas do contrato.
@@ -1599,7 +1773,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
 
   const getColumnUniqueValues = (key: string): string[] => {
     const baseFilter = mainTableView === 'cartoes' ? passesCardBaseFilters : passesBaseFilters;
-    const all = transactions.filter(t => baseFilter(t, key)).flatMap(t => getColumnValues(t, key));
+    const all = viewTransactions.filter(t => baseFilter(t, key)).flatMap(t => getColumnValues(t, key));
     return Array.from(new Set(all)).sort();
   };
 
@@ -1618,7 +1792,14 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   };
 
   const filtered = useMemo(() => {
-    const result = transactions.filter(t => passesBaseFilters(t));
+    let result: TxRow[] = viewTransactions.filter(t => passesBaseFilters(t));
+    // Filtrando por estabelecimento, o rateio aparece só com a parte de cada loja filtrada
+    const filtroEstab = columnFilters.estabelecimento;
+    if (filtroEstab && filtroEstab.size > 0) {
+      result = result.flatMap(t => t._rateio
+        ? t._rateio.filter(x => filtroEstab.has(x.estabelecimento)).map(x => ({ ...x, _rateio: t._rateio, _rateioParte: true }))
+        : [t]);
+    }
     if (columnSort) {
       const { key, direction } = columnSort;
       result.sort((a, b) => {
@@ -1640,7 +1821,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
       });
     }
     return result;
-  }, [transactions, columnFilters, search, calSelectedDate, calRangeStart, calRangeEnd, calDefaultDate, tags, hasDatePeriod, columnSort]);
+  }, [viewTransactions, columnFilters, search, calSelectedDate, calRangeStart, calRangeEnd, calDefaultDate, tags, hasDatePeriod, columnSort]);
 
   // Mesma lógica de `filtered`, mas para a tabela "Cartões de Crédito" — compras
   // individuais de cartão, respeitando o mesmo calendário/busca/filtros de coluna.
@@ -3643,7 +3824,33 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                             );
                           })()}
                         </td>
-                        <td className="px-4 py-3 text-on-surface/70">{t.estabelecimento}</td>
+                        <td className="px-4 py-3 text-on-surface/70">
+                          {t._rateio ? (() => {
+                            const partes = t._rateio;
+                            const totalGrupo = partes.reduce((a, x) => a + x.valor_final, 0) || 1;
+                            const tip = partes.map(x => `${x.estabelecimento}: ${fmt(x.valor_final)} (${(Math.round((x.valor_final / totalGrupo) * 10000) / 100).toLocaleString('pt-BR')}%)`).join('\n');
+                            return (
+                              <span className="inline-flex items-center gap-1.5 max-w-full" title={tip}>
+                                <span className="w-[18px] h-[18px] shrink-0 grid place-items-center bg-[#7C3AED]/[0.12] dark:bg-[#A78BFA]/[0.16] text-[#7C3AED] dark:text-[#A78BFA]">
+                                  <Split size={11} strokeWidth={2.5} />
+                                </span>
+                                {t._rateioParte ? (<>
+                                  <span className="font-semibold truncate min-w-0">{t.estabelecimento}</span>
+                                  <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.05em] text-[#7C3AED] dark:text-[#A78BFA]">
+                                    parte · {(Math.round((t.valor_final / totalGrupo) * 10000) / 100).toLocaleString('pt-BR')}%
+                                  </span>
+                                </>) : (<>
+                                  <span className="font-semibold truncate min-w-0">Rateio · {partes.length} estabelecimentos</span>
+                                  <span className="shrink-0 inline-flex w-[60px] h-1.5 border border-[#E0D8BF] dark:border-white/[0.10]">
+                                    {partes.map((x, i) => (
+                                      <i key={x.id} className="block h-full" style={{ width: `${(x.valor_final / totalGrupo) * 100}%`, background: RATEIO_CORES[i % RATEIO_CORES.length] }} />
+                                    ))}
+                                  </span>
+                                </>)}
+                              </span>
+                            );
+                          })() : t.estabelecimento}
+                        </td>
                         <td className="px-4 py-3 overflow-visible">
                           {(() => {
                             const ids = t.tag_ids ?? [];
@@ -3793,6 +4000,11 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
           const footerTotal = isFaturaRow
             ? (txForm.usar_valor_real ? (txForm.valor_real ?? faturaValorConsolidado) : faturaValorConsolidado)
             : (parcelasEnabled ? totalParcelas : (txForm.valor_final || 0));
+          const podeRatear = rateioPermitido(txForm.tipo_pagamento, editingTx?.origem, isFaturaRow) && !isHrSalario;
+          const rateioAtivo = rateio.on && podeRatear;
+          const rateioCalc = rateioAtivo ? calcularRateio(rateio, round2(footerTotal)) : null;
+          const rateioBloqueiaSalvar = !!rateioCalc && !rateioCalc.fechado;
+          const editandoRateio = !!editingTx?.rateio_id;
           return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -3876,6 +4088,16 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
               </div>
 
               <div className="px-3.5 py-3 grid grid-cols-1 md:grid-cols-2 gap-2.5 overflow-y-auto">
+
+              {editandoRateio && (
+                <div className="md:col-span-2 flex items-start gap-2 px-3 py-2 border border-[#7C3AED]/35 bg-[#7C3AED]/[0.06] text-[12px] leading-[1.45] text-[#6D28D9] dark:text-[#C4B5FD]">
+                  <Split size={14} className="shrink-0 mt-px" />
+                  <span>
+                    Esta movimentação está <b>rateada entre {rateioGroups.get(editingTx!.rateio_id!)?.length ?? 0} estabelecimentos</b>.
+                    Alterar favorecido, datas, pagamento ou tags vale para todas as partes; marcar como pago quita o valor inteiro de uma vez.
+                  </span>
+                </div>
+              )}
 
               <div className={sectionCls}>
                 <div className={sectionHeadCls}>
@@ -4299,10 +4521,51 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                   </div>
                 )}
 
-                {/* Estabelecimento */}
+                {/* Estabelecimento — único ou rateio entre vários */}
                 <div className="flex flex-col gap-1.5 md:col-span-2">
-                  <label className={labelCls}>Estabelecimento</label>
-                  {isLockedView || isHrSalario || isFaturaRow ? (
+                  <div className="flex items-center gap-2">
+                    <label className={labelCls}>Estabelecimento</label>
+                    {podeRatear && !isLockedView && (
+                      <div className="ml-auto flex border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18]">
+                        {([[false, 'Único'], [true, 'Rateio']] as const).map(([on, label], i) => (
+                          <button
+                            key={label}
+                            type="button"
+                            onClick={() => setRateio(r => on && !r.on
+                              ? { on: true, modo: 'igual', linhas: [txForm.estabelecimento, ...estabelecimentos.filter(e => e !== txForm.estabelecimento)].slice(0, 2).map(estab => ({ estab, pct: 0, valor: 0 })) }
+                              : { ...r, on })}
+                            className={cn(
+                              'h-[22px] px-2.5 flex items-center gap-1 text-[9.5px] font-black uppercase tracking-[0.06em] transition-colors active:scale-[0.97]',
+                              i > 0 && 'border-l border-[#E0D8BF] dark:border-white/[0.10]',
+                              rateio.on === on ? 'bg-[#D81E1E] text-white' : 'text-on-surface/45 hover:text-on-surface',
+                            )}
+                          >
+                            {on && <Split size={11} />}{label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {rateioAtivo && isLockedView && rateioCalc ? (
+                    <div className="bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10]">
+                      {rateioCalc.linhas.map((l, i) => (
+                        <div key={i} className="flex items-center gap-2 px-2.5 h-[34px] border-b border-[#EFE8D2] dark:border-white/[0.06] last:border-b-0 text-[13px]">
+                          <i className="w-2.5 h-2.5 shrink-0" style={{ background: RATEIO_CORES[i % RATEIO_CORES.length] }} />
+                          <span className="flex-1 min-w-0 truncate font-semibold text-on-surface">{l.estab}</span>
+                          <span className="text-[11px] font-bold text-on-surface/40">{(Math.round(l.pct * 100) / 100).toLocaleString('pt-BR')}%</span>
+                          <span className="w-[110px] text-right font-mono text-[12.5px] text-on-surface">{fmt(l.valor)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : rateioAtivo ? (
+                    <RateioEditor
+                      total={round2(footerTotal)}
+                      state={rateio}
+                      onChange={setRateio}
+                      estabelecimentos={estabelecimentos}
+                      parcelas={parcelasEnabled ? parcelas.filter(p => p.data && parseFloat(p.valor) > 0).map(p => ({ seq: p.seq, data: p.data, valor: parseFloat(p.valor) || 0 })) : undefined}
+                    />
+                  ) : isLockedView || isHrSalario || isFaturaRow ? (
                     <div className={viewBlockCls}>{txForm.estabelecimento || '—'}</div>
                   ) : (
                     <select value={txForm.estabelecimento} onChange={e => setTxForm(f => ({ ...f, estabelecimento: e.target.value }))} className={inputCls}>
@@ -4360,15 +4623,24 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                   <span className="text-[9px] font-black uppercase tracking-[0.1em] opacity-65">Valor total</span>
                   <span className="font-mono text-[14px]">{fmt(footerTotal)}</span>
                 </span>
+                {rateioAtivo && rateioCalc && (
+                  <span className="text-[11.5px] font-bold text-on-surface/45">
+                    · {rateioCalc.linhas.length} estabelecimentos
+                    {parcelasEnabled && parcelas.length > 1 && ` × ${parcelas.length} parcelas = ${rateioCalc.linhas.length * parcelas.length} lançamentos`}
+                  </span>
+                )}
+                {rateioBloqueiaSalvar && !isLockedView && (
+                  <span className="ml-auto text-[11.5px] font-bold text-[#D81E1E]">Feche o rateio para salvar</span>
+                )}
                 {isLockedView ? (
                   <button onClick={() => setShowTxModal(false)} className="ml-auto h-9 px-[18px] border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[12px] font-extrabold uppercase tracking-[0.04em] text-on-surface hover:bg-on-surface/[0.05] active:scale-[0.97] transition-all">
                     Fechar
                   </button>
                 ) : (<>
-                  <button onClick={() => setShowTxModal(false)} className="ml-auto h-9 px-[18px] border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[12px] font-extrabold uppercase tracking-[0.04em] text-on-surface hover:bg-on-surface/[0.05] active:scale-[0.97] transition-all">
+                  <button onClick={() => setShowTxModal(false)} className={cn('h-9 px-[18px] border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[12px] font-extrabold uppercase tracking-[0.04em] text-on-surface hover:bg-on-surface/[0.05] active:scale-[0.97] transition-all', !rateioBloqueiaSalvar && 'ml-auto')}>
                     Cancelar
                   </button>
-                  <button onClick={isFaturaRow ? handleSaveFaturaConsolidada : isHrSalario ? handleSaveSalarioTx : handleTxSubmit} disabled={submitting} className="h-9 px-[18px] flex items-center justify-center gap-2 bg-[#D81E1E] hover:bg-[#B91818] text-white text-[12px] font-extrabold uppercase tracking-[0.04em] active:scale-[0.97] transition-all disabled:opacity-60">
+                  <button onClick={isFaturaRow ? handleSaveFaturaConsolidada : isHrSalario ? handleSaveSalarioTx : handleTxSubmit} disabled={submitting || rateioBloqueiaSalvar} className="h-9 px-[18px] flex items-center justify-center gap-2 bg-[#D81E1E] hover:bg-[#B91818] text-white text-[12px] font-extrabold uppercase tracking-[0.04em] active:scale-[0.97] transition-all disabled:opacity-60">
                     {submitting && <Loader2 size={14} className="animate-spin" />}
                     {editingId ? 'Salvar alterações' : 'Adicionar'}
                   </button>
