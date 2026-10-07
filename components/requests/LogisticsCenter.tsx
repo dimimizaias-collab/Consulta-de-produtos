@@ -35,6 +35,7 @@ import {
   Loader2,
   Package,
   Copy,
+  Zap, ArrowRight,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -190,23 +191,16 @@ export interface DistributionManifest {
   itemCount: number;
   totalQty: number;
   total: number;
+  // Itens que vieram da nota sem produto do cadastro (product_id nulo) — "pendentes de vínculo"
+  pendingCount: number;
+  sourceNoteId: string | null;
 }
 
 const DIST_STATUS_META: Record<DistributionManifestStatus, { label: string; fg: string; bg: string; border: string }> = {
   registro:       { label: 'Registro',       fg: 'text-[#B45309] dark:text-[#FCD34D]', bg: 'bg-[#D97706]/10 dark:bg-[#FCD34D]/[0.13]', border: 'border-[#D97706]/30 dark:border-[#FCD34D]/30' },
-  pedido_enviado: { label: 'Pedido Enviado', fg: 'text-[#0A7A55] dark:text-[#34D399]', bg: 'bg-emerald-500/10 dark:bg-emerald-500/[0.14]', border: 'border-emerald-500/25 dark:border-emerald-500/35' },
+  pedido_enviado: { label: 'Pedido Enviado', fg: 'text-[#2563EB] dark:text-[#60A5FA]', bg: 'bg-[#2563EB]/[0.06] dark:bg-[#60A5FA]/[0.10]', border: 'border-[#2563EB]/30 dark:border-[#60A5FA]/30' },
   aprovado:       { label: 'Aprovado',       fg: 'text-[#0A7A55] dark:text-[#34D399]', bg: 'bg-emerald-500/15 dark:bg-emerald-500/[0.20]', border: 'border-emerald-500/35 dark:border-emerald-500/45' },
 };
-
-const DIST_TABLE_COLUMNS: { key: string; label: string }[] = [
-  { key: 'status', label: 'Situação' },
-  { key: 'manifestNumber', label: 'Manifesto' },
-  { key: 'origin', label: 'Empresa Origem' },
-  { key: 'destination', label: 'Empresa Destino' },
-  { key: 'itemCount', label: 'Itens' },
-  { key: 'total', label: 'Valor Total' },
-  { key: 'shippingDate', label: 'Data de Envio' },
-];
 
 const TABLE_COLUMNS_BASE: { key: string; label: string }[] = [
   { key: 'status', label: 'Situação' },
@@ -319,6 +313,10 @@ export function LogisticsCenter({
   const [distributionManifests, setDistributionManifests] = useState<DistributionManifest[]>([]);
   const [loadingDistManifests, setLoadingDistManifests]   = useState(false);
   const [distSearch, setDistSearch]                    = useState('');
+  // Filtro de situação da tabela de manifestos e painel (Resultados por loja | Resumo)
+  const [distFilter, setDistFilter] = useState<'todos' | 'registro' | 'enviado' | 'aprovado' | 'pendencia'>('todos');
+  const [distPanelTab, setDistPanelTab] = useState<'lojas' | 'resumo'>('lojas');
+  const [distNoteNumbers, setDistNoteNumbers] = useState<Record<string, string>>({});
   const [distManifestDraft, setDistManifestDraft]      = useState<DistributionManifestDraft | null>(null);
 
   const handleCreateDistributionManifest = async () => {
@@ -346,8 +344,14 @@ export function LogisticsCenter({
     setLoadingDistManifests(true);
     const { data } = await supabase
       .from('distribution_manifests')
-      .select('id, manifest_number, origin_company_id, destination_company_id, status, shipping_date, distribution_manifest_items(qty, cost_price)')
+      .select('id, manifest_number, origin_company_id, destination_company_id, status, shipping_date, source_note_id, distribution_manifest_items(qty, cost_price, product_id)')
       .order('created_at', { ascending: false });
+    // Número das notas de origem que não estão na lista carregada de notas
+    const faltando = [...new Set((data || []).map((m: any) => m.source_note_id).filter((id: string | null) => id && !reviewNotes.some(n => n.id === id)))] as string[];
+    if (faltando.length) {
+      const { data: notas } = await supabase.from('review_notes').select('id, note_number').in('id', faltando);
+      setDistNoteNumbers(Object.fromEntries((notas || []).map((n: any) => [n.id, n.note_number || ''])));
+    }
     const mapped: DistributionManifest[] = (data || []).map((m: any) => {
       const items = m.distribution_manifest_items || [];
       return {
@@ -360,6 +364,8 @@ export function LogisticsCenter({
         itemCount: items.length,
         totalQty: items.reduce((acc: number, it: any) => acc + (parseFloat(it.qty) || 0), 0),
         total: items.reduce((acc: number, it: any) => acc + (parseFloat(it.qty) || 0) * (parseFloat(it.cost_price) || 0), 0),
+        pendingCount: items.filter((it: any) => !it.product_id).length,
+        sourceNoteId: m.source_note_id ?? null,
       };
     });
     setDistributionManifests(mapped);
@@ -391,15 +397,27 @@ export function LogisticsCenter({
     }
   };
 
+  const distNoteNumber = (m: DistributionManifest) => m.sourceNoteId
+    ? (reviewNotes.find(n => n.id === m.sourceNoteId)?.noteNumber ?? distNoteNumbers[m.sourceNoteId] ?? '')
+    : null;
+  const distFilterMatch = (m: DistributionManifest, f: typeof distFilter) =>
+    f === 'todos' ? true
+      : f === 'registro' ? m.status === 'registro'
+      : f === 'enviado' ? m.status === 'pedido_enviado'
+      : f === 'aprovado' ? m.status === 'aprovado'
+      : m.pendingCount > 0;
+  const distFilterCounts = useMemo(() => Object.fromEntries(
+    (['todos', 'registro', 'enviado', 'aprovado', 'pendencia'] as const).map(f => [f, distributionManifests.filter(m => distFilterMatch(m, f)).length]),
+  ) as Record<typeof distFilter, number>, [distributionManifests]); // eslint-disable-line react-hooks/exhaustive-deps
   const visibleDistManifests = useMemo(() => {
     const q = distSearch.trim().toLowerCase();
-    if (!q) return distributionManifests;
-    return distributionManifests.filter(m =>
+    return distributionManifests.filter(m => distFilterMatch(m, distFilter) && (!q ||
       m.manifestNumber.toLowerCase().includes(q) ||
       companyName(m.originCompanyId).toLowerCase().includes(q) ||
-      companyName(m.destinationCompanyId).toLowerCase().includes(q)
-    );
-  }, [distributionManifests, distSearch, companiesList]);
+      companyName(m.destinationCompanyId).toLowerCase().includes(q) ||
+      (distNoteNumber(m) || '').toLowerCase().includes(q)
+    ));
+  }, [distributionManifests, distSearch, distFilter, companiesList, distNoteNumbers, reviewNotes]); // eslint-disable-line react-hooks/exhaustive-deps
   const [confirmDeleteDraftId, setConfirmDeleteDraftId] = useState<string | null>(null);
   const [confirmApproveId, setConfirmApproveId]      = useState<string | null>(null);
   const [linkingNote, setLinkingNote]                = useState<ReviewNote | null>(null);
@@ -741,14 +759,18 @@ export function LogisticsCenter({
     const daysInPrevMonth = new Date(year, month, 0).getDate();
     // Pontinhos do calendário: nota recebida (aba Notas) ou manifesto enviado na data (aba
     // Distribuição) — a mesma grade de calendário é reutilizada pelas duas seções.
+    const enviados = distributionManifests.filter(m => m.status !== 'registro' && m.shippingDate);
     const notesByDay = activeSection === 'distribuicao'
-      ? new Set(distributionManifests.filter(m => m.status === 'pedido_enviado' && m.shippingDate).map(m => m.shippingDate!.slice(0, 10)))
+      ? new Set(enviados.map(m => m.shippingDate!.slice(0, 10)))
       : new Set(sectionNotesRaw.map(noteDateIso).filter(Boolean) as string[]);
-    const cells: { day: number; type: 'prev' | 'curr' | 'next'; hasNote: boolean }[] = [];
+    const pendByDay = activeSection === 'distribuicao'
+      ? new Set(enviados.filter(m => m.pendingCount > 0).map(m => m.shippingDate!.slice(0, 10)))
+      : new Set<string>();
+    const cells: { day: number; type: 'prev' | 'curr' | 'next'; hasNote: boolean; hasPend?: boolean }[] = [];
     for (let i = firstDow - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, type: 'prev', hasNote: false });
     for (let d = 1; d <= daysInMonth; d++) {
       const iso = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      cells.push({ day: d, type: 'curr', hasNote: notesByDay.has(iso) });
+      cells.push({ day: d, type: 'curr', hasNote: notesByDay.has(iso), hasPend: pendByDay.has(iso) });
     }
     let n = 1;
     while (cells.length < 42) cells.push({ day: n++, type: 'next', hasNote: false });
@@ -804,7 +826,7 @@ export function LogisticsCenter({
   // do plano) e só considera manifestos já enviados (Registro não movimentou nada ainda).
   const sentManifestsInPeriod = useMemo(() => {
     return distributionManifests.filter(m => {
-      if (m.status !== 'pedido_enviado' || !m.shippingDate) return false;
+      if (m.status === 'registro' || !m.shippingDate) return false;
       const d = m.shippingDate.slice(0, 10);
       if (calRangeStart && calRangeEnd) return d >= toIsoDay(calRangeStart) && d <= toIsoDay(calRangeEnd);
       if (calSelectedDate) return d === toIsoDay(calSelectedDate);
@@ -1455,7 +1477,7 @@ export function LogisticsCenter({
                     >
                       {cell.day}
                       {cell.hasNote && !isSelected && !isRangeEndpoint && (
-                        <span className={cn('absolute bottom-[2px] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full', isToday ? 'bg-primary/70' : 'bg-primary')} />
+                        <span className={cn('absolute bottom-[2px] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full', cell.hasPend ? 'bg-amber-500' : isToday ? 'bg-primary/70' : 'bg-primary')} />
                       )}
                     </button>
                   );
@@ -1503,50 +1525,77 @@ export function LogisticsCenter({
 
           {/* Painel de Resultados */}
           {activeSection === 'distribuicao' ? (
-            <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
-              <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center justify-between gap-2">
-                <span className="text-[9.5px] font-black uppercase tracking-[0.08em] text-[rgba(26,26,10,0.65)] px-2">Resultados</span>
+            <div className="bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] flex flex-col">
+              <div className="h-8 bg-[#FFEC4D] border-b-[1.5px] border-[#8F7E10] pl-1.5 pr-1.5 flex items-center gap-2">
+                <div className="flex gap-0.5 bg-[rgba(26,26,10,0.10)] p-[2px]">
+                  {([['lojas', 'Resultados'], ['resumo', 'Resumo']] as const).map(([k, l]) => (
+                    <button
+                      key={k}
+                      onClick={() => setDistPanelTab(k)}
+                      className={cn('h-[22px] px-3 text-[9px] font-black uppercase tracking-[0.08em] transition-colors duration-150 whitespace-nowrap',
+                        distPanelTab === k ? 'bg-[#D81E1E] text-white' : 'text-[rgba(26,26,10,0.50)] hover:text-[rgba(26,26,10,0.75)]')}
+                    >{l}</button>
+                  ))}
+                </div>
+                <span className="text-[10px] font-bold text-[rgba(26,26,10,0.5)] truncate">Período do calendário · só manifestos enviados</span>
                 <button
                   onClick={() => setShowDistResultsExpanded(true)}
                   title="Expandir"
-                  className="w-[26px] h-[26px] rounded-[8px] bg-[rgba(26,26,10,0.10)] flex items-center justify-center text-[rgba(26,26,10,0.60)] hover:bg-[rgba(26,26,10,0.16)] transition-colors shrink-0"
+                  className="ml-auto w-[22px] h-[22px] bg-[rgba(26,26,10,0.08)] text-[rgba(26,26,10,0.6)] hover:bg-[rgba(26,26,10,0.15)] flex items-center justify-center transition-colors shrink-0"
                 >
-                  <Maximize2 size={12} strokeWidth={2.5} />
+                  <Maximize2 size={11} strokeWidth={2.6} />
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-2 p-2.5 flex-1 min-h-0 overflow-y-auto content-start">
-                {loadingCompanies ? (
-                  <div className="col-span-2 flex items-center justify-center py-8 text-on-surface/25">
-                    <p className="text-xs font-bold">Carregando lojas…</p>
-                  </div>
-                ) : companiesList.length === 0 ? (
-                  <div className="col-span-2 flex items-center justify-center py-8 text-on-surface/25">
-                    <p className="text-xs font-bold">Nenhuma loja cadastrada</p>
-                  </div>
-                ) : companiesList.map(c => {
-                  const s = distCompanyStats[c.id] || { out: 0, outQty: 0, in: 0, inQty: 0 };
-                  return (
-                    <div key={c.id} className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] p-2.5">
-                      <div className="flex items-center gap-1.5 mb-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                        <span className="text-[11px] font-black text-on-surface truncate">{c.nome_fantasia}</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <div className="bg-surface-container-low border border-on-surface/[0.06] rounded-[9px] px-2 py-1.5">
-                          <div className="text-[6.5px] font-black uppercase tracking-[0.08em] text-on-surface/40">R$ Saiu</div>
-                          <div className="text-[11.5px] font-black text-primary">{fmtBRL(s.out)}</div>
-                          <div className="text-[8px] font-bold text-on-surface/35">{s.outQty} un.</div>
+              {distPanelTab === 'lojas' ? (
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-px flex-1 min-h-0 overflow-y-auto content-start bg-[#EFE8D2] dark:bg-white/[0.06] [&>*]:bg-white dark:[&>*]:bg-[#1E1E18]">
+                  {loadingCompanies ? (
+                    <div className="col-span-full flex items-center justify-center py-8 text-on-surface/25"><p className="text-xs font-bold">Carregando lojas…</p></div>
+                  ) : companiesList.length === 0 ? (
+                    <div className="col-span-full flex items-center justify-center py-8 text-on-surface/25"><p className="text-xs font-bold">Nenhuma loja cadastrada</p></div>
+                  ) : companiesList.map(c => {
+                    const st = distCompanyStats[c.id] || { out: 0, outQty: 0, in: 0, inQty: 0 };
+                    const temPend = sentManifestsInPeriod.some(m => m.pendingCount > 0 && (m.destinationCompanyId === c.id || m.originCompanyId === c.id));
+                    return (
+                      <div key={c.id} className="px-3 py-2.5 flex flex-col gap-1.5">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="w-1.5 h-1.5 bg-primary shrink-0" />
+                          <span className="text-[11.5px] font-black text-on-surface truncate">{c.nome_fantasia}</span>
+                          {temPend && <span className="ml-auto shrink-0 text-[8.5px] font-black uppercase tracking-[0.04em] px-[5px] leading-[15px] border border-amber-400/55 bg-amber-50 dark:bg-amber-400/[0.08] text-[#92400E] dark:text-[#FCD34D]">⚡ pendência</span>}
                         </div>
-                        <div className="bg-surface-container-low border border-on-surface/[0.06] rounded-[9px] px-2 py-1.5">
-                          <div className="text-[6.5px] font-black uppercase tracking-[0.08em] text-on-surface/40">R$ Entrou</div>
-                          <div className="text-[11.5px] font-black text-emerald-600 dark:text-emerald-400">{fmtBRL(s.in)}</div>
-                          <div className="text-[8px] font-bold text-on-surface/35">{s.inQty} un.</div>
+                        <div className="grid grid-cols-2 border border-[#E0D8BF] dark:border-white/[0.10]">
+                          <div className="px-2 py-1.5">
+                            <div className="text-[7.5px] font-black uppercase tracking-[0.1em] text-on-surface/40">R$ Saiu</div>
+                            <div className="font-mono text-[12.5px] text-primary">{fmtBRL(st.out)}</div>
+                            <div className="text-[9px] font-bold text-on-surface/30">{st.outQty} un.</div>
+                          </div>
+                          <div className="px-2 py-1.5 border-l border-[#E0D8BF] dark:border-white/[0.10]">
+                            <div className="text-[7.5px] font-black uppercase tracking-[0.1em] text-on-surface/40">R$ Entrou</div>
+                            <div className="font-mono text-[12.5px] text-emerald-600 dark:text-emerald-400">{fmtBRL(st.in)}</div>
+                            <div className="text-[9px] font-bold text-on-surface/30">{st.inQty} un.</div>
+                          </div>
                         </div>
                       </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 flex-1 gap-px bg-[#EFE8D2] dark:bg-white/[0.06] [&>*]:bg-white dark:[&>*]:bg-[#1E1E18]">
+                  {([
+                    ['Manifestos', sentManifestsInPeriod.length, 'bg-blue-500/10 text-blue-600 dark:text-blue-400', <Truck key="i" size={10} strokeWidth={2.6} />, ''],
+                    ['Enviados', sentManifestsInPeriod.filter(m => m.status === 'pedido_enviado').length, 'bg-blue-500/10 text-blue-600 dark:text-blue-400', <ArrowUpDown key="i" size={10} strokeWidth={2.6} />, ''],
+                    ['Aprovados', sentManifestsInPeriod.filter(m => m.status === 'aprovado').length, 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400', <CheckCircle2 key="i" size={10} strokeWidth={2.6} />, ''],
+                    ['Com pendência', sentManifestsInPeriod.filter(m => m.pendingCount > 0).length, 'bg-amber-500/15 text-amber-700 dark:text-amber-300', <Zap key="i" size={10} strokeWidth={2.6} />, 'text-[#92400E] dark:text-[#FCD34D]'],
+                  ] as const).map(([l, v, icCls, ic, vCls]) => (
+                    <div key={l} className="flex flex-col justify-center gap-1.5 px-3 py-2.5">
+                      <div className="h-6 flex items-center gap-1.5 pl-[3px] pr-2 border border-[#E0D8BF] dark:border-white/[0.10] bg-[#FAF7EE] dark:bg-[#1A1A15]">
+                        <span className={cn('w-[18px] h-[18px] flex items-center justify-center shrink-0', icCls)}>{ic}</span>
+                        <span className="text-[8.5px] font-black uppercase tracking-[0.1em] text-on-surface/45 whitespace-nowrap truncate">{l}</span>
+                      </div>
+                      <div className={cn('h-[38px] flex items-center px-2.5 border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[19px] font-black tracking-[-0.02em] text-on-surface truncate', vCls)}>{v}</div>
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
           <div className="bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] flex flex-col">
@@ -2190,135 +2239,155 @@ export function LogisticsCenter({
       {/* ── Distribuição (Fase 3 — tabela real; painel de Resultados e modal de
           Manifesto ainda não implementados) ──────────────────────────────── */}
       {activeSection === 'distribuicao' && (
-        <div className="hidden md:block space-y-6">
-
-          <div className="flex flex-wrap items-center gap-3">
-            {visibleDistManifests.length > 0 && (
-              <span className="px-2.5 py-0.5 text-xs font-black rounded-full bg-primary/10 text-primary">
-                {visibleDistManifests.length}
-              </span>
-            )}
+        <div className="hidden md:block space-y-2.5">
+          {/* Barra de ferramentas — mesmo padrão das abas Notas/Fornecedores */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="h-7 flex items-center gap-1.5 px-2.5 border border-[#E0D8BF] dark:border-white/[0.10] text-[11px] font-bold text-on-surface/45 whitespace-nowrap">
+              <b className="font-black text-on-surface">{visibleDistManifests.length}</b> {visibleDistManifests.length === 1 ? 'manifesto' : 'manifestos'}
+            </span>
 
             <div className="relative group">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/30 group-focus-within:text-primary transition-colors pointer-events-none" />
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface/30 group-focus-within:text-primary transition-colors pointer-events-none" />
               <input
                 type="text"
                 value={distSearch}
                 onChange={e => setDistSearch(e.target.value)}
-                placeholder="Pesquisar por loja, número..."
-                className="bg-surface-container-lowest border border-on-surface/[0.06] rounded-xl pl-8 pr-8 py-2 text-xs font-medium placeholder:text-on-surface/25 focus:outline-none focus:ring-2 focus:ring-primary/20 w-56 transition-all"
+                placeholder="Buscar por manifesto, loja ou nota..."
+                className="h-7 w-72 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] pl-8 pr-7 text-xs font-semibold text-on-surface placeholder:text-on-surface/25 placeholder:font-medium caret-[#D81E1E] outline-none hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] transition-[border-color,box-shadow]"
               />
               {distSearch && (
-                <button
-                  onClick={() => setDistSearch('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-on-surface/30 hover:text-on-surface transition-colors"
-                >
+                <button onClick={() => setDistSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-on-surface/30 hover:text-on-surface transition-colors">
                   <X size={13} />
                 </button>
               )}
             </div>
 
-            <button
-              disabled
-              title="Filtro por coluna — em breve"
-              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border bg-surface-container-lowest border-on-surface/[0.06] text-on-surface/30 cursor-not-allowed"
-            >
-              <Filter size={14} />
-              Filtrar colunas
-            </button>
+            <div className="flex border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18]">
+              {([
+                ['todos', 'Todos'], ['registro', 'Registro'], ['enviado', 'Enviados'], ['aprovado', 'Aprovados'], ['pendencia', 'Com pendência'],
+              ] as const).map(([k, l], i) => {
+                const on = distFilter === k;
+                const amber = k === 'pendencia';
+                return (
+                  <button
+                    key={k}
+                    onClick={() => setDistFilter(k)}
+                    className={cn(
+                      'h-[26px] flex items-center gap-1.5 px-2.5 text-[10.5px] font-extrabold uppercase tracking-[0.05em] whitespace-nowrap transition-colors',
+                      i > 0 && 'border-l border-[#E0D8BF] dark:border-white/[0.10]',
+                      on ? 'bg-primary text-white' : amber ? 'text-[#92400E] dark:text-[#FCD34D] hover:brightness-90' : 'text-on-surface/45 hover:text-on-surface',
+                    )}
+                  >
+                    {amber && <Zap size={11} />}
+                    {l}
+                    <span className={cn('text-[9px] font-black px-[5px] leading-[15px] rounded-full tracking-normal',
+                      on ? 'bg-white/25' : amber ? 'bg-amber-400/30' : 'bg-black/[0.10] dark:bg-white/10')}>
+                      {distFilterCounts[k]}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
             <button
               onClick={handleCreateDistributionManifest}
               title="Criar Manifesto"
-              className="ml-auto w-9 h-9 rounded-xl flex items-center justify-center bg-primary text-on-primary shadow-md shadow-primary/20 hover:opacity-90 active:scale-[0.97] transition-all"
+              className="ml-auto w-7 h-7 flex items-center justify-center bg-primary text-on-primary hover:bg-[#B91818] active:scale-[0.97] transition-all"
             >
-              <Plus size={16} />
+              <Plus size={14} strokeWidth={3} />
             </button>
           </div>
 
           {loadingDistManifests ? (
-            <div className="bg-surface-container-low/50 backdrop-blur-md rounded-[2.5rem] p-10 border border-on-surface/[0.03] flex items-center justify-center shadow-sm">
-              <p className="text-sm font-bold text-on-surface/40">Carregando manifestos…</p>
+            <div className="flex items-center justify-center py-10 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10]">
+              <Loader2 size={18} className="animate-spin text-on-surface/30" />
             </div>
           ) : visibleDistManifests.length === 0 ? (
-            <div className="bg-surface-container-low/50 backdrop-blur-md rounded-[2.5rem] p-10 border border-on-surface/[0.03] flex items-center gap-8 shadow-sm">
-              <div className="w-16 h-16 bg-on-surface/5 text-on-surface/20 rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
+            <div className="bg-white dark:bg-[#1E1E18] p-10 border border-[#E0D8BF] dark:border-white/[0.10] flex items-center gap-8">
+              <div className="w-16 h-16 bg-on-surface/5 text-on-surface/20 flex items-center justify-center shrink-0">
                 <Truck size={32} />
               </div>
               <div>
                 <h4 className="text-lg font-black text-on-surface leading-tight uppercase tracking-[0.1em]">
-                  Sem Manifestos
+                  {distributionManifests.length === 0 ? 'Sem Manifestos' : 'Nenhum manifesto encontrado'}
                 </h4>
                 <p className="text-sm text-on-surface/40 font-medium mt-1 leading-relaxed">
-                  Manifestos de distribuição entre lojas aparecerão aqui.
+                  {distributionManifests.length === 0 ? 'Manifestos de distribuição entre lojas aparecerão aqui.' : 'Ajuste a busca ou o filtro de situação.'}
                 </p>
               </div>
             </div>
           ) : (
-            <div className="bg-surface-container-low/80 rounded-2xl border border-on-surface/5 overflow-hidden">
-              <div className="overflow-x-auto [&_tbody_td]:border-r [&_tbody_td]:border-on-surface/[0.04] dark:[&_tbody_td]:border-white/[0.03] [&_tbody_td:last-child]:border-r-0">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-[#FFEC4D] dark:bg-[#FFEC4D] border-b border-[#E6CE33] dark:border-[#DCC63D]">
-                      {DIST_TABLE_COLUMNS.map(({ label, key }) => (
-                        <th key={key} className="px-3 py-3 text-left whitespace-nowrap">
-                          <span className="inline-flex items-center bg-[rgba(26,26,10,0.05)] rounded-full px-[13px] py-[5px] text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.55)] dark:text-[rgba(26,26,10,0.58)] whitespace-nowrap border-[1.5px] border-[rgba(26,26,10,0.10)] dark:border-[rgba(26,26,10,0.12)]">
-                            {label}
+            <div className="bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] overflow-x-auto">
+              <table className="w-full min-w-[1100px] table-fixed text-[13px] border-collapse [&_td]:h-[38px] [&_td]:px-2.5 [&_td]:whitespace-nowrap [&_td]:overflow-hidden [&_td]:text-ellipsis [&_td]:border-r [&_td]:border-b [&_td]:border-[#A8A290] dark:[&_td]:border-white/20 [&_td:last-child]:border-r-0">
+                <colgroup>
+                  <col style={{ width: 44 }} /><col style={{ width: 150 }} /><col style={{ width: 220 }} /><col />
+                  <col style={{ width: 110 }} /><col style={{ width: 150 }} /><col style={{ width: 130 }} /><col style={{ width: 120 }} /><col style={{ width: 52 }} />
+                </colgroup>
+                <thead>
+                  <tr className="bg-[#FFEC4D]">
+                    {([['#', 'text-right'], ['Situação', ''], ['Manifesto', ''], ['Origem → Destino', ''], ['Nota', ''], ['Itens', 'text-right'], ['Valor (custo)', 'text-right'], ['Data de envio', ''], ['', '']] as const).map(([l, c], i, arr) => (
+                      <th key={i} className={cn('h-8 px-2.5 text-left whitespace-nowrap text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.55)]', c,
+                        i === arr.length - 1 ? 'shadow-[inset_0_-1.5px_0_#8F7E10]' : 'shadow-[inset_-1px_0_0_#B8A31F,inset_0_-1.5px_0_#8F7E10]')}>{l}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleDistManifests.map((m, idx) => {
+                    const meta = DIST_STATUS_META[m.status];
+                    const nf = distNoteNumber(m);
+                    return (
+                      <tr
+                        key={m.id}
+                        onClick={() => handleOpenDistributionManifest(m)}
+                        className={cn(
+                          'group cursor-pointer transition-colors',
+                          idx % 2 === 0 ? 'bg-white dark:bg-[#1E1E18]' : 'bg-[#FAF7EE] dark:bg-[#1A1A15]',
+                          'hover:bg-[#FFF8D0] dark:hover:bg-[#FFE500]/[0.06]',
+                        )}
+                      >
+                        <td className="text-right font-mono text-[11px] text-on-surface/30">{idx + 1}</td>
+                        <td>
+                          <span className={cn('inline-flex items-center gap-1.5 h-5 px-2 border text-[9.5px] font-black uppercase tracking-[0.05em]', meta.bg, meta.fg, meta.border)}>
+                            <span className="w-1.5 h-1.5 rounded-full bg-current" />{meta.label}
                           </span>
-                        </th>
-                      ))}
-                      <th className="px-3 py-3" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleDistManifests.map((m, idx) => {
-                      const meta = DIST_STATUS_META[m.status];
-                      return (
-                        <tr
-                          key={m.id}
-                          className={cn(
-                            'transition-colors',
-                            idx % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low/40',
-                            'hover:bg-on-surface/[0.03]'
+                        </td>
+                        <td title={m.manifestNumber} className={cn('font-extrabold text-on-surface', !m.sourceNoteId && 'font-mono text-[12px] font-bold')}>{m.manifestNumber}</td>
+                        <td>
+                          <span className="inline-flex items-center gap-1.5 font-semibold text-on-surface min-w-0">
+                            <span className="truncate">{companyName(m.originCompanyId)}</span>
+                            <ArrowRight size={12} className="text-on-surface/30 shrink-0" />
+                            <span className="truncate">{m.destinationCompanyId && m.destinationCompanyId !== m.originCompanyId ? companyName(m.destinationCompanyId) : <span className="text-on-surface/30">—</span>}</span>
+                          </span>
+                        </td>
+                        <td>
+                          {nf !== null
+                            ? <span className="font-mono text-[11.5px] text-on-surface/70">NF {nf || '—'}</span>
+                            : <span className="text-[10px] font-extrabold uppercase tracking-[0.05em] text-on-surface/30">Manual</span>}
+                        </td>
+                        <td className="text-right">
+                          <span className="font-mono font-bold text-on-surface">{m.itemCount}</span>
+                          {m.pendingCount > 0 && (
+                            <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-black uppercase tracking-[0.04em] px-[5px] leading-4 border border-amber-400/55 bg-amber-50 dark:bg-amber-400/[0.08] text-[#92400E] dark:text-[#FCD34D]">
+                              <Zap size={9} />{m.pendingCount} pend.
+                            </span>
                           )}
-                        >
-                          <td className="px-4 py-3.5">
-                            <span
-                              title={meta.label}
-                              className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10.5px] font-black uppercase tracking-wide', meta.bg, meta.fg, meta.border)}
-                            >
-                              {meta.label}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3.5 font-mono text-[12.5px] font-bold text-on-surface">{m.manifestNumber}</td>
-                          <td className="px-4 py-3.5 font-semibold text-on-surface">{companyName(m.originCompanyId)}</td>
-                          <td className="px-4 py-3.5 font-semibold text-on-surface">{m.destinationCompanyId ? companyName(m.destinationCompanyId) : <span className="text-on-surface/30">—</span>}</td>
-                          <td className="px-4 py-3.5">
-                            <span className="text-xs font-black text-on-surface bg-on-surface/5 px-2 py-1 rounded-lg">
-                              {m.itemCount}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3.5 whitespace-nowrap">
-                            <span className="text-xs font-bold text-on-surface/70">
-                              {fmtBRL(m.total)}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3.5 text-on-surface">{m.shippingDate ? fmtDateBR(m.shippingDate) : <span className="text-on-surface/30">—</span>}</td>
-                          <td className="px-4 py-3.5">
-                            <button
-                              onClick={() => handleOpenDistributionManifest(m)}
-                              title="Ver / editar manifesto"
-                              className="w-8 h-8 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all flex items-center justify-center"
-                            >
-                              <Pencil size={14} />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                        </td>
+                        <td className="text-right font-mono font-extrabold text-on-surface">{fmtBRL(m.total)}</td>
+                        <td className="font-mono text-[12px] text-on-surface/70">{m.shippingDate ? fmtDateBR(m.shippingDate) : <span className="text-on-surface/30">—</span>}</td>
+                        <td className="text-center">
+                          <button
+                            onClick={e => { e.stopPropagation(); handleOpenDistributionManifest(m); }}
+                            title="Abrir manifesto"
+                            className="w-[26px] h-[26px] inline-flex items-center justify-center border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-primary group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-colors"
+                          >
+                            <ChevronRight size={14} strokeWidth={2.5} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
