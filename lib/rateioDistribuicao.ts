@@ -41,10 +41,17 @@ export async function calcularDistribuicaoDasNotas(noteIds: string[]): Promise<D
     .in('source_note_id', noteIds);
   if (mErr || !manifestos || manifestos.length === 0) return null;
 
-  const [{ data: notas }, { data: itens }] = await Promise.all([
+  const manifestIds = manifestos.map(m => m.id);
+  const [{ data: notas }, itensRes] = await Promise.all([
     supabase.from('review_notes').select('id, note_number, file_name, company_id, items').in('id', noteIds),
-    supabase.from('distribution_manifest_items').select('manifest_id, product_id, qty, cost_price').in('manifest_id', manifestos.map(m => m.id)),
+    supabase.from('distribution_manifest_items').select('manifest_id, product_id, qty, cost_price, source_note_item_idx').in('manifest_id', manifestIds),
   ]);
+  // Sem a coluna source_note_item_idx (SQL ainda não rodado) a consulta falha — refaz sem ela
+  let itens = itensRes.data as { manifest_id: string; product_id: string | null; qty: number; cost_price: number; source_note_item_idx?: number | null }[] | null;
+  if (itensRes.error) {
+    const { data } = await supabase.from('distribution_manifest_items').select('manifest_id, product_id, qty, cost_price').in('manifest_id', manifestIds);
+    itens = data;
+  }
   if (!notas || notas.length === 0) return null;
 
   const companyIds = [...new Set([...notas.map(n => n.company_id), ...manifestos.map(m => m.destination_company_id)].filter(Boolean))] as string[];
@@ -90,7 +97,10 @@ export async function calcularDistribuicaoDasNotas(noteIds: string[]): Promise<D
       const l = loja(estab, false);
       l.manifestos.push(String(m.manifest_number));
       for (const it of (itens ?? []).filter(x => x.manifest_id === m.id)) {
-        const unit = custoDoProduto(String(it.product_id), Number(it.cost_price) || 0);
+        // Linha de origem conhecida (itens pendentes de vínculo, e os enviados depois desta
+        // mudança): usa o custo da própria linha da nota; senão, o custo do produto na nota.
+        const linha = it.source_note_item_idx != null ? itensNota[Number(it.source_note_item_idx)] : undefined;
+        const unit = linha ? Math.max(0, custoUnitario(linha)) : custoDoProduto(String(it.product_id), Number(it.cost_price) || 0);
         const qtd = Number(it.qty) || 0;
         l.itens++;
         if (unit <= 0) { itensSemCusto++; manifestosSemCusto.add(String(m.manifest_number)); continue; }

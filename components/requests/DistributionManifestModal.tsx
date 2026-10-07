@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Package, X, CheckCircle2, RefreshCw, Search, Zap, AlertTriangle, Trash2, Pencil, Info, ArrowDown, ArrowUp, Check, Download, FileText, Ban, Plus } from 'lucide-react';
+import { Package, X, CheckCircle2, RefreshCw, Search, Zap, AlertTriangle, Trash2, Pencil, Info, ArrowDown, ArrowUp, Check, Download, FileText, Ban, Plus, ArrowRight, Lock, ListChecks } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { jsPDF } from 'jspdf';
+import { VincularProdutoModal, type ProdutoVinculado } from '@/components/products/VincularProdutoModal';
 import autoTable from 'jspdf-autotable';
 
 const MANIFEST_LOCK_TTL_MS = 2 * 60 * 1000;
@@ -44,7 +45,11 @@ type DiscrepancyData = { type: 'falta' | 'sobra'; qty: number; missingAll: boole
 
 interface ManifestItem {
   id: string;
-  productId: string;
+  // null = "pendente de vínculo": veio da nota sem produto do cadastro (Não Encontrado) e
+  // precisa ser vinculado/criado aqui antes da aprovação do recebimento.
+  productId: string | null;
+  // Linha da nota de origem (review_notes.items[idx]) — EAN atual e vínculo da linha da nota.
+  sourceIdx: number | null;
   productName: string;
   sku: string | null;
   ean: string | null;
@@ -152,7 +157,7 @@ export function DistributionManifestModal({
     (async () => {
       const { data } = await supabase
         .from('distribution_manifests')
-        .select('destination_company_id, shipping_date, created_by_name, created_at, sent_by_name, sent_at, approved_by_name, approved_at, status')
+        .select('destination_company_id, shipping_date, created_by_name, created_at, sent_by_name, sent_at, approved_by_name, approved_at, status, source_note_id')
         .eq('id', manifest.id)
         .maybeSingle();
       if (!data) return;
@@ -167,8 +172,21 @@ export function DistributionManifestModal({
       setApprovedByName(data.approved_by_name || null);
       setApprovedAt(data.approved_at || null);
       setStatus(data.status);
+      setSourceNoteId(data.source_note_id || null);
     })();
   }, [manifest.id, manifest.isExisting]);
+
+  // Nota de origem (manifestos gerados pela "Distribuição Enviada"): EAN atual das linhas,
+  // fornecedor (tradução permanente) e vínculo da linha da nota junto com o do manifesto.
+  const [sourceNoteId, setSourceNoteId] = useState<string | null>(null);
+  const [sourceNote, setSourceNote] = useState<{ id: string; numero: string | null; supplierId: string | null; items: any[] } | null>(null);
+  useEffect(() => {
+    if (!sourceNoteId) return;
+    (async () => {
+      const { data } = await supabase.from('review_notes').select('id, note_number, supplier_id, items').eq('id', sourceNoteId).maybeSingle();
+      if (data) setSourceNote({ id: data.id, numero: data.note_number ?? null, supplierId: data.supplier_id ?? null, items: (data.items as any[]) ?? [] });
+    })();
+  }, [sourceNoteId]);
 
   const fmtDateTimeBR = (iso: string | null) => iso ? new Date(iso).toLocaleString('pt-BR') : '—';
 
@@ -252,14 +270,15 @@ export function DistributionManifestModal({
   useEffect(() => {
     if (!manifest.isExisting) return;
     (async () => {
-      const { data } = await supabase
-        .from('distribution_manifest_items')
-        .select('id, product_id, product_name, sku, ean, qty, measure, cost_price, sale_price_origin, sale_price_destination, sale_price_destination_at, verified, discrepancy')
-        .eq('manifest_id', manifest.id);
+      const COLS = 'id, product_id, product_name, sku, ean, qty, measure, cost_price, sale_price_origin, sale_price_destination, sale_price_destination_at, verified, discrepancy';
+      let { data, error }: { data: any[] | null; error: unknown } = await supabase.from('distribution_manifest_items').select(`${COLS}, source_note_item_idx`).eq('manifest_id', manifest.id);
+      // SQL add_distribution_pending_link.sql ainda não rodado: carrega sem a coluna nova
+      if (error) ({ data, error } = await supabase.from('distribution_manifest_items').select(COLS).eq('manifest_id', manifest.id));
       if (itemsDirtyRef.current) { setLoadingItems(false); return; }
       setItems((data || []).map((r: any) => ({
         id: r.id,
-        productId: r.product_id,
+        productId: r.product_id ?? null,
+        sourceIdx: r.source_note_item_idx ?? null,
         productName: r.product_name,
         sku: r.sku,
         ean: r.ean,
@@ -275,6 +294,72 @@ export function DistributionManifestModal({
       setLoadingItems(false);
     })();
   }, [manifest.id, manifest.isExisting]);
+
+  // EAN atual de cada produto vinculado — o manifesto guarda uma cópia do EAN no envio, e o
+  // produto pode ganhar EAN depois (ex.: na aprovação da nota). Mostra sempre o atual.
+  const [productEans, setProductEans] = useState<Record<string, string | null>>({});
+  const linkedIdsKey = [...new Set(items.map(it => it.productId).filter((id): id is string => !!id))].sort().join('|');
+  useEffect(() => {
+    if (!linkedIdsKey) return;
+    (async () => {
+      const { data } = await supabase.from('products').select('id, ean').in('id', linkedIdsKey.split('|'));
+      setProductEans(Object.fromEntries((data ?? []).map((r: any) => [r.id, r.ean ?? null])));
+    })();
+  }, [linkedIdsKey]);
+
+  const linhaDaNota = (it: ManifestItem) => (it.sourceIdx != null && sourceNote ? sourceNote.items[it.sourceIdx] : undefined);
+  /** EAN mostrado: o atual do produto (vinculado) ou o atual da linha da nota (pendente). */
+  const eanAtual = (it: ManifestItem): { ean: string | null; daNota: boolean } => {
+    if (it.productId) return { ean: productEans[it.productId] ?? it.ean, daNota: false };
+    const notaEan = linhaDaNota(it)?.ean || null;
+    return notaEan && notaEan !== it.ean ? { ean: notaEan, daNota: true } : { ean: it.ean, daNota: false };
+  };
+
+  // ── Pendências de vínculo ───────────────────────────────────────────────
+  const pendentes = items.filter(it => !it.productId);
+  const [vincItemId, setVincItemId] = useState<string | null>(null);
+  const [manifestBusca, setManifestBusca] = useState('');
+
+  const proximaPendente = (depoisDe: string | null, lista = pendentes) => {
+    if (lista.length === 0) return null;
+    const i = depoisDe ? lista.findIndex(x => x.id === depoisDe) : -1;
+    return (lista[i + 1] ?? lista.find(x => x.id !== depoisDe) ?? null)?.id ?? null;
+  };
+
+  const handleVinculado = async (it: ManifestItem, p: ProdutoVinculado, precoVenda: number | null, vincularNota: boolean) => {
+    const nowIso = new Date().toISOString();
+    const patch: Record<string, unknown> = { product_id: p.id, product_name: p.name, sku: p.sku, ean: p.ean ?? it.ean };
+    if (precoVenda !== null && precoVenda > 0) { patch.sale_price_destination = precoVenda; patch.sale_price_destination_at = nowIso; }
+    const { error } = await supabase.from('distribution_manifest_items').update(patch).eq('id', it.id);
+    if (error) throw new Error(error.message);
+    if (precoVenda !== null && precoVenda > 0 && destinationCompanyId) {
+      await supabase.from('product_company_stock').upsert({
+        product_id: p.id, company_id: destinationCompanyId, price: precoVenda, price_received_date: nowIso.slice(0, 10), updated_at: nowIso,
+      }, { onConflict: 'product_id,company_id' });
+    }
+    // Linha da nota de origem — só se ela ainda estiver sem produto (não sobrescreve outro vínculo)
+    if (vincularNota && sourceNoteId && it.sourceIdx != null) {
+      const { data: nota } = await supabase.from('review_notes').select('items').eq('id', sourceNoteId).maybeSingle();
+      const notaItens = [...((nota?.items as any[]) ?? [])];
+      const linha = notaItens[it.sourceIdx];
+      if (linha && !linha.product_id) {
+        notaItens[it.sourceIdx] = { ...linha, product_id: p.id, name: p.name, sku: p.sku || linha.sku, ean: p.ean || linha.ean, status_translation: 'Identificado (SKU/EAN)' };
+        await supabase.from('review_notes').update({ items: notaItens }).eq('id', sourceNoteId);
+        setSourceNote(prev => prev ? { ...prev, items: notaItens } : prev);
+      }
+    }
+    const atualizado: ManifestItem = {
+      ...it, productId: p.id, productName: p.name, sku: p.sku, ean: p.ean ?? it.ean,
+      ...(precoVenda !== null && precoVenda > 0 ? { salePriceDestination: precoVenda, salePriceDestinationAt: nowIso } : {}),
+    };
+    const novaLista = items.map(x => x.id === it.id ? atualizado : x);
+    setItems(novaLista);
+    if (p.ean) setProductEans(prev => ({ ...prev, [p.id]: p.ean }));
+    const restantes = novaLista.filter(x => !x.productId);
+    setVincItemId(proximaPendente(it.id, restantes));
+    setNotification({ type: 'success', message: restantes.length ? `Vinculado: ${p.name}. Faltam ${restantes.length}.` : 'Todas as pendências de vínculo foram resolvidas.' });
+    onSaved();
+  };
 
   // Busca por descrição ou EAN — mesmo padrão .or() ilike usado em app/page.tsx.
   useEffect(() => {
@@ -365,6 +450,7 @@ export function DistributionManifestModal({
     setItems(prev => [...prev, {
       id: crypto.randomUUID(),
       productId: p.id,
+      sourceIdx: null,
       productName: p.name,
       sku: p.sku,
       ean: p.ean,
@@ -595,7 +681,7 @@ export function DistributionManifestModal({
   };
 
   const canSend = editable && !!destinationCompanyId && items.length > 0;
-  const canApprove = receiving && items.length > 0;
+  const canApprove = receiving && items.length > 0 && pendentes.length === 0;
 
   // Gera o PDF da nota de distribuição — mesmo padrão jsPDF + autoTable usado no PDF de
   // Pedido de Compra (components/orders/PurchaseOrderManager.tsx), adaptado pro cabeçalho e
@@ -671,14 +757,14 @@ export function DistributionManifestModal({
         .from('product_company_stock')
         .select('product_id, count')
         .eq('company_id', destinationCompanyId)
-        .in('product_id', items.map(it => it.productId));
+        .in('product_id', items.map(it => it.productId).filter((id): id is string => !!id));
       const countByProduct: Record<string, number> = {};
       (currentStock || []).forEach((r: any) => { countByProduct[r.product_id] = parseFloat(r.count) || 0; });
 
       const nowIso = new Date().toISOString();
       await Promise.all(items.map(it => {
         const receivedQty = getEffectiveReceivedQty(it);
-        const nextCount = (countByProduct[it.productId] || 0) + receivedQty;
+        const nextCount = (countByProduct[it.productId!] || 0) + receivedQty;
         const payload: any = {
           product_id: it.productId,
           company_id: destinationCompanyId,
@@ -715,6 +801,26 @@ export function DistributionManifestModal({
 
   const filteredCompanies = companies.filter(c => !originQuery || c.nome_fantasia.toLowerCase().includes(originQuery.toLowerCase()));
 
+  // ── Estilos no formato da janela da nota (barra de título, abas Excel, faixa de ferramentas)
+  const tbLabel = 'pl-px text-[9px] leading-none font-extrabold uppercase tracking-[0.1em] text-on-surface/25 whitespace-nowrap';
+  const tbField = 'h-[30px] flex items-center px-2.5 border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[13px] font-extrabold text-on-surface whitespace-nowrap';
+  const ribGroup = 'self-stretch flex flex-col justify-end gap-1 px-3 border-r border-[#EFE8D2] dark:border-white/[0.05] last:border-r-0';
+  const sqInput = 'h-8 w-full px-2.5 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] text-[13px] font-semibold text-on-surface outline-none caret-[#D81E1E] hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] placeholder:text-on-surface/25 placeholder:font-medium transition-[border-color,box-shadow] disabled:opacity-60';
+  const thSq = 'sticky top-0 z-[1] h-[34px] px-2.5 bg-[#FFEC4D] text-left text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.55)] whitespace-nowrap shadow-[inset_-1px_0_0_#B8A31F,inset_0_-1.5px_0_#8F7E10]';
+  const tdSq = 'h-[38px] px-2.5 border-r border-b border-[#A8A290] dark:border-white/20 last:border-r-0 text-[12.5px] whitespace-nowrap overflow-hidden text-ellipsis';
+  const cellIn = 'w-full h-[28px] px-2 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] font-mono text-[12px] text-on-surface outline-none caret-[#D81E1E] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] transition-[border-color,box-shadow]';
+  const destinoNome = companies.find(c => c.id === destinationCompanyId)?.nome_fantasia || '';
+  const statusBadge = approved
+    ? { label: 'Aprovado', cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25' }
+    : receiving
+      ? { label: 'Pedido enviado', cls: 'bg-[#0A7A55]/10 text-[#0A7A55] dark:text-[#34D399] border-[#0A7A55]/25' }
+      : { label: 'Registro', cls: 'bg-amber-500/10 text-amber-700 dark:text-[#FCD34D] border-amber-500/30' };
+  const buscaNorm = manifestBusca.trim().toLowerCase();
+  const itensVisiveis = buscaNorm
+    ? items.filter(it => it.productName.toLowerCase().includes(buscaNorm) || (it.sku || '').toLowerCase().includes(buscaNorm) || (eanAtual(it).ean || '').includes(buscaNorm))
+    : items;
+  const vincItem = vincItemId ? items.find(it => it.id === vincItemId && !it.productId) ?? null : null;
+
   return (
     <div className="fixed inset-0 z-[130] flex items-center justify-center p-[10px]">
       <motion.div
@@ -729,24 +835,24 @@ export function DistributionManifestModal({
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.97 }}
         transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-        className="relative w-full h-full bg-white dark:bg-[#1e1e18] rounded-[20px] shadow-2xl overflow-hidden flex flex-col border border-line/60 dark:border-white/[0.06]"
+        className="relative w-full h-full bg-white dark:bg-[#1e1e18] rounded-none shadow-2xl overflow-hidden flex flex-col border border-line/60 dark:border-white/[0.06]"
       >
         {lockBlockedBy && (
           <div className="absolute inset-0 z-[250] flex items-center justify-center bg-black/45 backdrop-blur-[6px]">
-            <div className="w-full max-w-[380px] mx-4 bg-white dark:bg-[#252520] border border-line dark:border-white/[0.08] rounded-[22px] shadow-2xl p-8 pb-7 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-[#D81E1E]/10 dark:bg-[#D81E1E]/20 text-[#D81E1E] dark:text-[#FF6B6B] flex items-center justify-center mx-auto mb-4">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <div className="w-full max-w-[380px] mx-4 bg-white dark:bg-[#252520] border border-line dark:border-white/[0.08] shadow-2xl p-8 pb-7 text-center">
+              <div className="w-14 h-14 bg-[#D81E1E]/10 dark:bg-[#D81E1E]/20 text-[#D81E1E] dark:text-[#FF6B6B] flex items-center justify-center mx-auto mb-4">
+                <Lock size={24} />
               </div>
               <div className="text-[15px] font-black text-on-surface mb-1.5">Sendo editado agora</div>
               <div className="text-[12px] font-bold text-on-surface/55 mb-5">{lockBlockedBy.name}</div>
               <div className="flex items-center gap-2">
-                <button onClick={handleClose} className="flex-1 h-10 rounded-xl border-[1.5px] border-on-surface/15 text-on-surface/55 text-[12.5px] font-bold hover:bg-on-surface/[0.04] transition-colors">
+                <button onClick={handleClose} className="flex-1 h-10 border-[1.5px] border-on-surface/15 text-on-surface/55 text-[12.5px] font-bold hover:bg-on-surface/[0.04] transition-colors">
                   Fechar
                 </button>
                 <button
                   onClick={() => { setLockBlockedBy(null); acquireLock(); }}
                   disabled={checkingLock}
-                  className="flex-1 h-10 rounded-xl bg-[#D81E1E] text-white text-[12.5px] font-black flex items-center justify-center gap-1.5 hover:bg-[#B91818] active:scale-[0.97] transition-all disabled:opacity-60"
+                  className="flex-1 h-10 bg-[#D81E1E] text-white text-[12.5px] font-black flex items-center justify-center gap-1.5 hover:bg-[#B91818] active:scale-[0.97] transition-all disabled:opacity-60"
                 >
                   <RefreshCw size={13} className={checkingLock ? 'animate-spin' : ''} />
                   Verificar novamente
@@ -756,689 +862,585 @@ export function DistributionManifestModal({
           </div>
         )}
 
-        {/* Header — no molde do editor de Nota (superfície neutra, chip vermelho, título
-            editável), em vez do banner amarelo cheio usado antes só pra tabela/molde. */}
-        <div className="bg-[#FAF7EE] dark:bg-[#252520] border-b border-on-surface/[0.07] px-6 pt-5 shrink-0">
-          <div className="flex items-center gap-3.5 pb-4">
-            <div className="w-12 h-12 rounded-2xl bg-[#D81E1E]/10 dark:bg-[#D81E1E]/[0.18] text-[#D81E1E] flex items-center justify-center shrink-0">
-              <Package size={20} />
-            </div>
-            <div className="flex-1 min-w-0" ref={originRef}>
-              {editingOrigin ? (
-                <div className="relative">
-                  <div className="flex items-center gap-2">
-                    <input
-                      autoFocus
-                      value={originQuery}
-                      disabled={!editable}
-                      onChange={e => { setOriginQuery(e.target.value); setOriginOpen(true); if (!e.target.value) setOriginCompanyId(''); }}
-                      onFocus={() => setOriginOpen(true)}
-                      placeholder="Selecionar empresa origem…"
-                      autoComplete="off"
-                      className="text-xl font-black text-on-surface border-b-2 border-[#D81E1E] outline-none bg-transparent w-full placeholder:text-on-surface/30 disabled:opacity-60 disabled:cursor-not-allowed"
-                    />
-                    {originCompanyId && (
-                      <button
-                        onClick={() => { setEditingOrigin(false); setOriginOpen(false); }}
-                        className="p-1 hover:bg-on-surface/[0.07] rounded-lg transition-colors shrink-0" title="Confirmar"
-                      >
-                        <CheckCircle2 size={16} className="text-primary" />
-                      </button>
-                    )}
-                  </div>
-                  <AnimatePresence>
-                    {originOpen && editable && (
-                      <motion.ul
-                        initial={{ opacity: 0, y: -4, scale: 0.98 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                        transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
-                        className="absolute left-0 right-0 top-full mt-1 z-50 bg-white dark:bg-[#2a2a24] border border-line dark:border-white/10 rounded-xl shadow-xl overflow-hidden max-h-56 overflow-y-auto p-[5px]"
-                      >
-                        {filteredCompanies.map(c => (
-                          <li
-                            key={c.id}
-                            onMouseDown={() => { setOriginCompanyId(c.id); setOriginQuery(c.nome_fantasia); setOriginOpen(false); }}
-                            className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm font-semibold text-on-surface hover:bg-on-surface/5 dark:hover:bg-white/[0.06] cursor-pointer transition-colors"
-                          >
-                            <span className="truncate">{c.nome_fantasia}</span>
-                            {c.id === originCompanyId && <Check size={14} className="text-[#D81E1E] shrink-0 ml-auto" />}
-                          </li>
-                        ))}
-                        {filteredCompanies.length === 0 && (
-                          <li className="px-2.5 py-2 text-sm text-on-surface/35 italic">Nenhuma loja encontrada</li>
-                        )}
-                      </motion.ul>
-                    )}
-                  </AnimatePresence>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-xl font-black text-on-surface truncate">
-                    {companies.find(c => c.id === originCompanyId)?.nome_fantasia || <span className="text-on-surface/30 font-medium">Selecionar empresa origem…</span>}
-                  </h3>
-                  {editable && (
-                    <button
-                      onClick={() => { setEditingOrigin(true); setOriginQuery(companies.find(c => c.id === originCompanyId)?.nome_fantasia || ''); }}
-                      className="p-1 hover:bg-on-surface/[0.07] rounded-lg transition-colors text-on-surface/30 hover:text-on-surface/60 shrink-0"
-                      title="Editar empresa origem"
-                    >
-                      <Pencil size={14} />
+        {/* ── ① Barra de título: campos quadrados com rótulo em cima (como a da nota) ── */}
+        <div className="flex items-end gap-3 pl-3.5 pr-4 pt-[9px] pb-2.5 bg-surface-container dark:bg-[#252520] shrink-0">
+          <div className="w-[30px] h-[30px] bg-[#0A7A55]/10 text-[#0A7A55] dark:text-[#34D399] flex items-center justify-center shrink-0">
+            <Package size={15} />
+          </div>
+          <div className="flex flex-col items-start gap-[3px] shrink-0">
+            <span className={tbLabel}>Manifesto</span>
+            <div className={cn(tbField, 'font-mono text-[12.5px] font-medium')}>{manifest.manifestNumber}</div>
+          </div>
+          <div className="flex flex-col items-start gap-[3px] shrink-0" ref={originRef}>
+            <span className={tbLabel}>Origem</span>
+            {editable && editingOrigin ? (
+              <div className="relative">
+                <div className={cn(tbField, 'w-[240px] px-0 focus-within:!border-[#D81E1E] focus-within:shadow-[0_0_0_2px_rgba(216,30,30,0.12)]')}>
+                  <input
+                    autoFocus
+                    value={originQuery}
+                    onChange={e => { setOriginQuery(e.target.value); setOriginOpen(true); if (!e.target.value) setOriginCompanyId(''); }}
+                    onFocus={() => setOriginOpen(true)}
+                    placeholder="Selecionar empresa origem…"
+                    autoComplete="off"
+                    className="flex-1 min-w-0 h-full px-2.5 bg-transparent border-none outline-none text-[13px] font-extrabold text-on-surface placeholder:font-medium placeholder:text-on-surface/25 caret-[#D81E1E]"
+                  />
+                  {originCompanyId && (
+                    <button onClick={() => { setEditingOrigin(false); setOriginOpen(false); }} title="Confirmar"
+                      className="w-[26px] h-full shrink-0 flex items-center justify-center border-l border-[#E0D8BF] dark:border-white/[0.10] text-[#D81E1E] hover:bg-on-surface/[0.06]">
+                      <Check size={13} strokeWidth={3} />
                     </button>
                   )}
                 </div>
-              )}
-              <div className="mt-1.5 inline-flex items-center gap-1.5 font-mono text-[11px] font-bold text-on-surface/50 bg-on-surface/[0.07] px-2.5 py-1 rounded-lg">
-                {manifest.manifestNumber}
+                <AnimatePresence>
+                  {originOpen && (
+                    <motion.ul
+                      initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                      transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
+                      className="absolute -left-px -right-px top-full mt-0.5 z-50 bg-white dark:bg-[#2E2E28] border border-[#E0D8BF] dark:border-white/10 shadow-[0_16px_36px_-10px_rgba(0,0,0,0.28)] max-h-56 overflow-y-auto"
+                    >
+                      {filteredCompanies.map(c => (
+                        <li key={c.id} onMouseDown={() => { setOriginCompanyId(c.id); setOriginQuery(c.nome_fantasia); setOriginOpen(false); }}
+                          className="flex items-center gap-2 px-2.5 py-2 text-[12.5px] font-semibold text-on-surface hover:bg-[#FFF8D0] dark:hover:bg-[#FFE500]/[0.08] cursor-pointer transition-colors">
+                          <span className="truncate">{c.nome_fantasia}</span>
+                          {c.id === originCompanyId && <Check size={13} className="text-[#D81E1E] shrink-0 ml-auto" />}
+                        </li>
+                      ))}
+                      {filteredCompanies.length === 0 && <li className="px-2.5 py-2 text-[12.5px] text-on-surface/35 italic">Nenhuma loja encontrada</li>}
+                    </motion.ul>
+                  )}
+                </AnimatePresence>
               </div>
-            </div>
-            {items.length > 0 && (
-              <button
-                onClick={() => setPdfModalOpen(true)}
-                title="Baixar PDF"
-                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-on-surface/[0.06] border border-on-surface/10 text-on-surface/45 hover:bg-on-surface/[0.1] transition-colors"
-              >
-                <FileText size={16} />
-              </button>
-            )}
-            <button
-              onClick={handleClose}
-              className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-on-surface/[0.06] border border-on-surface/10 text-on-surface/45 hover:bg-on-surface/[0.1] transition-colors"
-            >
-              <X size={16} />
-            </button>
-          </div>
-          <div className="flex gap-1">
-            {(['produtos', 'recebimento'] as const).map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={cn(
-                  'px-4 py-2.5 text-xs font-black uppercase tracking-wide border-b-[3px] transition-colors',
-                  activeTab === tab ? 'text-on-surface border-[#D81E1E]' : 'text-on-surface/40 border-transparent'
+            ) : (
+              <div className={cn(tbField, 'gap-2', !editable && 'bg-transparent text-on-surface/60')}>
+                {companies.find(c => c.id === originCompanyId)?.nome_fantasia || <span className="text-on-surface/30 font-medium">Selecionar…</span>}
+                {editable && (
+                  <button onClick={() => { setEditingOrigin(true); setOriginQuery(companies.find(c => c.id === originCompanyId)?.nome_fantasia || ''); }}
+                    className="text-on-surface/30 hover:text-on-surface/70" title="Editar empresa origem"><Pencil size={12} /></button>
                 )}
-              >
-                {tab === 'produtos' ? 'Produtos' : 'Recebimento'}
-              </button>
-            ))}
+              </div>
+            )}
+          </div>
+          <ArrowRight size={14} className="self-end mb-2 text-on-surface/25 shrink-0" />
+          <div className="flex flex-col items-start gap-[3px] shrink-0">
+            <span className={tbLabel}>Destino{editable && <span className="text-[#D81E1E]"> *</span>}</span>
+            {editable ? (
+              <select value={destinationCompanyId} onChange={e => setDestinationCompanyId(e.target.value)}
+                className={cn(tbField, 'min-w-[180px] cursor-pointer outline-none focus:!border-[#D81E1E]', !destinationCompanyId && '!border-[#D81E1E]/55 !bg-[#D81E1E]/[0.05] text-[#D81E1E]')}>
+                <option value="">Selecionar…</option>
+                {companies.filter(c => c.id !== originCompanyId).map(c => <option key={c.id} value={c.id}>{c.nome_fantasia}</option>)}
+              </select>
+            ) : (
+              <div className={tbField}>{destinoNome || '—'}</div>
+            )}
+          </div>
+          {sourceNote && (
+            <div className="flex flex-col items-start gap-[3px] shrink-0">
+              <span className={tbLabel}>Nota de origem</span>
+              <div className={cn(tbField, 'font-mono text-[12.5px] font-medium bg-transparent text-on-surface/60')}>NF {sourceNote.numero || '—'}</div>
+            </div>
+          )}
+          <div className="flex-1" />
+          <div className="flex items-center gap-2.5 self-center shrink-0">
+            <span className={cn('h-[26px] px-[11px] flex items-center gap-1.5 rounded-full border text-[10px] font-black uppercase tracking-[0.08em]', statusBadge.cls)}>
+              ● {statusBadge.label}
+            </span>
+            <button onClick={handleClose}
+              className="w-8 h-8 flex items-center justify-center border border-on-surface/[0.11] text-on-surface/40 hover:bg-[#D81E1E]/[0.09] hover:text-[#D81E1E] hover:border-[#D81E1E]/25 active:scale-[0.93] transition-all duration-[130ms]">
+              <X size={15} />
+            </button>
           </div>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-auto p-6">
-          {activeTab === 'produtos' ? (
-            !originCompanyId ? (
-              <div className="h-full flex items-center justify-center">
-                <p className="text-sm font-bold text-on-surface/40 max-w-sm text-center">
-                  Selecione a Empresa Origem para buscar produtos.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {editable && !creatingFormOpen && (
-                  <div className="grid grid-cols-2 gap-2.5 max-w-3xl">
+        {/* ── ② Abas estilo Excel ── */}
+        <div className="flex items-end gap-0.5 bg-surface-container dark:bg-[#252520] border-b border-line dark:border-white/[0.08] shrink-0">
+          {([
+            { key: 'produtos', label: 'Produtos', icon: <FileText size={13} /> },
+            { key: 'recebimento', label: 'Situação', icon: <ListChecks size={13} /> },
+          ] as const).map(t => {
+            const on = activeTab === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setActiveTab(t.key)}
+                className={cn(
+                  'relative -mb-px h-[34px] px-4 flex items-center gap-[7px] whitespace-nowrap text-[11px] font-extrabold uppercase tracking-[0.08em] border border-b-0 transition-colors duration-[130ms]',
+                  on
+                    ? 'bg-white dark:bg-[#1e1e18] text-on-surface border-line dark:border-white/[0.08] first:border-l-transparent before:absolute before:-left-px before:-right-px before:-top-px before:h-[3px] before:bg-[#FFE500] before:shadow-[inset_0_-1px_0_#D4C000]'
+                    : 'border-transparent text-on-surface/40 hover:text-on-surface hover:bg-on-surface/[0.06]',
+                )}
+              >
+                <span className="opacity-80">{t.icon}</span>
+                {t.label}
+                {t.key === 'produtos' && (
+                  pendentes.length > 0
+                    ? <span className="bg-amber-400/25 text-[#92400E] dark:text-[#FCD34D] text-[9.5px] font-black px-1.5 py-px rounded-full tracking-normal">{pendentes.length} pend.</span>
+                    : <span className="bg-on-surface/[0.11] text-on-surface/60 text-[9.5px] font-black px-1.5 py-px rounded-full tracking-normal">{items.length}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {activeTab === 'produtos' ? (<>
+          {/* ── ③ Faixa de ferramentas ── */}
+          <div className="flex items-end min-h-[62px] px-2.5 pt-[7px] pb-[9px] bg-white dark:bg-[#1e1e18] border-b border-line dark:border-white/[0.07] shrink-0">
+            {editable ? (
+              <div className={cn(ribGroup, 'flex-1 min-w-[280px]')}>
+                <span className={tbLabel}>Adicionar produto</span>
+                {originCompanyId ? (
+                  <div className="grid grid-cols-2 gap-1.5 max-w-[620px]">
                     <div className="relative">
-                      <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
-                      <input
-                        type="text"
-                        value={descQuery}
-                        onChange={e => { setDescQuery(e.target.value); if (e.target.value) setEanQuery(''); }}
-                        placeholder="Buscar por descrição…"
-                        className="w-full bg-surface-container-lowest border border-on-surface/[0.08] rounded-xl pl-8 pr-3 py-2.5 text-sm font-medium placeholder:text-on-surface/30 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                      />
+                      <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
+                      <input value={descQuery} onChange={e => { setDescQuery(e.target.value); if (e.target.value) setEanQuery(''); }} placeholder="Buscar por descrição…" className={cn(sqInput, 'pl-8')} />
                     </div>
                     <div className="relative">
-                      <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
-                      <input
-                        type="text"
-                        value={eanQuery}
-                        onChange={e => { setEanQuery(e.target.value); if (e.target.value) setDescQuery(''); }}
-                        placeholder="Buscar por EAN…"
-                        className="w-full bg-surface-container-lowest border border-on-surface/[0.08] rounded-xl pl-8 pr-3 py-2.5 text-sm font-medium placeholder:text-on-surface/30 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                      />
+                      <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
+                      <input value={eanQuery} onChange={e => { setEanQuery(e.target.value); if (e.target.value) setDescQuery(''); }} placeholder="Buscar por EAN…" className={cn(sqInput, 'pl-8 font-mono')} />
                     </div>
                   </div>
+                ) : (
+                  <div className="h-8 flex items-center text-[12px] font-semibold text-on-surface/40">Selecione a Empresa Origem para buscar produtos.</div>
                 )}
+              </div>
+            ) : (
+              <div className={cn(ribGroup, 'flex-1 min-w-[280px]')}>
+                <span className={tbLabel}>Buscar no manifesto</span>
+                <div className="relative max-w-[460px]">
+                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
+                  <input value={manifestBusca} onChange={e => setManifestBusca(e.target.value)} placeholder="Produto, SKU ou EAN..." className={cn(sqInput, 'pl-8')} />
+                </div>
+              </div>
+            )}
+            {(pendentes.length > 0 || items.some(it => it.sourceIdx != null)) && !editable && (
+              <div className={ribGroup}>
+                <span className={tbLabel}>Pendências de vínculo</span>
+                {pendentes.length > 0 ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setVincItemId(pendentes[0].id)}
+                      disabled={approved}
+                      className="h-8 px-[11px] flex items-center gap-1.5 border border-amber-400/60 bg-amber-400/[0.18] text-[#92400E] dark:text-[#FCD34D] text-[10.5px] font-extrabold uppercase tracking-[0.07em] whitespace-nowrap hover:bg-amber-400/[0.28] active:scale-[0.97] transition-all"
+                    >
+                      <Zap size={13} /> Resolver pendências ({pendentes.length})
+                    </button>
+                  </div>
+                ) : (
+                  <div className="h-8 px-[11px] flex items-center gap-1.5 border border-[#0A7A55]/25 bg-[#0A7A55]/[0.08] text-[#0A7A55] dark:text-[#34D399] text-[10.5px] font-extrabold uppercase tracking-[0.07em] whitespace-nowrap">
+                    <Check size={13} strokeWidth={3} /> Todos vinculados
+                  </div>
+                )}
+              </div>
+            )}
+            {items.length > 0 && (
+              <div className={ribGroup}>
+                <span className={tbLabel}>Arquivo</span>
+                <button onClick={() => setPdfModalOpen(true)} title="Baixar PDF"
+                  className="w-8 h-8 flex items-center justify-center bg-blue-500/10 text-blue-500 border border-blue-500/15 hover:bg-blue-500/[0.16] active:scale-95 transition-all">
+                  <FileText size={15} />
+                </button>
+              </div>
+            )}
+          </div>
 
-                {editable && !creatingFormOpen && (descQuery || eanQuery) && !selectedProduct && (
-                  <div className="bg-surface-container-lowest border border-on-surface/10 rounded-xl overflow-hidden max-w-3xl">
+          {pendentes.length > 0 && (
+            <div className="flex items-center gap-2.5 px-3.5 py-[7px] bg-amber-50 dark:bg-amber-400/[0.07] border-b border-amber-400/50 text-[11.5px] font-semibold text-[#92400E] dark:text-[#FCD34D] shrink-0">
+              <Zap size={13} className="shrink-0" />
+              <span className="shrink-0"><b className="font-black">{pendentes.length} {pendentes.length === 1 ? 'item veio' : 'itens vieram'} da nota sem produto do cadastro.</b> Vincule ou crie cada um (⚡ na linha ou &ldquo;Resolver pendências&rdquo;) para liberar a aprovação.</span>
+              <span className="ml-auto flex gap-1 flex-wrap justify-end min-w-0">
+                {pendentes.slice(0, 6).map(it => (
+                  <button key={it.id} onClick={() => setVincItemId(it.id)}
+                    className="text-[10px] font-extrabold px-1.5 leading-[18px] bg-white dark:bg-[#252520] border border-amber-400/55 text-on-surface truncate max-w-[180px] hover:border-[#D81E1E]">
+                    {it.productName}
+                  </button>
+                ))}
+                {pendentes.length > 6 && <span className="text-[10px] font-black">+{pendentes.length - 6}</span>}
+              </span>
+            </div>
+          )}
+
+          {/* Corpo da aba Produtos */}
+          <div className="flex-1 overflow-auto">
+            {editable && originCompanyId && (creatingFormOpen || selectedProduct || descQuery || eanQuery) && (
+              <div className="p-3.5 pb-0 space-y-2.5 max-w-3xl">
+                {!creatingFormOpen && (descQuery || eanQuery) && !selectedProduct && (
+                  <div className="bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10]">
                     {searchLoading ? (
-                      <div className="px-4 py-3 text-xs font-bold text-on-surface/35">Buscando…</div>
+                      <div className="px-3 py-2.5 text-xs font-bold text-on-surface/35">Buscando…</div>
                     ) : searchResults.length > 0 ? (
-                      searchResults.map(p => (
-                        <button
-                          key={p.id}
-                          onClick={() => selectProduct(p)}
-                          className="w-full text-left px-4 py-2.5 hover:bg-on-surface/5 transition-colors flex items-center justify-between gap-2 border-b border-on-surface/5 last:border-b-0"
-                        >
-                          <span className="text-sm font-bold text-on-surface truncate">{p.name}</span>
+                      searchResults.map((p, i) => (
+                        <button key={p.id} onClick={() => selectProduct(p)}
+                          className={cn('w-full text-left h-[34px] px-3 flex items-center justify-between gap-2 border-b last:border-b-0 border-[#EFE8D2] dark:border-white/[0.06] hover:bg-[#FFF8D0] dark:hover:bg-[#FFE500]/[0.06] transition-colors', i % 2 && 'bg-[#FAF7EE] dark:bg-[#1A1A15]')}>
+                          <span className="text-[12.5px] font-extrabold text-on-surface truncate">{p.name}</span>
                           <span className="font-mono text-[11px] text-on-surface/40 shrink-0">{p.sku || p.ean || '—'}</span>
                         </button>
                       ))
                     ) : (
-                      <button
-                        onClick={openCreateForm}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 text-[#D81E1E] text-sm font-black hover:bg-[#D81E1E]/5 transition-colors"
-                      >
-                        <Zap size={14} />
-                        {`Criar e Vincular "${(descQuery || eanQuery).trim()}"`}
+                      <button onClick={openCreateForm} className="w-full h-[34px] flex items-center justify-center gap-2 text-[#D81E1E] text-[12px] font-black hover:bg-[#D81E1E]/5 transition-colors">
+                        <Zap size={13} /> {`Criar e Vincular "${(descQuery || eanQuery).trim()}"`}
                       </button>
                     )}
                   </div>
                 )}
 
-                {editable && creatingFormOpen && (() => {
-                  const labelCls = 'text-[9px] font-black uppercase tracking-wider text-on-surface/45';
-                  const inputCls = 'w-full bg-white dark:bg-[#252520] border border-on-surface/15 rounded-lg px-3 py-2 text-sm font-semibold text-on-surface outline-none focus:ring-2 focus:ring-primary/20 mt-1';
-                  const sectionCls = 'bg-surface-container-lowest border border-on-surface/10 rounded-2xl p-4 space-y-3';
-                  return (
-                    <div className="max-w-3xl space-y-4">
-                      <button
-                        onClick={() => setCreatingFormOpen(false)}
-                        className="text-xs font-bold text-on-surface/55 hover:text-[#D81E1E] transition-colors flex items-center gap-1"
-                      >
-                        ← Voltar para busca
-                      </button>
-
-                      <div className={sectionCls}>
-                        <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-on-surface/50">
-                          <Package size={14} className="text-[#D81E1E] shrink-0" />
-                          Identificação
-                        </div>
-                        <div>
-                          <label className={labelCls}>Nome do Produto</label>
-                          <input autoFocus type="text" value={newName} onChange={e => setNewName(e.target.value)} className={inputCls} placeholder="Nome do produto" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className={labelCls}>SKU (Código Interno)</label>
-                            <input type="text" value={newSku} onChange={e => setNewSku(e.target.value)} className={inputCls} placeholder="Opcional" />
-                          </div>
-                          <div>
-                            <label className={labelCls}>Código EAN</label>
-                            <input type="text" value={newEan} onChange={e => setNewEan(e.target.value)} className={cn(inputCls, 'font-mono')} placeholder="Opcional" />
-                          </div>
-                        </div>
+                {creatingFormOpen && (
+                  <div className="bg-[#F1EAD3] dark:bg-[#181814] border border-[#E0D8BF] dark:border-white/[0.10]">
+                    <div className="h-7 flex items-center gap-2 px-2.5 bg-[#FFEC4D] border-b-[1.5px] border-[#8F7E10]">
+                      <Package size={13} className="text-[#D81E1E]" />
+                      <span className="text-[9px] font-black uppercase tracking-[0.1em] text-[rgba(26,26,10,0.55)]">Criar novo produto</span>
+                      <button onClick={() => setCreatingFormOpen(false)} className="ml-auto text-[10px] font-black uppercase tracking-[0.05em] text-[rgba(26,26,10,0.55)] hover:text-[#D81E1E]">← Voltar para busca</button>
+                    </div>
+                    <div className="m-2.5 grid grid-cols-2 gap-2.5">
+                      <div className="col-span-2">
+                        <label className="block text-[9px] font-black uppercase tracking-[0.1em] text-on-surface/55 mb-1">Nome do Produto</label>
+                        <input autoFocus value={newName} onChange={e => setNewName(e.target.value)} className={sqInput} placeholder="Nome do produto" />
                       </div>
-
-                      <div className={sectionCls}>
-                        <div className="text-[11px] font-black uppercase tracking-wider text-on-surface/50">Preços (Empresa Origem)</div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className={labelCls}>Preço de Custo</label>
-                            <div className="relative mt-1">
-                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface/40">R$</span>
-                              <input type="text" value={newCost} onChange={e => setNewCost(e.target.value)} placeholder="0,00" className="w-full bg-white dark:bg-[#252520] border border-on-surface/15 rounded-lg pl-8 pr-3 py-2 text-sm font-semibold text-on-surface outline-none focus:ring-2 focus:ring-primary/20 font-mono" />
-                            </div>
-                          </div>
-                          <div>
-                            <label className={labelCls}>Preço de Venda</label>
-                            <div className="relative mt-1">
-                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface/40">R$</span>
-                              <input type="text" value={newSale} onChange={e => setNewSale(e.target.value)} placeholder="0,00" className="w-full bg-white dark:bg-[#252520] border border-on-surface/15 rounded-lg pl-8 pr-3 py-2 text-sm font-semibold text-on-surface outline-none focus:ring-2 focus:ring-primary/20 font-mono" />
-                            </div>
-                          </div>
-                        </div>
+                      <div>
+                        <label className="block text-[9px] font-black uppercase tracking-[0.1em] text-on-surface/55 mb-1">SKU (Código Interno)</label>
+                        <input value={newSku} onChange={e => setNewSku(e.target.value)} className={sqInput} placeholder="Opcional" />
                       </div>
-
-                      <button
-                        onClick={handleSubmitCreateForm}
-                        disabled={creatingProduct || !newName.trim()}
-                        className="w-full h-11 rounded-xl bg-[#D81E1E] text-white text-sm font-black flex items-center justify-center gap-2 hover:bg-[#B91818] active:scale-[0.99] transition-all disabled:opacity-40"
-                      >
-                        {creatingProduct
-                          ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" />
-                          : <Zap size={14} />}
+                      <div>
+                        <label className="block text-[9px] font-black uppercase tracking-[0.1em] text-on-surface/55 mb-1">Código EAN</label>
+                        <input value={newEan} onChange={e => setNewEan(e.target.value)} className={cn(sqInput, 'font-mono')} placeholder="Opcional" />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-black uppercase tracking-[0.1em] text-on-surface/55 mb-1">Preço de Custo (Origem)</label>
+                        <input value={newCost} onChange={e => setNewCost(e.target.value)} className={cn(sqInput, 'font-mono text-right')} placeholder="0,00" />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-black uppercase tracking-[0.1em] text-on-surface/55 mb-1">Preço de Venda (Origem)</label>
+                        <input value={newSale} onChange={e => setNewSale(e.target.value)} className={cn(sqInput, 'font-mono text-right')} placeholder="0,00" />
+                      </div>
+                      <button onClick={handleSubmitCreateForm} disabled={creatingProduct || !newName.trim()}
+                        className="col-span-2 h-9 bg-[#D81E1E] text-white text-[11.5px] font-extrabold uppercase tracking-[0.04em] flex items-center justify-center gap-2 hover:bg-[#B91818] active:scale-[0.99] transition-all disabled:opacity-40">
+                        {creatingProduct ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-r-transparent" /> : <Plus size={14} strokeWidth={3} />}
                         {creatingProduct ? 'Criando…' : 'Criar e Vincular'}
                       </button>
                     </div>
-                  );
-                })()}
+                  </div>
+                )}
 
                 {!creatingFormOpen && selectedProduct && (
-                  <div className="bg-surface-container-lowest border border-on-surface/10 rounded-2xl p-4 relative max-w-3xl">
-                    {isDuplicateOfSelected && (
-                      <div className="absolute top-3 right-3 text-[#D81E1E]">
-                        <AlertTriangle size={18} />
-                      </div>
-                    )}
-                    <div className="flex gap-3.5 mb-3.5">
-                      <div className="w-[72px] h-[72px] rounded-xl bg-[#D81E1E]/[0.06] border-[1.5px] border-dashed border-[#D81E1E]/25 text-[#D81E1E] flex flex-col items-center justify-center gap-1 shrink-0">
-                        <Package size={22} />
-                      </div>
-                      <div className="flex-1 min-w-0 grid grid-cols-2 gap-1.5">
-                        <div className="col-span-2 bg-on-surface/[0.03] border border-on-surface/[0.08] rounded-lg px-2.5 py-1.5">
-                          <div className="text-[8px] font-black uppercase tracking-wider text-on-surface/40">Descrição</div>
-                          <div className="text-[13px] font-bold text-on-surface truncate">{selectedProduct.name}</div>
+                  <div className={cn('bg-white dark:bg-[#1E1E18] border p-3', isDuplicateOfSelected ? 'border-[#D81E1E]/50' : 'border-[#E0D8BF] dark:border-white/[0.10]')}>
+                    <div className="grid grid-cols-4 gap-px bg-[#E0D8BF] dark:bg-white/[0.10] border border-[#E0D8BF] dark:border-white/[0.10] mb-2.5">
+                      {[
+                        ['Descrição', selectedProduct.name, 'col-span-4'],
+                        ['EAN', selectedProduct.ean || '—', isDuplicateOfSelected ? 'text-[#D81E1E]' : ''],
+                        ['SKU', selectedProduct.sku || '—', ''],
+                        ['Custo (Origem)', fmtBRL(selectedProduct.costPrice), ''],
+                        ['Venda (Origem)', fmtBRL(selectedProduct.salePriceOrigin), 'text-on-surface/55'],
+                      ].map(([l, v, c]) => (
+                        <div key={l} className={cn('bg-white dark:bg-[#1E1E18] px-2.5 py-1.5 min-w-0', c.includes('col-span') && c)}>
+                          <div className="text-[8px] font-black uppercase tracking-wider text-on-surface/40">{l}</div>
+                          <div className={cn('text-[12.5px] font-bold truncate', l !== 'Descrição' && 'font-mono', !c.includes('col-span') && c)}>{v}</div>
                         </div>
-                        <div className={cn(
-                          'bg-on-surface/[0.03] border rounded-lg px-2.5 py-1.5',
-                          isDuplicateOfSelected ? 'border-[#D81E1E]/60 bg-[#D81E1E]/[0.05]' : 'border-on-surface/[0.08]'
-                        )}>
-                          <div className="text-[8px] font-black uppercase tracking-wider text-on-surface/40">EAN</div>
-                          <div className={cn('font-mono text-[12px] font-bold truncate', isDuplicateOfSelected ? 'text-[#D81E1E]' : 'text-on-surface')}>{selectedProduct.ean || '—'}</div>
-                        </div>
-                        <div className="bg-on-surface/[0.03] border border-on-surface/[0.08] rounded-lg px-2.5 py-1.5">
-                          <div className="text-[8px] font-black uppercase tracking-wider text-on-surface/40">SKU</div>
-                          <div className="font-mono text-[12px] font-bold text-on-surface truncate">{selectedProduct.sku || '—'}</div>
-                        </div>
-                        <div className="bg-on-surface/[0.03] border border-on-surface/[0.08] rounded-lg px-2.5 py-1.5">
-                          <div className="text-[8px] font-black uppercase tracking-wider text-on-surface/40">Preço de Custo (Origem)</div>
-                          <div className="font-mono text-[14px] font-black text-on-surface">{fmtBRL(selectedProduct.costPrice)}</div>
-                        </div>
-                        <div className="bg-on-surface/[0.03] border border-on-surface/[0.08] rounded-lg px-2.5 py-1.5">
-                          <div className="text-[8px] font-black uppercase tracking-wider text-on-surface/40">Preço de Venda (Origem)</div>
-                          <div className="font-mono text-[14px] font-black text-on-surface/55">{fmtBRL(selectedProduct.salePriceOrigin)}</div>
-                          <div className="text-[8px] font-bold text-on-surface/30">apenas referência</div>
-                        </div>
-                      </div>
+                      ))}
                     </div>
-
                     {isDuplicateOfSelected ? (
-                      <div className="bg-[#D81E1E]/[0.06] border border-[#D81E1E]/25 rounded-xl p-3 flex flex-col gap-2.5">
-                        <p className="text-[12px] font-bold text-[#D81E1E]">Este produto já está na lista. Somar {duplicatePendingQty} un. à quantidade existente?</p>
-                        <div className="flex gap-2">
-                          <button onClick={cancelDuplicateMerge} className="flex-1 h-9 rounded-lg border-[1.5px] border-on-surface/15 text-on-surface/55 text-[12px] font-bold hover:bg-on-surface/5 transition-colors">
-                            Cancelar
-                          </button>
-                          <button onClick={confirmDuplicateMerge} className="flex-1 h-9 rounded-lg bg-[#D81E1E] text-white text-[12px] font-black hover:bg-[#B91818] transition-colors">
-                            Sim, somar
-                          </button>
-                        </div>
+                      <div className="flex items-center gap-2 border border-[#D81E1E]/30 bg-[#D81E1E]/[0.06] px-2.5 py-2">
+                        <AlertTriangle size={14} className="text-[#D81E1E] shrink-0" />
+                        <p className="flex-1 text-[12px] font-bold text-[#D81E1E]">Este produto já está na lista. Somar {duplicatePendingQty} un. à quantidade existente?</p>
+                        <button onClick={cancelDuplicateMerge} className="h-8 px-3 border border-[#E0D8BF] dark:border-white/[0.10] text-[11px] font-extrabold uppercase">Cancelar</button>
+                        <button onClick={confirmDuplicateMerge} className="h-8 px-3 bg-[#D81E1E] text-white text-[11px] font-extrabold uppercase">Sim, somar</button>
                       </div>
-                    ) : editable && (
-                      <div className="flex gap-2.5 items-end">
-                        <div className="flex-1">
-                          <div className="text-[8px] font-black uppercase tracking-wider text-on-surface/40 mb-1">Quantidade a enviar</div>
-                          <input
-                            type="text"
-                            value={qtyInput}
-                            onChange={e => setQtyInput(e.target.value)}
-                            placeholder="0"
-                            className="w-full bg-white dark:bg-[#252520] border border-on-surface/15 rounded-lg px-3 py-2 font-mono text-[15px] font-bold text-on-surface outline-none focus:ring-2 focus:ring-primary/20"
-                          />
+                    ) : (
+                      <div className="flex gap-2 items-end">
+                        <div className="w-40">
+                          <div className="text-[9px] font-black uppercase tracking-[0.1em] text-on-surface/55 mb-1">Quantidade a enviar</div>
+                          <input autoFocus value={qtyInput} onChange={e => setQtyInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleConfirmAddItem(); }} placeholder="0" className={cn(sqInput, 'font-mono text-right')} />
                         </div>
-                        <button
-                          onClick={handleConfirmAddItem}
-                          className="h-[38px] px-5 rounded-lg bg-[#D81E1E] text-white text-[12.5px] font-black flex items-center gap-1.5 hover:bg-[#B91818] active:scale-[0.97] transition-all shrink-0"
-                        >
-                          <CheckCircle2 size={14} />
-                          Confirmar
+                        <button onClick={handleConfirmAddItem} className="h-8 px-4 bg-[#D81E1E] text-white text-[11px] font-extrabold uppercase tracking-[0.04em] flex items-center gap-1.5 hover:bg-[#B91818] active:scale-[0.97] transition-all">
+                          <CheckCircle2 size={13} /> Confirmar
                         </button>
-                        <button
-                          onClick={() => { setSelectedProduct(null); setQtyInput(''); }}
-                          className="h-[38px] px-3 rounded-lg border border-on-surface/15 text-on-surface/50 text-[12px] font-bold hover:bg-on-surface/5 transition-colors shrink-0"
-                        >
+                        <button onClick={() => { setSelectedProduct(null); setQtyInput(''); }} className="h-8 px-3 border border-[#E0D8BF] dark:border-white/[0.10] text-[11px] font-extrabold uppercase text-on-surface/55 hover:bg-on-surface/[0.05]">
                           Cancelar
                         </button>
                       </div>
                     )}
                   </div>
                 )}
+              </div>
+            )}
 
-                <div>
-                  <div className="text-[10px] font-black uppercase tracking-[0.1em] text-on-surface/35 mb-2 flex items-center gap-2">
-                    Produtos na Distribuição · {items.length}
-                    <span className="flex-1 h-px bg-on-surface/10" />
-                  </div>
-                  {loadingItems ? (
-                    <p className="text-xs font-bold text-on-surface/30 py-4 text-center">Carregando produtos…</p>
-                  ) : items.length === 0 ? (
-                    <p className="text-xs font-bold text-on-surface/30 py-4 text-center">Nenhum produto adicionado ainda.</p>
-                  ) : (
-                    // Tabela no molde da tabela de revisão da nota (barra de cabeçalho amarela
-                    // contínua + chip por coluna, células em duas camadas) — antes essa lista
-                    // era compacta demais (cards em Registro, tabela simples pós-envio).
-                    <div className="border border-on-surface/[0.08] rounded-xl overflow-hidden">
-                      <table className="w-full" style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-                        <colgroup>
-                          <col style={{ width: 36 }} />
-                          <col />
-                          <col style={{ width: 140 }} />
-                          <col style={{ width: 80 }} />
-                          <col style={{ width: editable ? 90 : 165 }} />
-                          <col style={{ width: 100 }} />
-                          <col style={{ width: 110 }} />
-                          {!editable && <col style={{ width: 110 }} />}
-                          <col style={{ width: 80 }} />
-                          {editable && <col style={{ width: 40 }} />}
-                        </colgroup>
-                        <thead>
-                          <tr>
-                            <th className={thBarCls}><div className={thLblCls}>#</div></th>
-                            <th className={thBarCls}><div className={thLblCls}>Produto</div></th>
-                            <th className={thBarCls}><div className={thLblCls}>EAN</div></th>
-                            <th className={thBarCls}><div className={thLblCls}>Medida</div></th>
-                            <th className={thBarCls}><div className={thLblCls}>Qtd. Env.</div></th>
-                            <th className={thBarCls}><div className={thLblCls}>Preço Custo</div></th>
-                            <th className={thBarCls}><div className={thLblCls}>Valor Total</div></th>
-                            {!editable && <th className={thBarCls}><div className={thLblCls}>Preço Venda</div></th>}
-                            <th className={thBarCls}><div className={thLblCls}>Markup</div></th>
-                            {editable && <th className={thBarCls}></th>}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {items.map((it, idx) => {
-                            // Valor Total — inclui o ajuste de VALOR do toggle "Confirmar
-                            // divergência" (subtrai/soma Preço de Custo × qtd. divergente).
-                            const total = it.qty * it.costPrice + getDiscrepancyValueAdjustment(it);
-                            // Markup conectado ao Preço de Venda da loja destino (não mais à origem,
-                            // que é "apenas referência") — mesmo cálculo por loja usado na nota.
-                            const markup = it.costPrice > 0 && it.salePriceDestination !== null
-                              ? ((it.salePriceDestination - it.costPrice) / it.costPrice) * 100
-                              : null;
-                            // Qtd. Env. exibida — já reflete a Falta/Sobra assim que é salva no
-                            // modal (mesmo valor que getEffectiveReceivedQty aplica no estoque na
-                            // aprovação), independente do toggle "Confirmar divergência". O dado
-                            // gravado (it.qty, a quantidade realmente enviada) nunca é sobrescrito —
-                            // só a exibição muda pra refletir a diferença.
-                            const effQty = getEffectiveReceivedQty(it);
-                            const showRecalc = !editable && !!it.discrepancy && effQty !== it.qty;
-                            const isRowFocused = focusedItemId === it.id;
-                            return (
-                              <tr
-                                key={it.id}
-                                className={cn('transition-colors', isRowFocused && 'bg-on-surface/[0.075] dark:bg-white/[0.065]')}
-                                onFocus={() => setFocusedItemId(it.id)}
-                                onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setFocusedItemId(null); }}
-                              >
-                                <td className={tdCls}><div className={cn(cellCls, 'justify-center font-medium', isRowFocused ? 'text-[#D81E1E] font-black' : 'text-on-surface/35')}>{idx + 1}</div></td>
-                                <td className={tdCls}><div className={cellCls} title={it.productName}><span className="truncate">{it.productName}</span></div></td>
-                                <td className={tdCls}><div className={cn(cellCls, 'font-mono text-[11px] text-on-surface/50')}>{it.ean || '—'}</div></td>
-                                <td className={tdCls}>
-                                  <div className={cn(cellCls, 'justify-center')}>
-                                    {editable ? (
-                                      <input type="text" value={it.measure} onChange={e => updateItemField(it.id, { measure: e.target.value.toUpperCase().slice(0, 6) })}
-                                        className={cn(cellInputCls, 'text-center')} placeholder="UN" />
-                                    ) : it.measure}
+            {loadingItems ? (
+              <p className="text-xs font-bold text-on-surface/30 py-10 text-center">Carregando produtos…</p>
+            ) : items.length === 0 ? (
+              <p className="text-xs font-bold text-on-surface/30 py-10 text-center">Nenhum produto adicionado ainda.</p>
+            ) : (
+              <div className={cn(editable && (creatingFormOpen || selectedProduct || descQuery || eanQuery) && 'mt-3.5 border-t border-[#E0D8BF] dark:border-white/[0.10]')}>
+                <table className="w-full min-w-[1100px] table-fixed border-collapse">
+                  <colgroup>
+                    <col style={{ width: 44 }} />
+                    <col />
+                    <col style={{ width: 170 }} />
+                    <col style={{ width: 76 }} />
+                    <col style={{ width: editable ? 100 : 170 }} />
+                    <col style={{ width: 110 }} />
+                    <col style={{ width: 120 }} />
+                    {!editable && <col style={{ width: 120 }} />}
+                    <col style={{ width: 86 }} />
+                    {editable && <col style={{ width: 48 }} />}
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th className={cn(thSq, 'text-center')}>#</th>
+                      <th className={thSq}>Produto</th>
+                      <th className={thSq}>EAN</th>
+                      <th className={thSq}>Medida</th>
+                      <th className={cn(thSq, 'text-right')}>Qtd. Env.</th>
+                      <th className={cn(thSq, 'text-right')}>Preço Custo</th>
+                      <th className={cn(thSq, 'text-right')}>Valor Total</th>
+                      {!editable && <th className={cn(thSq, 'text-right')}>Preço Venda</th>}
+                      <th className={cn(thSq, 'text-right', !editable && 'shadow-[inset_0_-1.5px_0_#8F7E10]')}>Markup</th>
+                      {editable && <th className={cn(thSq, 'shadow-[inset_0_-1.5px_0_#8F7E10]')} />}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {itensVisiveis.map(it => {
+                      const idx = items.indexOf(it);
+                      const pendente = !it.productId;
+                      const total = it.qty * it.costPrice + getDiscrepancyValueAdjustment(it);
+                      const markup = it.costPrice > 0 && it.salePriceDestination !== null
+                        ? ((it.salePriceDestination - it.costPrice) / it.costPrice) * 100
+                        : null;
+                      const effQty = getEffectiveReceivedQty(it);
+                      const showRecalc = !editable && !!it.discrepancy && effQty !== it.qty;
+                      const isRowFocused = focusedItemId === it.id;
+                      const { ean, daNota } = eanAtual(it);
+                      return (
+                        <tr
+                          key={it.id}
+                          className={cn(
+                            'transition-colors',
+                            pendente ? 'bg-amber-50 dark:bg-amber-400/[0.06]' : idx % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]',
+                            !pendente && 'hover:bg-[#FFF8D0] dark:hover:bg-white/[0.03]',
+                            isRowFocused && '!bg-on-surface/[0.075] dark:!bg-white/[0.065]',
+                          )}
+                          onFocus={() => setFocusedItemId(it.id)}
+                          onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setFocusedItemId(null); }}
+                        >
+                          <td className={cn(tdSq, 'text-center text-[10px] font-black', isRowFocused ? 'text-[#D81E1E]' : 'text-on-surface/30')}>{idx + 1}</td>
+                          <td className={tdSq}>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[12.5px] font-extrabold text-on-surface truncate" title={it.productName}>{it.productName}</div>
+                                {pendente ? (
+                                  <div className="text-[10.5px] font-semibold text-on-surface/45 truncate">
+                                    <span className="font-extrabold text-[#92400E] dark:text-[#FCD34D]">Não Encontrado</span>
+                                    {it.sourceIdx != null && ` · linha ${it.sourceIdx + 1} da nota`}
                                   </div>
-                                </td>
-                                <td className={tdCls}>
-                                  <div className={cn(cellCls, 'justify-between font-mono gap-1.5 px-2')}>
-                                    {editable ? (
-                                      <input type="number" min="0" value={it.qty} onChange={e => updateItemField(it.id, { qty: parseFloat(e.target.value) || 0 })}
-                                        className={cn(cellInputCls, 'text-right')} />
-                                    ) : (
-                                      <>
-                                        <div className="flex items-center gap-1.5 min-w-0">
-                                          {/* Botão Falta/Sobra — vira o próprio indicador quando já existe
-                                              um registro; clicar reabre o modal pra editar. */}
-                                          <button
-                                            onClick={() => openDiscrepancyModal(it)}
-                                            title={
-                                              it.discrepancy
-                                                ? (it.discrepancy.type === 'falta'
-                                                    ? (it.discrepancy.missingAll ? 'Falta — não veio (clique para editar)' : `Falta ${it.discrepancy.qty} (clique para editar)`)
-                                                    : `Sobra ${it.discrepancy.qty} (clique para editar)`)
-                                                : 'Registrar Falta/Sobra'
-                                            }
-                                            className={cn(
-                                              'flex items-center justify-center w-5 h-5 rounded-full border-[1.5px] transition-colors shrink-0',
-                                              it.discrepancy?.type === 'falta'
-                                                ? 'text-[#D81E1E] border-[#D81E1E]/40 bg-[#D81E1E]/10 hover:bg-[#D81E1E]/20'
-                                                : it.discrepancy?.type === 'sobra'
-                                                  ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20'
-                                                  : 'text-on-surface/30 border-on-surface/20 hover:text-on-surface/55 hover:border-on-surface/35'
-                                            )}
-                                          >
-                                            {it.discrepancy?.type === 'falta' ? <ArrowDown size={11} />
-                                              : it.discrepancy?.type === 'sobra' ? <ArrowUp size={11} />
-                                              : <Plus size={11} />}
-                                          </button>
-                                          <span className={cn(
-                                            'font-black',
-                                            showRecalc ? (it.discrepancy!.type === 'falta' ? 'text-[#D81E1E]' : 'text-emerald-600 dark:text-emerald-400') : ''
-                                          )}>
-                                            {effQty}
-                                          </span>
-                                          {showRecalc && (
-                                            <span className="text-[9px] font-bold text-on-surface/30 line-through shrink-0">{it.qty}</span>
-                                          )}
-                                        </div>
-                                        {!it.discrepancy && (
-                                          <label className="flex items-center gap-1 cursor-pointer shrink-0" title="Sem divergência — confirmar item">
-                                            <input type="checkbox" checked={it.verified} disabled={!receiving}
-                                              onChange={e => updateItemPricing(it.id, it.productId, it.salePriceDestination, e.target.checked)}
-                                              className="w-3.5 h-3.5 accent-emerald-600 cursor-pointer disabled:cursor-not-allowed" />
-                                            {it.verified && <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400">OK</span>}
-                                          </label>
-                                        )}
-                                      </>
+                                ) : it.sku ? (
+                                  <div className="text-[10.5px] font-semibold text-on-surface/35 truncate">SKU {it.sku}</div>
+                                ) : null}
+                              </div>
+                              {pendente && !approved && (
+                                <div className="relative group shrink-0">
+                                  <button
+                                    onClick={() => setVincItemId(it.id)}
+                                    className="w-[26px] h-[26px] flex items-center justify-center border border-dashed border-[#E0D8BF] dark:border-white/[0.15] bg-white dark:bg-[#1E1E18] text-on-surface/40 hover:bg-primary/10 hover:border-primary/40 hover:text-primary active:scale-90 transition-all"
+                                  >
+                                    <Zap size={12} />
+                                  </button>
+                                  <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 scale-95 opacity-0 group-hover:opacity-100 group-hover:scale-100 transition-all bg-[#1A1A0E] text-[#F2F0E3] text-[10px] font-bold px-[7px] py-[3px] whitespace-nowrap z-10">
+                                    Criar e Vincular
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className={cn(tdSq, 'font-mono text-[11.5px] text-on-surface/55')}>
+                            {ean || <span className="text-on-surface/25">—</span>}
+                            {daNota && <span className="ml-1.5 text-[8.5px] font-black uppercase tracking-[0.04em] text-[#2563EB] dark:text-[#60A5FA]" title="EAN preenchido na nota depois do envio">↻ da nota</span>}
+                          </td>
+                          <td className={tdSq}>
+                            {editable ? (
+                              <input value={it.measure} onChange={e => updateItemField(it.id, { measure: e.target.value.toUpperCase().slice(0, 6) })} className={cn(cellIn, 'text-center font-sans font-bold')} placeholder="UN" />
+                            ) : <span className="font-bold text-on-surface/70">{it.measure}</span>}
+                          </td>
+                          <td className={tdSq}>
+                            {editable ? (
+                              <input type="number" min="0" value={it.qty} onChange={e => updateItemField(it.id, { qty: parseFloat(e.target.value) || 0 })} className={cn(cellIn, 'text-right')} />
+                            ) : (
+                              <div className="flex items-center justify-between gap-1.5">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <button
+                                    onClick={() => openDiscrepancyModal(it)}
+                                    title={it.discrepancy
+                                      ? (it.discrepancy.type === 'falta'
+                                          ? (it.discrepancy.missingAll ? 'Falta — não veio (clique para editar)' : `Falta ${it.discrepancy.qty} (clique para editar)`)
+                                          : `Sobra ${it.discrepancy.qty} (clique para editar)`)
+                                      : 'Registrar Falta/Sobra'}
+                                    className={cn(
+                                      'flex items-center justify-center w-5 h-5 border-[1.5px] transition-colors shrink-0',
+                                      it.discrepancy?.type === 'falta'
+                                        ? 'text-[#D81E1E] border-[#D81E1E]/40 bg-[#D81E1E]/10 hover:bg-[#D81E1E]/20'
+                                        : it.discrepancy?.type === 'sobra'
+                                          ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20'
+                                          : 'text-on-surface/30 border-on-surface/20 hover:text-on-surface/55 hover:border-on-surface/35'
                                     )}
-                                  </div>
-                                </td>
-                                <td className={tdCls}><div className={cn(cellCls, 'justify-end font-mono text-on-surface/70')}>{fmtBRL(it.costPrice)}</div></td>
-                                <td className={tdCls}><div className={cn(cellCls, 'justify-end font-mono font-black')}>{fmtBRL(total)}</div></td>
-                                {!editable && (
-                                  <td className={tdCls}>
-                                    <div className={cn(cellCls, 'justify-end font-mono')}>
-                                      {receiving ? (
-                                        <input type="text" inputMode="decimal"
-                                          defaultValue={it.salePriceDestination !== null ? it.salePriceDestination.toFixed(2).replace('.', ',') : ''}
-                                          placeholder="0,00"
-                                          onBlur={e => { const n = parseFloat(e.target.value.replace(',', '.')); updateItemPricing(it.id, it.productId, isNaN(n) ? null : n, it.verified); }}
-                                          className={cn(cellInputCls, 'text-right')} />
-                                      ) : it.salePriceDestination !== null ? fmtBRL(it.salePriceDestination) : '—'}
-                                    </div>
-                                  </td>
+                                  >
+                                    {it.discrepancy?.type === 'falta' ? <ArrowDown size={11} /> : it.discrepancy?.type === 'sobra' ? <ArrowUp size={11} /> : <Plus size={11} />}
+                                  </button>
+                                  <span className={cn('font-mono font-black', showRecalc ? (it.discrepancy!.type === 'falta' ? 'text-[#D81E1E]' : 'text-emerald-600 dark:text-emerald-400') : '')}>{effQty}</span>
+                                  {showRecalc && <span className="text-[9px] font-bold text-on-surface/30 line-through shrink-0">{it.qty}</span>}
+                                </div>
+                                {!it.discrepancy && !pendente && (
+                                  <label className="flex items-center gap-1 cursor-pointer shrink-0" title="Sem divergência — confirmar item">
+                                    <input type="checkbox" checked={it.verified} disabled={!receiving}
+                                      onChange={e => updateItemPricing(it.id, it.productId!, it.salePriceDestination, e.target.checked)}
+                                      className="w-3.5 h-3.5 accent-emerald-600 cursor-pointer disabled:cursor-not-allowed" />
+                                    {it.verified && <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400">OK</span>}
+                                  </label>
                                 )}
-                                <td className={tdCls}>
-                                  <div className={cn(cellCls, 'justify-end font-mono font-black', markup === null ? 'text-on-surface/30' : markup >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-[#D81E1E]')}>
-                                    {markup === null ? '—' : `${markup >= 0 ? '+' : ''}${markup.toFixed(1)}%`}
-                                  </div>
-                                </td>
-                                {editable && (
-                                  <td className={tdCls}>
-                                    <div className={cn(cellCls, 'justify-center border-none bg-transparent p-0')}>
-                                      <button onClick={() => removeItem(it.id)}
-                                        className="w-7 h-7 rounded-lg bg-[#D81E1E]/10 text-[#D81E1E] flex items-center justify-center hover:bg-[#D81E1E]/20 transition-colors">
-                                        <Trash2 size={13} />
-                                      </button>
-                                    </div>
-                                  </td>
-                                )}
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          ) : (
-            <div className="space-y-6">
-              <div className="flex gap-7">
-                <div>
-                  <label className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-1.5">
-                    Empresa Destino <span className="text-primary">*</span>
-                  </label>
-                  <select
-                    value={destinationCompanyId}
-                    disabled={!editable}
-                    onChange={e => setDestinationCompanyId(e.target.value)}
-                    className={cn(
-                      'px-3 py-2 border rounded-xl text-sm font-semibold text-on-surface transition-colors w-fit min-w-[200px] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed',
-                      destinationCompanyId
-                        ? 'border-on-surface/15 bg-on-surface/[0.03] hover:bg-on-surface/[0.06]'
-                        : 'border-primary/55 bg-primary/[0.06] focus:ring-2 focus:ring-primary/20'
+                              </div>
+                            )}
+                          </td>
+                          <td className={cn(tdSq, 'text-right font-mono text-on-surface/70')}>{fmtBRL(it.costPrice)}</td>
+                          <td className={cn(tdSq, 'text-right font-mono font-black')}>{fmtBRL(total)}</td>
+                          {!editable && (
+                            <td className={cn(tdSq, 'text-right')}>
+                              {pendente ? <span className="text-on-surface/25">—</span> : receiving ? (
+                                <input type="text" inputMode="decimal"
+                                  defaultValue={it.salePriceDestination !== null ? it.salePriceDestination.toFixed(2).replace('.', ',') : ''}
+                                  placeholder="0,00"
+                                  onBlur={e => { const n = parseFloat(e.target.value.replace(',', '.')); updateItemPricing(it.id, it.productId!, isNaN(n) ? null : n, it.verified); }}
+                                  className={cn(cellIn, 'text-right')} />
+                              ) : <span className="font-mono">{it.salePriceDestination !== null ? fmtBRL(it.salePriceDestination) : '—'}</span>}
+                            </td>
+                          )}
+                          <td className={cn(tdSq, 'text-right font-mono font-black', markup === null ? 'text-on-surface/30' : markup >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-[#D81E1E]')}>
+                            {markup === null ? '—' : `${markup >= 0 ? '+' : ''}${markup.toFixed(1)}%`}
+                          </td>
+                          {editable && (
+                            <td className={cn(tdSq, 'text-center')}>
+                              <button onClick={() => removeItem(it.id)} className="w-7 h-7 inline-flex items-center justify-center text-on-surface/40 hover:bg-[#D81E1E]/10 hover:text-[#D81E1E] transition-colors">
+                                <Trash2 size={13} />
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                    {itensVisiveis.length === 0 && (
+                      <tr><td colSpan={10} className="py-8 text-center text-[12px] italic text-on-surface/35">Nenhum produto encontrado para &ldquo;{manifestBusca}&rdquo;.</td></tr>
                     )}
-                  >
-                    <option value="">Selecionar...</option>
-                    {companies.filter(c => c.id !== originCompanyId).map(c => (
-                      <option key={c.id} value={c.id}>{c.nome_fantasia}</option>
-                    ))}
-                  </select>
-                  {!destinationCompanyId && (
-                    <p className="text-[10.5px] font-bold text-primary mt-1.5 flex items-center gap-1.5">
-                      <AlertTriangle size={11} /> Campo obrigatório
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-1.5">Data de Envio</label>
-                  <input
-                    type="date"
-                    value={shippingDate}
-                    disabled={!editable}
-                    onChange={e => setShippingDate(e.target.value)}
-                    className="px-3 py-2 border border-on-surface/15 rounded-xl text-sm font-semibold text-on-surface bg-on-surface/[0.03] hover:bg-on-surface/[0.06] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                  />
-                </div>
+                  </tbody>
+                </table>
               </div>
-
-              <div className="max-w-3xl">
-                <div className="text-[10px] font-black uppercase tracking-[0.09em] text-on-surface/35 mb-2.5">Situação</div>
-                <div className="bg-surface-container-lowest border-[1.5px] border-on-surface/[0.08] rounded-2xl p-4">
-                  {/* 4 estados possíveis por card: âmbar = etapa atual em andamento; vermelho =
-                      próxima etapa liberada pra clicar (convite de ação, não "já concluído");
-                      opaco/borrado = etapa passada; verde = só quando é de fato "Aprovado". */}
-                  <div className="grid grid-cols-3 gap-2.5">
-                    <div className={cn('rounded-2xl p-3.5 flex items-center gap-2.5 border-2 transition-all', status === 'registro' ? 'bg-amber-500/[0.08] border-amber-500/30' : 'bg-on-surface/[0.02] border-transparent opacity-50 saturate-50 blur-[0.2px]')}>
-                      <div className={cn('w-8 h-8 rounded-xl flex items-center justify-center shrink-0', status === 'registro' ? 'bg-amber-500/15 text-amber-600 dark:text-[#FCD34D]' : 'bg-on-surface/10 text-on-surface/35')}>
-                        <Pencil size={15} />
-                      </div>
-                      <div>
-                        <div className={cn('text-[12px] font-black', status === 'registro' ? 'text-amber-700 dark:text-[#FCD34D]' : 'text-on-surface/35')}>Registro</div>
-                        <div className={cn('text-[9.5px] font-bold', status === 'registro' ? 'text-amber-700/70 dark:text-[#FCD34D]/70' : 'text-on-surface/30')}>Editável</div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => canSend && setConfirmSendOpen(true)}
-                      disabled={!canSend}
-                      className={cn(
-                        'rounded-2xl p-3.5 flex items-center gap-2.5 border-2 text-left transition-all',
-                        status === 'pedido_enviado'
-                          ? 'bg-amber-500/[0.08] border-amber-500/30'
-                          : status === 'aprovado'
-                            ? 'bg-on-surface/[0.02] border-transparent opacity-50 saturate-50 blur-[0.2px]'
-                            : canSend
-                              ? 'bg-[#D81E1E]/[0.06] border-[#D81E1E]/28 hover:bg-[#D81E1E]/[0.11] cursor-pointer'
-                              : 'bg-on-surface/[0.02] border-transparent opacity-50 cursor-not-allowed'
-                      )}
-                    >
-                      <div className={cn(
-                        'w-8 h-8 rounded-xl flex items-center justify-center shrink-0',
-                        status === 'pedido_enviado' ? 'bg-amber-500/15 text-amber-600 dark:text-[#FCD34D]'
-                        : status === 'aprovado' ? 'bg-on-surface/10 text-on-surface/35'
-                        : canSend ? 'bg-[#D81E1E]/15 text-[#D81E1E]'
-                        : 'bg-on-surface/10 text-on-surface/35'
-                      )}>
-                        <CheckCircle2 size={15} />
-                      </div>
-                      <div>
-                        <div className={cn(
-                          'text-[12px] font-black',
-                          status === 'pedido_enviado' ? 'text-amber-700 dark:text-[#FCD34D]'
-                          : status === 'aprovado' ? 'text-on-surface/35'
-                          : canSend ? 'text-[#D81E1E] dark:text-[#FF6B6B]'
-                          : 'text-on-surface/35'
-                        )}>Pedido Enviado</div>
-                        <div className={cn(
-                          'text-[9.5px] font-bold',
-                          status === 'pedido_enviado' ? 'text-amber-700/70 dark:text-[#FCD34D]/70'
-                          : status === 'aprovado' ? 'text-on-surface/30'
-                          : canSend ? 'text-[#D81E1E]/75 dark:text-[#FF6B6B]/75'
-                          : 'text-on-surface/30'
-                        )}>
-                          {status === 'aprovado' ? 'Concluído' : status === 'pedido_enviado' ? 'Aguardando aprovação' : canSend ? 'Clique para confirmar' : 'Bloqueado'}
-                        </div>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => canApprove && setConfirmApproveOpen(true)}
-                      disabled={!canApprove}
-                      className={cn(
-                        'rounded-2xl p-3.5 flex items-center gap-2.5 border-2 text-left transition-all',
-                        status === 'aprovado'
-                          ? 'bg-emerald-500/[0.08] border-emerald-500/30'
-                          : canApprove
-                            ? 'bg-[#D81E1E]/[0.06] border-[#D81E1E]/28 hover:bg-[#D81E1E]/[0.11] cursor-pointer'
-                            : 'bg-on-surface/[0.02] border-transparent opacity-50 cursor-not-allowed'
-                      )}
-                    >
-                      <div className={cn(
-                        'w-8 h-8 rounded-xl flex items-center justify-center shrink-0',
-                        status === 'aprovado' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                        : canApprove ? 'bg-[#D81E1E]/15 text-[#D81E1E]'
-                        : 'bg-on-surface/10 text-on-surface/35'
-                      )}>
-                        <Package size={15} />
-                      </div>
-                      <div>
-                        <div className={cn(
-                          'text-[12px] font-black',
-                          status === 'aprovado' ? 'text-emerald-700 dark:text-emerald-400'
-                          : canApprove ? 'text-[#D81E1E] dark:text-[#FF6B6B]'
-                          : 'text-on-surface/35'
-                        )}>Aprovado</div>
-                        <div className={cn(
-                          'text-[9.5px] font-bold',
-                          status === 'aprovado' ? 'text-emerald-700/70 dark:text-emerald-400/70'
-                          : canApprove ? 'text-[#D81E1E]/75 dark:text-[#FF6B6B]/75'
-                          : 'text-on-surface/30'
-                        )}>
-                          {status === 'aprovado' ? 'Estoque atualizado' : canApprove ? 'Clique para aprovar' : 'Bloqueado'}
-                        </div>
-                      </div>
-                    </button>
-                  </div>
-
-                  {status === 'registro' && (
-                    canSend ? (
-                      <div className="mt-3 flex items-start gap-2 bg-on-surface/[0.04] border border-on-surface/[0.08] rounded-xl px-3 py-2.5">
-                        <Info size={13} className="text-on-surface/40 shrink-0 mt-0.5" />
-                        <p className="text-[11px] font-bold text-on-surface/55 leading-relaxed">
-                          Confirmar o envio trava a lista de produtos — esta ação não pode ser desfeita.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="mt-3 flex items-center gap-1.5 text-[10.5px] font-bold text-on-surface/40">
-                        <AlertTriangle size={11} />
-                        Adicione ao menos 1 produto e selecione a Empresa Destino para enviar
-                      </div>
-                    )
-                  )}
-                  {status === 'pedido_enviado' && (
-                    <div className="mt-3 flex items-start gap-2 bg-on-surface/[0.04] border border-on-surface/[0.08] rounded-xl px-3 py-2.5">
-                      <Info size={13} className="text-on-surface/40 shrink-0 mt-0.5" />
-                      <p className="text-[11px] font-bold text-on-surface/55 leading-relaxed">
-                        Confira o Falta/Sobra e o Preço de Venda item a item na aba Produtos. Aprovar atualiza o estoque da Empresa Destino e não pode ser desfeito.
-                      </p>
-                    </div>
-                  )}
-                  {status === 'aprovado' && (
-                    <div className="mt-3 flex items-start gap-2 bg-emerald-500/[0.06] border border-emerald-500/20 rounded-xl px-3 py-2.5">
-                      <CheckCircle2 size={13} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                      <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 leading-relaxed">
-                        Estoque da Empresa Destino atualizado com as quantidades recebidas.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {createdByName && (
-                <div className="border-t border-dashed border-on-surface/[0.12] pt-3.5 space-y-1.5">
-                  <p className="text-[11.5px] font-bold text-on-surface/50">
-                    Criado por <b className="text-on-surface font-extrabold">{createdByName}</b> em {fmtDateTimeBR(createdAt)}
-                  </p>
-                  {sentByName && (
-                    <p className="text-[11.5px] font-bold text-on-surface/50">
-                      Enviado por <b className="text-on-surface font-extrabold">{sentByName}</b> em {fmtDateTimeBR(sentAt)}
-                    </p>
-                  )}
-                  {approvedByName && (
-                    <p className="text-[11.5px] font-bold text-on-surface/50">
-                      Aprovado por <b className="text-on-surface font-extrabold">{approvedByName}</b> em {fmtDateTimeBR(approvedAt)}
-                    </p>
-                  )}
-                </div>
-              )}
+            )}
+          </div>
+        </>) : (<>
+          {/* ── Aba Situação ── */}
+          <div className="flex items-end min-h-[62px] px-2.5 pt-[7px] pb-[9px] bg-white dark:bg-[#1e1e18] border-b border-line dark:border-white/[0.07] shrink-0">
+            <div className={ribGroup}>
+              <span className={tbLabel}>Data de envio</span>
+              <input type="date" value={shippingDate} disabled={!editable} onChange={e => setShippingDate(e.target.value)} className={cn(sqInput, 'w-[160px] font-mono')} />
             </div>
-          )}
-        </div>
+            {createdByName && (
+              <div className={ribGroup}>
+                <span className={tbLabel}>Criado por</span>
+                <div className="h-8 flex items-center text-[12px] font-bold text-on-surface/60 whitespace-nowrap">{createdByName} · {fmtDateTimeBR(createdAt)}</div>
+              </div>
+            )}
+            {sentByName && (
+              <div className={ribGroup}>
+                <span className={tbLabel}>Enviado por</span>
+                <div className="h-8 flex items-center text-[12px] font-bold text-on-surface/60 whitespace-nowrap">{sentByName} · {fmtDateTimeBR(sentAt)}</div>
+              </div>
+            )}
+            {approvedByName && (
+              <div className={ribGroup}>
+                <span className={tbLabel}>Aprovado por</span>
+                <div className="h-8 flex items-center text-[12px] font-bold text-on-surface/60 whitespace-nowrap">{approvedByName} · {fmtDateTimeBR(approvedAt)}</div>
+              </div>
+            )}
+          </div>
+          <div className="flex-1 overflow-auto px-4 pt-[18px] pb-[22px] flex flex-col gap-3">
+            <span className="pl-px text-[9px] font-extrabold uppercase tracking-[0.1em] text-on-surface/25">Situação do manifesto</span>
+            <div className="grid grid-cols-3 gap-2 max-w-[820px]">
+              {/* Registro */}
+              <div className={cn('relative flex items-center gap-2.5 px-3 py-[11px] border bg-white dark:bg-[#1E1E18]',
+                status === 'registro' ? 'border-amber-500/40 text-amber-700 dark:text-[#FCD34D] before:absolute before:-left-px before:-right-px before:-top-px before:h-[3px] before:bg-current' : 'border-[#E0D8BF] dark:border-white/[0.10] text-[#0A7A55] dark:text-[#34D399]')}>
+                <span className={cn('w-7 h-7 grid place-items-center shrink-0', status === 'registro' ? 'bg-amber-500/15' : 'bg-[#0A7A55]/10')}>{status === 'registro' ? <Pencil size={13} /> : <Check size={14} strokeWidth={3} />}</span>
+                <span><b className="block text-[11.5px] font-black">Registro</b><small className="block text-[10px] font-semibold opacity-80">{status === 'registro' ? 'Editável' : 'Concluído'}</small></span>
+              </div>
+              {/* Pedido Enviado */}
+              <button
+                onClick={() => canSend && setConfirmSendOpen(true)}
+                disabled={!canSend}
+                className={cn('relative flex items-center gap-2.5 px-3 py-[11px] border bg-white dark:bg-[#1E1E18] text-left transition-colors',
+                  status === 'pedido_enviado' ? 'border-amber-500/40 text-amber-700 dark:text-[#FCD34D] before:absolute before:-left-px before:-right-px before:-top-px before:h-[3px] before:bg-current'
+                  : status === 'aprovado' ? 'border-[#E0D8BF] dark:border-white/[0.10] text-[#0A7A55] dark:text-[#34D399]'
+                  : canSend ? 'border-[#D81E1E]/40 text-[#D81E1E] hover:bg-[#D81E1E]/[0.05] cursor-pointer'
+                  : 'border-[#E0D8BF] dark:border-white/[0.10] text-on-surface/35 cursor-not-allowed')}
+              >
+                <span className="w-7 h-7 grid place-items-center shrink-0 bg-on-surface/[0.06]">{status === 'aprovado' ? <Check size={14} strokeWidth={3} /> : <CheckCircle2 size={14} />}</span>
+                <span><b className="block text-[11.5px] font-black">Pedido Enviado</b><small className="block text-[10px] font-semibold opacity-80">
+                  {status === 'aprovado' ? 'Concluído' : status === 'pedido_enviado' ? 'Aguardando aprovação' : canSend ? 'Clique para confirmar' : 'Bloqueado'}
+                </small></span>
+              </button>
+              {/* Aprovado */}
+              <button
+                onClick={() => canApprove && setConfirmApproveOpen(true)}
+                disabled={!canApprove}
+                className={cn('relative flex items-center gap-2.5 px-3 py-[11px] border bg-white dark:bg-[#1E1E18] text-left transition-colors',
+                  status === 'aprovado' ? 'border-emerald-500/40 text-emerald-700 dark:text-emerald-400 before:absolute before:-left-px before:-right-px before:-top-px before:h-[3px] before:bg-current'
+                  : canApprove ? 'border-[#0A7A55] text-[#0A7A55] dark:text-[#34D399] bg-[#0A7A55]/[0.06] hover:bg-[#0A7A55]/[0.1] cursor-pointer before:absolute before:-left-px before:-right-px before:-top-px before:h-[3px] before:bg-current'
+                  : 'border-[#E0D8BF] dark:border-white/[0.10] text-on-surface/40 cursor-not-allowed')}
+              >
+                <span className={cn('w-7 h-7 grid place-items-center shrink-0', canApprove ? 'bg-[#0A7A55] text-white' : 'bg-on-surface/[0.06]')}>
+                  {status === 'aprovado' || canApprove ? <Check size={14} strokeWidth={3} /> : <Lock size={13} />}
+                </span>
+                <span><b className={cn('block text-[11.5px] font-black', !canApprove && status !== 'aprovado' && 'text-on-surface')}>Aprovado</b><small className={cn('block text-[10px] font-semibold', receiving && pendentes.length > 0 ? 'text-[#D81E1E]' : 'opacity-80')}>
+                  {status === 'aprovado' ? 'Estoque atualizado'
+                    : canApprove ? 'Clique para aprovar o recebimento'
+                    : receiving && pendentes.length > 0 ? `Bloqueado · ${pendentes.length} ${pendentes.length === 1 ? 'item' : 'itens'} sem produto`
+                    : 'Bloqueado'}
+                </small></span>
+              </button>
+            </div>
+            <div className="max-w-[820px] flex items-start gap-2 border border-[#E0D8BF] dark:border-white/[0.10] bg-[#FAF7EE] dark:bg-[#1A1A15] px-3 py-2.5">
+              <Info size={13} className="text-on-surface/40 shrink-0 mt-0.5" />
+              <p className="text-[11px] font-bold text-on-surface/55 leading-relaxed">
+                {status === 'registro'
+                  ? (canSend ? 'Confirmar o envio trava a lista de produtos — esta ação não pode ser desfeita.' : 'Adicione ao menos 1 produto e selecione a Empresa Destino para enviar.')
+                  : status === 'pedido_enviado'
+                    ? (pendentes.length > 0
+                        ? `Antes de aprovar, vincule os ${pendentes.length} ${pendentes.length === 1 ? 'item pendente' : 'itens pendentes'} na aba Produtos (⚡ ou "Resolver pendências").`
+                        : 'Confira o Falta/Sobra e o Preço de Venda item a item na aba Produtos. Aprovar atualiza o estoque da Empresa Destino e não pode ser desfeito.')
+                    : 'Estoque da Empresa Destino atualizado com as quantidades recebidas.'}
+              </p>
+            </div>
+          </div>
+        </>)}
+
+        {vincItem && (
+          <VincularProdutoModal
+            key={vincItem.id}
+            item={{
+              descricao: linhaDaNota(vincItem)?.original_description || vincItem.productName,
+              ean: eanAtual(vincItem).ean,
+              qtd: vincItem.qty,
+              custo: vincItem.costPrice,
+              supplierCode: linhaDaNota(vincItem)?.supplier_code ?? null,
+              linhaNota: vincItem.sourceIdx != null ? vincItem.sourceIdx + 1 : null,
+            }}
+            contexto={`Manifesto · ${destinoNome || 'destino'}`}
+            lojaPreco={destinoNome || 'Loja destino'}
+            pendencia={{
+              pos: pendentes.findIndex(p => p.id === vincItem.id) + 1,
+              total: pendentes.length,
+              onPular: () => setVincItemId(proximaPendente(vincItem.id)),
+            }}
+            supplierId={sourceNote?.supplierId ?? null}
+            notaNumero={sourceNote?.numero ?? null}
+            podeVincularNota={!!sourceNote && vincItem.sourceIdx != null && !linhaDaNota(vincItem)?.product_id}
+            onClose={() => setVincItemId(null)}
+            onVincular={(p, preco, vincNota) => handleVinculado(vincItem, p, preco, vincNota)}
+          />
+        )}
 
         {/* Confirmação de envio — irreversível, ver Etapa 5 do plano */}
         <AnimatePresence>
@@ -1810,7 +1812,7 @@ export function DistributionManifestModal({
         </AnimatePresence>
 
         {/* Footer */}
-        <div className="border-t border-line dark:border-white/[0.07] bg-[#FFF7B0] dark:bg-[#252520] px-6 py-4 flex items-center justify-between gap-2 shrink-0">
+        <div className="border-t border-[#DDD2B0] dark:border-white/[0.08] bg-[#EFE7CD] dark:bg-[#181814] px-4 py-2.5 flex items-center justify-between gap-2 shrink-0">
           <div className="flex items-center gap-7">
             <div>
               <div className="text-[10px] font-black uppercase tracking-wider text-[#1A1A0E]/45 dark:text-white/35">Itens</div>
@@ -1824,7 +1826,7 @@ export function DistributionManifestModal({
           <div className="flex items-center gap-2">
             <button
               onClick={handleClose}
-              className="px-4 py-2.5 rounded-xl text-[12.5px] font-bold bg-black/[0.08] dark:bg-white/[0.07] text-[#1A1A0E]/55 dark:text-white/50 border border-black/[0.14] dark:border-white/10 hover:bg-black/[0.12] transition-colors"
+              className="h-9 px-[18px] text-[12px] font-extrabold uppercase tracking-[0.04em] bg-white dark:bg-[#1E1E18] text-on-surface border border-[#E0D8BF] dark:border-white/[0.10] hover:bg-on-surface/[0.05] active:scale-[0.97] transition-all"
             >
               {editable ? 'Cancelar' : 'Fechar'}
             </button>
@@ -1832,17 +1834,20 @@ export function DistributionManifestModal({
               <button
                 onClick={handleSaveDraft}
                 disabled={saving}
-                className="px-5 py-2.5 rounded-xl text-[12.5px] font-black bg-[#D81E1E] text-white shadow-md shadow-[#D81E1E]/25 hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-60 flex items-center gap-1.5"
+                className="h-9 px-[18px] text-[12px] font-extrabold uppercase tracking-[0.04em] bg-[#D81E1E] hover:bg-[#B91818] text-white active:scale-[0.97] transition-all disabled:opacity-60 flex items-center gap-1.5"
               >
                 <CheckCircle2 size={14} />
                 Salvar Rascunho
               </button>
             )}
+            {receiving && pendentes.length > 0 && (
+              <span className="text-[11.5px] font-bold text-[#92400E] dark:text-[#FCD34D] mr-1">Vincule {pendentes.length} {pendentes.length === 1 ? 'item pendente' : 'itens pendentes'} para aprovar</span>
+            )}
             {receiving && (
               <button
                 onClick={() => canApprove && setConfirmApproveOpen(true)}
                 disabled={!canApprove}
-                className="px-5 py-2.5 rounded-xl text-[12.5px] font-black bg-emerald-600 text-white shadow-md shadow-emerald-600/25 hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-60 flex items-center gap-1.5"
+                className="h-9 px-[18px] text-[12px] font-extrabold uppercase tracking-[0.04em] bg-emerald-600 hover:bg-emerald-700 text-white active:scale-[0.97] transition-all disabled:opacity-40 flex items-center gap-1.5"
               >
                 <Package size={14} />
                 Aprovar Recebimento

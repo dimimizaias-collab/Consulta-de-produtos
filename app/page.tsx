@@ -2233,19 +2233,18 @@ export default function Page() {
       // coluna "Preço Custo" da tabela de revisão), não do Estoque & Preço da origem — a
       // nota costuma ser enviada em Revisão, antes da aprovação que grava esse preço em
       // product_company_stock, então aquele valor ainda estaria zerado/desatualizado.
-      const byCompany: Record<string, { productId: string; productName: string; sku: string | null; ean: string | null; qty: number; costPrice: number; salePriceDestination: number | null; salePriceDestinationAt: string | null }[]> = {};
-      // Itens com quantidade distribuída mas sem produto vinculado ("Não Encontrado") não
-      // têm como virar linha de manifesto — antes eram descartados em silêncio.
-      const unlinkedWithDist: string[] = [];
+      const byCompany: Record<string, { productId: string | null; sourceIdx: number; productName: string; sku: string | null; ean: string | null; qty: number; costPrice: number; salePriceDestination: number | null; salePriceDestinationAt: string | null }[]> = {};
+      // Itens com quantidade distribuída mas sem produto vinculado ("Não Encontrado") entram no
+      // manifesto como "pendentes de vínculo" (product_id nulo) — são resolvidos dentro do
+      // manifesto, e a aprovação do recebimento fica bloqueada até lá.
+      let pendentesVinculo = 0;
       const nowIsoForPricing = new Date().toISOString();
       note.items.forEach((item: any, idx: number) => {
         const dist = viewingNoteDistribByCompany[idx] ?? item.distribuicaoByCompany ?? {};
-        if (!item.product_id && Object.values(dist).some(q => (Number(q) || 0) > 0)) {
-          unlinkedWithDist.push(item.name || item.original_description || `Item ${idx + 1}`);
-        }
+        if (!item.product_id && Object.values(dist).some(q => (Number(q) || 0) > 0)) pendentesVinculo++;
         Object.entries(dist).forEach(([companyId, qty]) => {
           const q = Number(qty) || 0;
-          if (q <= 0 || !item.product_id) return;
+          if (q <= 0) return;
           if (!byCompany[companyId]) byCompany[companyId] = [];
           // Custo unitário real da nota: Descontos/Acréscimos manuais + rateio fiscal por
           // unidade (IPI/ST/frete...). Registro interno — o XML corrigido da nota não desconta
@@ -2262,8 +2261,9 @@ export default function Page() {
           byCompany[companyId].push({
             salePriceDestination: hasNotePrice ? notePrice : null,
             salePriceDestinationAt: hasNotePrice ? (getExtraPriceTimestamp(companyId, idx, item) ?? nowIsoForPricing) : null,
-            productId: item.product_id,
-            productName: item.name || item.original_description || 'Produto',
+            productId: item.product_id || null,
+            sourceIdx: idx,
+            productName: item.product_id ? (item.name || item.original_description || 'Produto') : (item.original_description || item.name || 'Produto'),
             sku: (viewingNoteSkus[idx] ?? item.sku) || null,
             ean: (viewingNoteEans[idx] ?? item.ean) || null,
             qty: q,
@@ -2271,13 +2271,6 @@ export default function Page() {
           });
         });
       });
-
-      if (unlinkedWithDist.length > 0) {
-        const names = unlinkedWithDist.slice(0, 5).join(', ');
-        const rest = unlinkedWithDist.length > 5 ? ` e mais ${unlinkedWithDist.length - 5}` : '';
-        setNotification({ type: 'error', message: `${unlinkedWithDist.length} item(ns) com distribuição ainda não estão vinculados a um produto do sistema (Não Encontrado): ${names}${rest}. Vincule ou cadastre esses produtos antes de enviar.` });
-        return;
-      }
 
       const destCompanyIds = Object.keys(byCompany);
       if (destCompanyIds.length === 0) {
@@ -2287,7 +2280,7 @@ export default function Page() {
 
       // Preço de Venda de origem continua vindo do Estoque & Preço — é só referência (markup),
       // não afeta o Preço Custo/Valor Total do manifesto.
-      const allProductIds = Array.from(new Set(Object.values(byCompany).flat().map(r => r.productId)));
+      const allProductIds = Array.from(new Set(Object.values(byCompany).flat().map(r => r.productId).filter((id): id is string => !!id)));
       const { data: originStock } = await supabase
         .from('product_company_stock')
         .select('product_id, price')
@@ -2330,7 +2323,8 @@ export default function Page() {
           ean: r.ean,
           qty: r.qty,
           cost_price: r.costPrice,
-          sale_price_origin: stockByProduct[r.productId]?.price || 0,
+          source_note_item_idx: r.sourceIdx,
+          sale_price_origin: (r.productId && stockByProduct[r.productId]?.price) || 0,
           sale_price_destination: r.salePriceDestination,
           sale_price_destination_at: r.salePriceDestinationAt,
         }));
@@ -2348,7 +2342,7 @@ export default function Page() {
       const updatedNote: ReviewNote = { ...note, distributionStatus: 'distribuicao_enviada', distributionSentAt: nowIso, distributionSentByName: colaboradorNome || null };
       setViewingReviewNote(updatedNote);
       setReviewNotes(prev => prev.map(n => n.id === note.id ? updatedNote : n));
-      setNotification({ type: 'success', message: `Distribuição enviada — ${destCompanyIds.length} manifesto(s) criado(s).` });
+      setNotification({ type: 'success', message: `Distribuição enviada — ${destCompanyIds.length} manifesto(s) criado(s).${pendentesVinculo > 0 ? ` ${pendentesVinculo} item(ns) sem produto ficaram pendentes de vínculo no manifesto.` : ''}` });
 
       // Pagamento já vinculado à nota? Oferece ratear pela distribuição (proporcional ao custo)
       try {
@@ -12852,38 +12846,38 @@ export default function Page() {
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.95, y: 16 }}
                       transition={{ duration: 0.18 }}
-                      className="relative bg-[#F0E7CC] dark:bg-[#1E1E18] rounded-3xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[90vh] border border-black/10 dark:border-white/[0.08]"
+                      className="relative bg-[#FDFAF0] dark:bg-[#1E1E18] shadow-2xl w-full max-w-[700px] flex flex-col overflow-hidden max-h-[90vh] border border-black/[0.12] dark:border-white/[0.08]"
                     >
                       {/* Header — mesmo padrão do modal "Editar Produto": header amarelo, icon chip grande */}
-                      <div className="px-6 py-5 flex items-center gap-3.5 bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] shrink-0">
-                        <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
-                          <Package size={20} />
+                      <div className="h-12 pl-3.5 pr-3 flex items-center gap-[11px] bg-[#FBF35E] dark:bg-[#252520] border-b border-[#D9CF45] dark:border-white/[0.08] shrink-0">
+                        <div className="w-[30px] h-[30px] flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
+                          <Package size={15} strokeWidth={2.3} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h2 className="text-lg font-manrope font-extrabold text-[#1A1A0E] leading-tight">
+                          <h2 className="text-[15px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight">
                             {resolveMode ? 'Vincular Produto Filho' : noteItemCreateTab === 'mae' ? 'Produto Mãe' : noteItemShowCreate ? 'Criar Novo Produto' : 'Vincular ao Dicionário'}
                           </h2>
-                          <p className="text-xs font-bold text-[#1A1A0E]/55 mt-0.5 truncate">
+                          <p className="text-[11px] font-bold text-[#1A1A0E]/45 dark:text-white/35 truncate">
                             {linkItem?.original_description || 'Item sem descrição'}
                           </p>
                         </div>
                         <button
                           onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); setNoteItemCreateTab('produto'); setNoteItemExtraStoreIds([]); setNoteItemExtraStorePrices({}); setNoteItemAddStoreOpen(false); }}
-                          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
+                          className="w-[30px] h-[30px] flex items-center justify-center shrink-0 border border-black/[0.14] dark:border-white/[0.10] text-[#1A1A0E]/50 dark:text-white/40 hover:text-[#D81E1E] active:scale-[0.93] transition-[color,transform]"
                         >
-                          <X size={18} />
+                          <X size={15} />
                         </button>
                       </div>
 
                       {/* Body */}
-                      <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
+                      <div className="flex-1 overflow-y-auto px-3.5 py-3 space-y-2.5 min-h-0">
                         {/* Aviso: tradução permanente já existe para este item */}
                         {(() => {
                           const mapping = existingMapping;
                           if (!mapping) return null;
                           const mappedProduct = products.find((p: any) => p.id === mapping.internal_product_id);
                           if (!mappedProduct) return (
-                            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl">
+                            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200">
                               <Bookmark size={13} className="text-amber-500 shrink-0 fill-amber-200" />
                               <div className="flex-1 min-w-0">
                                 <p className="text-[10px] font-black text-amber-700 uppercase tracking-wider">Tradução permanente já existe</p>
@@ -12902,7 +12896,7 @@ export default function Page() {
                                 // o preço do dicionário só aparece como sugestão (placeholder) no campo.
                                 setNoteItemSellPriceInput(existing && existing > 0 ? String(existing) : '');
                               }}
-                              className="w-full flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 hover:border-amber-400 hover:bg-amber-100 rounded-xl transition-all text-left group"
+                              className="w-full flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 hover:border-amber-400 hover:bg-amber-100 transition-all text-left group"
                             >
                               <Bookmark size={13} className="text-amber-500 shrink-0 fill-amber-200" />
                               <div className="flex-1 min-w-0">
@@ -12919,18 +12913,18 @@ export default function Page() {
                             finalizado — nada de alternar de volta pra reconfigurar o Produto Mãe por
                             aqui (isso vai pelo link "Editar" do card de resumo). */}
                         {!resolveMode && (
-                        <div className="flex gap-1.5 p-1 rounded-2xl bg-black/[0.04] dark:bg-white/[0.05]">
+                        <div className="flex border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] [&>button+button]:border-l [&>button+button]:border-[#E0D8BF] dark:[&>button+button]:border-white/[0.10]">
                           <button
                             type="button"
                             onClick={() => setNoteItemCreateTab('produto')}
-                            className={cn('flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-extrabold uppercase tracking-wide transition-all', noteItemCreateTab === 'produto' ? 'bg-surface shadow-sm text-on-surface' : 'text-secondary/50 hover:text-secondary/80')}
+                            className={cn('flex-1 h-[30px] flex items-center justify-center gap-1.5 text-[10.5px] font-black uppercase tracking-[0.06em] transition-colors', noteItemCreateTab === 'produto' ? 'bg-[#D81E1E] text-white' : 'text-on-surface/45 hover:text-on-surface')}
                           >
                             <Package size={13} />Produto
                           </button>
                           <button
                             type="button"
                             onClick={() => setNoteItemCreateTab('mae')}
-                            className={cn('relative flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-extrabold uppercase tracking-wide transition-all', noteItemCreateTab === 'mae' ? 'bg-surface shadow-sm text-on-surface' : 'text-secondary/50 hover:text-secondary/80')}
+                            className={cn('relative flex-1 h-[30px] flex items-center justify-center gap-1.5 text-[10.5px] font-black uppercase tracking-[0.06em] transition-colors', noteItemCreateTab === 'mae' ? 'bg-[#D81E1E] text-white' : 'text-on-surface/45 hover:text-on-surface')}
                           >
                             <Boxes size={13} />Produto Mãe
                           </button>
@@ -12944,9 +12938,9 @@ export default function Page() {
                             <button
                               type="button"
                               onClick={() => setNoteItemMotherModalOpen(true)}
-                              className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 border-dashed border-black/[0.14] dark:border-white/[0.14] text-left hover:border-primary/40 transition-all"
+                              className="w-full flex items-center gap-3 px-4 py-3 border-2 border-dashed border-black/[0.14] dark:border-white/[0.14] text-left hover:border-primary/40 transition-all"
                             >
-                              <div className="w-9 h-9 rounded-xl bg-black/[0.04] dark:bg-white/[0.06] text-secondary/50 flex items-center justify-center shrink-0">
+                              <div className="w-9 h-9 bg-black/[0.04] dark:bg-white/[0.06] text-secondary/50 flex items-center justify-center shrink-0">
                                 <Boxes size={16} />
                               </div>
                               <div className="flex-1 min-w-0">
@@ -12954,7 +12948,7 @@ export default function Page() {
                                 <p className="text-[10px] text-secondary/50 leading-tight mt-0.5">Nome, sufixo, EAN e unidades por embalagem</p>
                               </div>
                             </button>
-                            <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-dashed border-black/[0.12] dark:border-white/[0.12]">
+                            <div className="flex items-start gap-2 px-3.5 py-2.5 bg-black/[0.03] dark:bg-white/[0.04] border border-dashed border-black/[0.12] dark:border-white/[0.12]">
                               <Info size={13} className="text-secondary/50 shrink-0 mt-[1px]" />
                               <p className="text-[10.5px] font-semibold text-secondary/65 leading-relaxed">
                                 Pode ser definido antes ou depois do produto — troque de aba a qualquer momento. Ao salvar, o vínculo do produto filho é finalizado numa etapa dedicada.
@@ -12969,8 +12963,8 @@ export default function Page() {
                             "Remover" descarta o rascunho e volta ao seletor de abas normal. */}
                         {resolveMode && itemMotherDraft && (
                           <>
-                            <div className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 border-primary bg-primary/[0.06] text-left">
-                              <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                            <div className="w-full flex items-center gap-3 px-4 py-3 border-2 border-primary bg-primary/[0.06] text-left">
+                              <div className="w-[30px] h-[30px] bg-primary/10 text-primary flex items-center justify-center shrink-0">
                                 <Boxes size={16} />
                               </div>
                               <div className="flex-1 min-w-0">
@@ -12988,12 +12982,12 @@ export default function Page() {
                                 type="button"
                                 onClick={() => commitItemMotherDraft(null)}
                                 title="Remover Produto Mãe"
-                                className="w-7 h-7 rounded-lg flex items-center justify-center text-secondary/50 hover:bg-black/[0.08] dark:hover:bg-white/10 shrink-0"
+                                className="w-7 h-7 flex items-center justify-center text-secondary/50 hover:bg-black/[0.08] dark:hover:bg-white/10 shrink-0"
                               >
                                 <X size={13} />
                               </button>
                             </div>
-                            <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-dashed border-black/[0.12] dark:border-white/[0.12]">
+                            <div className="flex items-start gap-2 px-3.5 py-2.5 bg-black/[0.03] dark:bg-white/[0.04] border border-dashed border-black/[0.12] dark:border-white/[0.12]">
                               <Info size={13} className="text-secondary/50 shrink-0 mt-[1px]" />
                               <p className="text-[10.5px] font-semibold text-secondary/70 leading-relaxed">
                                 Agora escolha ou crie o <b className="text-on-surface">produto (unidade)</b> que sai dessa embalagem — isso finaliza o vínculo e converte a quantidade da linha automaticamente (×{itemMotherDraft.unitsPerChild}).
@@ -13003,7 +12997,7 @@ export default function Page() {
                                 pelo usuário (antes ou depois de cadastrar a mãe) — nos outros casos a
                                 conversão acima acontece automática, sem interromper ninguém. */}
                             {linkingItemIdx !== null && viewingNoteQtyPriceEdited[linkingItemIdx] && (
-                              <div className="flex flex-col gap-2.5 bg-amber-500/10 dark:bg-amber-400/[0.08] border border-dashed border-amber-500/40 dark:border-amber-400/30 rounded-xl px-3.5 py-3">
+                              <div className="flex flex-col gap-2.5 bg-amber-500/10 dark:bg-amber-400/[0.08] border border-dashed border-amber-500/40 dark:border-amber-400/30 px-3.5 py-3">
                                 <div className="flex items-start gap-2">
                                   <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                                   <p className="text-[11px] font-semibold text-amber-800 dark:text-amber-300 leading-relaxed">
@@ -13011,11 +13005,11 @@ export default function Page() {
                                   </p>
                                 </div>
                                 <div className="flex flex-col gap-1.5">
-                                  <label className={cn('flex items-center gap-2.5 rounded-lg border px-3 py-2 cursor-pointer transition-colors', !noteItemSkipMotherConversion ? 'border-primary bg-primary/10' : 'border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03]')}>
+                                  <label className={cn('flex items-center gap-2.5 border px-3 py-2 cursor-pointer transition-colors', !noteItemSkipMotherConversion ? 'border-primary bg-primary/10' : 'border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03]')}>
                                     <input type="radio" checked={!noteItemSkipMotherConversion} onChange={() => setNoteItemSkipMotherConversion(false)} className="accent-primary shrink-0" />
                                     <span className="block text-[11.5px] font-bold text-on-surface">Ainda são valores brutos — converter ×{itemMotherDraft.unitsPerChild}</span>
                                   </label>
-                                  <label className={cn('flex items-center gap-2.5 rounded-lg border px-3 py-2 cursor-pointer transition-colors', noteItemSkipMotherConversion ? 'border-primary bg-primary/10' : 'border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03]')}>
+                                  <label className={cn('flex items-center gap-2.5 border px-3 py-2 cursor-pointer transition-colors', noteItemSkipMotherConversion ? 'border-primary bg-primary/10' : 'border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03]')}>
                                     <input type="radio" checked={noteItemSkipMotherConversion} onChange={() => setNoteItemSkipMotherConversion(true)} className="accent-primary shrink-0" />
                                     <span className="block text-[11.5px] font-bold text-on-surface">Já são os valores certos — não converter</span>
                                   </label>
@@ -13029,11 +13023,11 @@ export default function Page() {
                             travado, o fluxo original (link "Criar novo produto" dentro da lista de
                             busca / "← Voltar para busca" no formulário) continua igual. */}
                         {resolveMode && !noteItemSelectedProduct && (
-                          <div className="flex gap-1.5 p-1 rounded-2xl bg-black/[0.04] dark:bg-white/[0.05]">
+                          <div className="flex border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] [&>button+button]:border-l [&>button+button]:border-[#E0D8BF] dark:[&>button+button]:border-white/[0.10]">
                             <button
                               type="button"
                               onClick={() => setNoteItemShowCreate(false)}
-                              className={cn('flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-extrabold uppercase tracking-wide transition-all', !noteItemShowCreate ? 'bg-surface shadow-sm text-on-surface' : 'text-secondary/50 hover:text-secondary/80')}
+                              className={cn('flex-1 h-[30px] flex items-center justify-center gap-1.5 text-[10.5px] font-black uppercase tracking-[0.06em] transition-colors', !noteItemShowCreate ? 'bg-[#D81E1E] text-white' : 'text-on-surface/45 hover:text-on-surface')}
                             >
                               <Search size={13} />Buscar Existente
                             </button>
@@ -13051,7 +13045,7 @@ export default function Page() {
                                   setNoteItemNewName(desc.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase());
                                 }
                               }}
-                              className={cn('flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-extrabold uppercase tracking-wide transition-all', noteItemShowCreate ? 'bg-surface shadow-sm text-on-surface' : 'text-secondary/50 hover:text-secondary/80')}
+                              className={cn('flex-1 h-[30px] flex items-center justify-center gap-1.5 text-[10.5px] font-black uppercase tracking-[0.06em] transition-colors', noteItemShowCreate ? 'bg-[#D81E1E] text-white' : 'text-on-surface/45 hover:text-on-surface')}
                             >
                               <Plus size={13} />Criar Novo
                             </button>
@@ -13064,19 +13058,19 @@ export default function Page() {
                               <div className="space-y-3">
                                 <button
                                   onClick={() => { setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); }}
-                                  className="text-xs font-bold text-slate-400 hover:text-primary transition-colors flex items-center gap-1"
+                                  className="text-xs font-bold text-on-surface/40 hover:text-primary transition-colors flex items-center gap-1"
                                 >
                                   ← Voltar para busca
                                 </button>
 
                                 {/* Produto selecionado */}
-                                <div className="flex items-center gap-3 px-3 py-3 bg-primary/5 border border-primary/15 rounded-xl">
-                                  <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                <div className="flex items-center gap-2.5 px-2.5 py-2 bg-white dark:bg-[#1E1E18] border border-[#D81E1E]/25">
+                                  <div className="w-[30px] h-[30px] bg-primary/10 text-primary flex items-center justify-center shrink-0">
                                     <Package size={15} />
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold text-slate-800 truncate">{noteItemSelectedProduct.name}</p>
-                                    <p className="text-[10px] text-slate-400">{noteItemSelectedProduct.sku || '—'} · {noteItemSelectedProduct.ean || '—'}</p>
+                                    <p className="text-sm font-bold text-on-surface truncate">{noteItemSelectedProduct.name}</p>
+                                    <p className="text-[10px] text-on-surface/40">{noteItemSelectedProduct.sku || '—'} · {noteItemSelectedProduct.ean || '—'}</p>
                                   </div>
                                 </div>
 
@@ -13087,30 +13081,30 @@ export default function Page() {
                                   <>
                                     <button
                                       onClick={() => setNoteItemSaveTranslation(v => !v)}
-                                      className={cn('w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 transition-all text-left', noteItemSaveTranslation ? 'border-amber-400 bg-amber-50' : 'border-slate-200 hover:border-slate-300')}
+                                      className={cn('w-full flex items-center gap-2.5 px-2.5 py-2 border transition-colors text-left', noteItemSaveTranslation ? 'border-[#F59E0B] bg-[#FFFBEB] dark:bg-amber-400/[0.08]' : 'border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] hover:border-on-surface/25')}
                                     >
-                                      <div className={cn('w-4 h-4 rounded flex items-center justify-center shrink-0 transition-colors', noteItemSaveTranslation ? 'bg-amber-400' : 'border-2 border-slate-300 bg-white')}>
+                                      <div className={cn('w-4 h-4 flex items-center justify-center shrink-0 transition-colors', noteItemSaveTranslation ? 'bg-amber-400' : 'border-2 border-on-surface/25 bg-white')}>
                                         {noteItemSaveTranslation && <Check size={10} className="text-white" />}
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                        <p className={cn('text-xs font-bold', noteItemSaveTranslation ? 'text-amber-700' : 'text-slate-500')}>{canReplaceTranslation ? 'Substituir tradução permanente' : 'Salvar como tradução permanente'}</p>
-                                        <p className="text-[10px] text-slate-400 leading-tight">{canReplaceTranslation
+                                        <p className={cn('text-xs font-bold', noteItemSaveTranslation ? 'text-amber-700' : 'text-on-surface/55')}>{canReplaceTranslation ? 'Substituir tradução permanente' : 'Salvar como tradução permanente'}</p>
+                                        <p className="text-[10px] text-on-surface/40 leading-tight">{canReplaceTranslation
                                           ? <>Hoje aponta para <span className="font-bold">{existingMappedProduct.name}</span> — próximas notas deste fornecedor passarão a usar este produto</>
                                           : 'Próximas notas deste fornecedor identificarão este item automaticamente'}</p>
                                       </div>
                                     </button>
                                     {noteItemSaveTranslation && (
                                       <div className="mt-2 space-y-1.5">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Será vinculado por</p>
-                                        <div className="flex items-stretch gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50">
+                                        <p className="text-[10px] font-black text-on-surface/40 uppercase tracking-widest">Será vinculado por</p>
+                                        <div className="flex items-stretch gap-2 px-2.5 py-1.5 border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18]">
                                           <div className="flex-1 min-w-0">
-                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Código</p>
-                                            <p className="text-xs font-bold text-slate-800 truncate">{linkItem?.supplier_code || '—'}</p>
+                                            <p className="text-[10px] font-black text-on-surface/55 uppercase tracking-wider">Código</p>
+                                            <p className="text-xs font-bold text-on-surface truncate">{linkItem?.supplier_code || '—'}</p>
                                           </div>
-                                          <div className="w-px bg-slate-200 shrink-0" />
+                                          <div className="w-px bg-[#E0D8BF] dark:bg-white/[0.10] shrink-0" />
                                           <div className="flex-1 min-w-0">
-                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Produto na Nota</p>
-                                            <p className="text-xs font-bold text-slate-800 truncate">{linkItem?.original_description || '—'}</p>
+                                            <p className="text-[10px] font-black text-on-surface/55 uppercase tracking-wider">Produto na Nota</p>
+                                            <p className="text-xs font-bold text-on-surface truncate">{linkItem?.original_description || '—'}</p>
                                           </div>
                                         </div>
                                       </div>
@@ -13125,17 +13119,17 @@ export default function Page() {
                                   const rowHasPrice = ((viewingNoteSellPrices[i] ?? viewingReviewNote!.items[i]?.product_price) ?? 0) > 0;
                                   if (rowHasPrice) return (
                                     <div>
-                                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">
+                                      <label className="text-[10px] font-black text-on-surface/55 uppercase tracking-widest block mb-1.5">
                                         Preço de Venda (R$)
                                       </label>
-                                      <div className="flex items-center gap-2 px-3.5 py-3 rounded-xl border border-slate-200 bg-slate-50">
-                                        <span className="text-sm font-black text-slate-800">
+                                      <div className="flex items-center gap-2 px-2.5 h-[34px] border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18]">
+                                        <span className="text-sm font-black text-on-surface">
                                           R$ {parseFloat(noteItemSellPriceInput || '0').toFixed(2).replace('.', ',')}
                                         </span>
-                                        <span className="text-[10px] text-slate-400 font-medium">já preenchido nesta linha — será usado</span>
+                                        <span className="text-[10px] text-on-surface/40 font-medium">já preenchido nesta linha — será usado</span>
                                       </div>
                                       {noteItemSelectedProduct.price > 0 && (
-                                        <p className="text-[10px] text-slate-400 mt-1">
+                                        <p className="text-[10px] text-on-surface/40 mt-1">
                                           Preço cadastrado no dicionário: <span className="font-bold">R$ {noteItemSelectedProduct.price.toFixed(2).replace('.', ',')}</span>
                                         </p>
                                       )}
@@ -13143,11 +13137,11 @@ export default function Page() {
                                   );
                                   return (
                                 <div>
-                                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">
+                                  <label className="text-[10px] font-black text-on-surface/55 uppercase tracking-widest block mb-1.5">
                                     Preço de Venda (R$)
                                   </label>
                                   <div className="relative">
-                                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">R$</span>
+                                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-on-surface/40">R$</span>
                                     <input
                                       autoFocus
                                       type="number"
@@ -13162,11 +13156,11 @@ export default function Page() {
                                       }}
                                       placeholder="0,00"
                                       onWheel={blockWheelChange}
-                                      className="w-full border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                      className="h-[34px] w-full px-2.5 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] text-[13px] font-semibold text-on-surface outline-none caret-[#D81E1E] hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] placeholder:text-on-surface/25 placeholder:font-medium transition-[border-color,box-shadow] pl-10 font-mono"
                                     />
                                   </div>
                                   {noteItemSelectedProduct.price > 0 && (
-                                    <p className="text-[10px] text-slate-400 mt-1">
+                                    <p className="text-[10px] text-on-surface/40 mt-1">
                                       Preço cadastrado no dicionário: <span className="font-bold">R$ {noteItemSelectedProduct.price.toFixed(2).replace('.', ',')}</span> — a sugestão aparece na célula "Preço Venda" da tabela
                                     </p>
                                   )}
@@ -13176,7 +13170,7 @@ export default function Page() {
 
                                 <button
                                   onClick={() => confirmNoteItemLink()}
-                                  className="w-full bg-primary text-white py-3 rounded-xl font-black text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                                  className="w-full h-9 bg-[#D81E1E] hover:bg-[#B91818] text-white text-[12px] font-extrabold uppercase tracking-[0.04em] flex items-center justify-center gap-2 active:scale-[0.99] transition-all"
                                 >
                                   <Check size={15} />Vincular com este preço
                                 </button>
@@ -13190,13 +13184,13 @@ export default function Page() {
                                   value={noteItemLinkQuery}
                                   onChange={e => setNoteItemLinkQuery(e.target.value)}
                                   placeholder="Nome, SKU ou EAN..."
-                                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                  className="h-[34px] w-full px-2.5 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] text-[13px] font-semibold text-on-surface outline-none caret-[#D81E1E] hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] placeholder:text-on-surface/25 placeholder:font-medium transition-[border-color,box-shadow]"
                                 />
-                                <div className="max-h-64 overflow-y-auto space-y-1">
+                                <div className="max-h-64 overflow-y-auto bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10]">
                                   {(() => {
                                     const q = noteItemLinkQuery.toLowerCase().trim();
                                     if (q.length === 0) return (
-                                      <p className="text-xs text-slate-400 text-center py-8">Digite para buscar...</p>
+                                      <p className="text-xs text-on-surface/40 text-center py-8">Digite para buscar...</p>
                                     );
                                     const filtered = products.filter((p: any) =>
                                       p.name?.toLowerCase().includes(q) ||
@@ -13206,7 +13200,7 @@ export default function Page() {
                                       (p.motherEans || []).some((e: any) => e.ean?.toLowerCase().includes(q))
                                     ).slice(0, 12);
                                     if (filtered.length === 0) return (
-                                      <p className="text-xs text-slate-400 text-center py-8">
+                                      <p className="text-xs text-on-surface/40 text-center py-8">
                                         {/^\d{8,14}$/.test(q)
                                           ? `Nenhum produto com EAN "${q}" encontrado no sistema. Pesquise pelo nome ou crie um novo.`
                                           : 'Nenhum produto encontrado'}
@@ -13226,17 +13220,17 @@ export default function Page() {
                                           // por padrão, já que é o caso mais comum (só falta o Enter pra vincular).
                                           setNoteItemSaveTranslation(true);
                                         }}
-                                        className="w-full text-left px-3 py-3 rounded-xl hover:bg-primary/5 transition-colors flex items-center gap-3 group border border-transparent hover:border-primary/10"
+                                        className="w-full text-left h-[38px] px-2.5 hover:bg-[#FFF8D0] dark:hover:bg-[#FFE500]/[0.06] transition-colors flex items-center gap-2.5 group border-b last:border-b-0 border-[#EFE8D2] dark:border-white/[0.06]"
                                       >
-                                        <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary shrink-0 transition-colors">
+                                        <div className="w-7 h-7 bg-on-surface/[0.06] flex items-center justify-center text-on-surface/40 group-hover:bg-primary/10 group-hover:text-primary shrink-0 transition-colors">
                                           <Package size={15} />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                          <p className="text-sm font-bold text-slate-800 truncate group-hover:text-primary">{p.name}</p>
-                                          <p className="text-[10px] text-slate-400">{p.sku || '—'} · {p.ean || '—'}</p>
+                                          <p className="text-[12.5px] font-extrabold text-on-surface truncate group-hover:text-primary">{p.name}</p>
+                                          <p className="text-[10px] text-on-surface/40">{p.sku || '—'} · {p.ean || '—'}</p>
                                         </div>
                                         {p.price > 0 && (
-                                          <span className="text-[10px] font-black text-slate-500 shrink-0">
+                                          <span className="text-[10px] font-black text-on-surface/55 shrink-0">
                                             R$ {p.price.toFixed(2).replace('.', ',')}
                                           </span>
                                         )}
@@ -13262,7 +13256,7 @@ export default function Page() {
                                       setNoteItemNewName(desc.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase());
                                     }
                                   }}
-                                  className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-200 text-slate-400 rounded-xl hover:border-primary/30 hover:text-primary hover:bg-primary/5 transition-all text-xs font-bold"
+                                  className="w-full h-[34px] flex items-center justify-center gap-1.5 border-[1.5px] border-dashed border-[rgba(26,26,10,0.22)] dark:border-white/[0.18] text-[rgba(26,26,10,0.35)] dark:text-white/30 hover:border-[#D81E1E] hover:text-[#D81E1E] transition-colors text-[11px] font-extrabold uppercase tracking-[0.05em]"
                                 >
                                   <Plus size={13} />Criar novo produto
                                 </button>
@@ -13271,11 +13265,11 @@ export default function Page() {
                             )}
                           </>
                         ) : (() => {
-                          const sectionCls = 'bg-surface border border-black/[0.07] dark:border-white/[0.06] shadow-sm rounded-2xl p-5 space-y-3.5';
-                          const sectionHeadCls = 'flex items-center gap-2';
-                          const sectionTitleCls = 'text-xs font-extrabold uppercase tracking-wide text-on-surface';
-                          const labelCls = 'text-[10px] font-extrabold uppercase tracking-wide text-secondary/80';
-                          const inputCls = 'w-full bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] rounded-xl px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all';
+                          const sectionCls = 'bg-[#F1EAD3] dark:bg-[#181814] border border-[#E0D8BF] dark:border-white/[0.10] pb-2.5 [&>*:not(:first-child)]:mx-2.5 [&>*:not(:first-child)]:mt-2.5';
+                          const sectionHeadCls = 'h-7 flex items-center gap-2 px-2.5 bg-[#FFEC4D] border-b-[1.5px] border-[#8F7E10] [&>svg]:!text-[#D81E1E]';
+                          const sectionTitleCls = 'text-[9px] font-black uppercase tracking-[0.1em] text-[rgba(26,26,10,0.55)]';
+                          const labelCls = 'text-[9px] font-black uppercase tracking-[0.1em] text-[#1A1A0E]/[0.58] dark:text-[#F2F0E3]/55';
+                          const inputCls = 'h-[34px] w-full px-2.5 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] text-[13px] font-semibold text-on-surface outline-none caret-[#D81E1E] hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] placeholder:text-on-surface/25 placeholder:font-medium transition-[border-color,box-shadow]';
                           const primaryCompany = companies.find((c: any) => c.id === (viewingReviewNote.companyId || primaryCompanyId));
                           const availableCompanies = companies.filter((c: any) =>
                             c.id !== (viewingReviewNote.companyId || primaryCompanyId) && !noteItemExtraStoreIds.includes(c.id)
@@ -13328,7 +13322,7 @@ export default function Page() {
                                             setNoteItemEanCopied(true);
                                             setTimeout(() => setNoteItemEanCopied(false), 1500);
                                           }}
-                                          className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-lg flex items-center justify-center text-secondary/50 hover:bg-black/[0.06] dark:hover:bg-white/10 transition-colors"
+                                          className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-secondary/50 hover:bg-black/[0.06] dark:hover:bg-white/10 transition-colors"
                                         >
                                           {noteItemEanCopied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
                                         </button>
@@ -13351,7 +13345,7 @@ export default function Page() {
                                 return (
                                   <div className="space-y-1.5">
                                     {matches.map(m => (
-                                      <div key={m.ean} className="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl">
+                                      <div key={m.ean} className="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800">
                                         <AlertTriangle size={13} className="text-red-500 shrink-0" />
                                         <div className="flex-1 min-w-0">
                                           <p className="text-[10px] font-black text-red-600 dark:text-red-400 uppercase tracking-wider">EAN {m.ean} já cadastrado — evite duplicar</p>
@@ -13385,7 +13379,7 @@ export default function Page() {
                                 <BarChart3 size={15} className="text-primary shrink-0" />
                                 <span className={sectionTitleCls}>Preço de Venda</span>
                               </div>
-                              <div className="flex items-center gap-3 bg-primary/[0.06] border border-primary/20 rounded-xl px-3 py-2.5">
+                              <div className="flex items-center gap-2.5 bg-white dark:bg-[#1E1E18] border border-[#D81E1E]/25 pl-2.5 pr-1.5 py-1.5">
                                 <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
                                 <span className="flex-1 min-w-0 text-xs font-bold text-on-surface truncate">
                                   {primaryCompany?.nome_fantasia || 'Empresa da nota não definida'}
@@ -13400,7 +13394,7 @@ export default function Page() {
                                     onChange={e => setNoteItemNewSellPrice(e.target.value)}
                                     placeholder="0,00"
                                     onWheel={blockWheelChange}
-                                    className="w-full bg-surface border border-black/10 dark:border-white/10 rounded-lg pl-7 pr-2 py-1.5 text-xs font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    className="w-full h-8 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] pl-7 pr-2 text-xs font-bold font-mono text-right text-on-surface outline-none focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)]"
                                   />
                                 </div>
                               </div>
@@ -13409,9 +13403,9 @@ export default function Page() {
                             {/* Toggle: salvar como tradução permanente */}
                             <button
                               onClick={() => setNoteItemSaveTranslation(v => !v)}
-                              className={cn('w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 transition-all text-left', noteItemSaveTranslation ? 'border-amber-400 bg-amber-50 dark:bg-amber-400/10' : 'border-black/[0.07] dark:border-white/[0.07] bg-surface hover:border-black/20 dark:hover:border-white/20')}
+                              className={cn('w-full flex items-center gap-2.5 px-2.5 py-2 border transition-colors text-left', noteItemSaveTranslation ? 'border-[#F59E0B] bg-[#FFFBEB] dark:bg-amber-400/[0.08]' : 'border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] hover:border-on-surface/25')}
                             >
-                              <div className={cn('w-[18px] h-[18px] rounded-md flex items-center justify-center shrink-0 transition-colors', noteItemSaveTranslation ? 'bg-amber-400' : 'border-2 border-black/20 dark:border-white/20 bg-white dark:bg-transparent')}>
+                              <div className={cn('w-[18px] h-[18px] flex items-center justify-center shrink-0 transition-colors', noteItemSaveTranslation ? 'bg-amber-400' : 'border-2 border-black/20 dark:border-white/20 bg-white dark:bg-transparent')}>
                                 {noteItemSaveTranslation && <Check size={11} className="text-white" />}
                               </div>
                               <div className="flex-1 min-w-0">
@@ -13424,7 +13418,7 @@ export default function Page() {
                             {noteItemSaveTranslation && (
                               <div className="space-y-1.5">
                                 <p className="text-[10px] font-black text-secondary/50 uppercase tracking-widest">Será vinculado por</p>
-                                <div className="flex items-stretch gap-2 px-3 py-2 rounded-xl border border-black/[0.08] dark:border-white/[0.08] bg-black/[0.02] dark:bg-white/[0.03]">
+                                <div className="flex items-stretch gap-2 px-2.5 py-1.5 border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18]">
                                   <div className="flex-1 min-w-0">
                                     <p className="text-[10px] font-black text-secondary/60 uppercase tracking-wider">Código</p>
                                     <p className="text-xs font-bold text-on-surface truncate">{linkItem?.supplier_code || '—'}</p>
@@ -13441,7 +13435,7 @@ export default function Page() {
                             <button
                               onClick={handleNoteItemCreateAndLink}
                               disabled={noteItemCreating || !noteItemNewName.trim()}
-                              className="w-full bg-primary text-white py-3.5 rounded-2xl font-extrabold text-sm shadow-lg shadow-primary/30 hover:opacity-90 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                              className="w-full h-9 bg-[#D81E1E] hover:bg-[#B91818] text-white text-[12px] font-extrabold uppercase tracking-[0.04em] active:scale-[0.99] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
                             >
                               {noteItemCreating
                                 ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" />
@@ -14927,6 +14921,29 @@ export default function Page() {
               <p className="text-xs text-on-surface/55 leading-relaxed mb-5">
                 Cria 1 manifesto por loja de destino na aba Distribuição, já como "Pedido Enviado". Essa ação não pode ser desfeita.
               </p>
+              {(() => {
+                // Itens distribuídos ainda sem produto do cadastro — vão como pendentes de vínculo
+                const pend = viewingReviewNote.items
+                  .map((item: any, idx: number) => ({ item, idx, dist: viewingNoteDistribByCompany[idx] ?? item.distribuicaoByCompany ?? {} }))
+                  .filter(({ item, dist }) => !item.product_id && Object.values(dist).some(q => (Number(q) || 0) > 0));
+                if (pend.length === 0) return null;
+                return (
+                  <div className="mb-4 text-left border border-amber-400/55 bg-amber-50 dark:bg-amber-400/[0.07]">
+                    <p className="px-3 py-2 text-[11.5px] leading-snug text-[#92400E] dark:text-[#FCD34D]">
+                      <b>{pend.length} {pend.length === 1 ? 'item distribuído ainda não tem' : 'itens distribuídos ainda não têm'} produto vinculado.</b> Vão no manifesto como <b>pendentes de vínculo</b>, com nome, EAN, quantidade e custo da nota. A resolução é feita dentro do manifesto — o recebimento só pode ser aprovado depois de vincular todos.
+                    </p>
+                    <div className="max-h-28 overflow-y-auto border-t border-amber-400/40 bg-white dark:bg-[#252520]">
+                      {pend.map(({ item, idx }) => (
+                        <div key={idx} className="flex items-center gap-2 px-3 h-7 border-b last:border-b-0 border-[#EFE8D2] dark:border-white/[0.06] text-[11.5px]">
+                          <span className="text-[8.5px] font-black uppercase tracking-[0.05em] px-[5px] leading-[15px] border border-current text-[#92400E] dark:text-[#FCD34D] shrink-0">Pendente</span>
+                          <span className="font-bold text-on-surface truncate">{item.original_description || item.name || `Item ${idx + 1}`}</span>
+                          <span className="ml-auto font-mono text-on-surface/40 shrink-0">linha {idx + 1}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
               <button
                 disabled={sendingDistribution}
                 onClick={handleSendDistribution}
