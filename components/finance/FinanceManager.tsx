@@ -3621,8 +3621,8 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                           {cards.find(c => c.id === t.card_id)?.nome ?? '—'}
                         </td>
                         <td className="px-4 py-3">
-                          <span className="inline-flex items-center gap-1 w-fit px-1.5 py-0.5 rounded-full text-[10px] font-semibold border border-on-surface/[0.14] text-on-surface/65">
-                            <span className="font-black text-primary">{t.numero_parcela ?? 1}/{t.total_parcelas ?? 1}</span>
+                          <span title="Parcela" className="inline-flex px-1.5 py-0.5 border border-[#D81E1E]/35 bg-[#D81E1E]/[0.06] font-mono text-[10px] font-medium text-[#D81E1E]">
+                            {t.numero_parcela ?? 1}/{t.total_parcelas ?? 1}
                           </span>
                         </td>
                         <td className="px-4 py-3 max-w-[180px]">
@@ -3653,33 +3653,29 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                           {(() => {
                             const ids = t.tag_ids ?? [];
                             const mainTag = ids.length > 0 ? tags.find(tg => tg.id === ids[0]) : undefined;
-                            if (!mainTag) return <span className="text-[10px] italic text-on-surface/25">sem tag</span>;
+                            if (!mainTag) return (
+                              <span className="inline-flex px-1.5 py-0.5 border border-dashed border-[#E0D8BF] dark:border-white/[0.12] text-[10px] font-bold text-on-surface/30 whitespace-nowrap">
+                                sem tag
+                              </span>
+                            );
                             const c = TAG_COLOR_MAP[mainTag.cor] ?? TAG_COLOR_MAP.gray;
                             const extra = ids.length - 1;
+                            const extraNomes = ids.slice(1).map(id => tags.find(tg => tg.id === id)?.nome).filter(Boolean).join(', ');
                             return (
-                              <div className="relative inline-flex items-center w-fit -my-1.5 -mx-2 py-1.5 px-2">
-                                {extra > 0 && (<>
-                                  <span
-                                    className={cn('absolute rounded-full border opacity-35', c.bg, c.border, c.bgDark, c.borderDark)}
-                                    style={{ left: 2, top: 6, right: 8, bottom: 6, transform: 'translate(4px, 3px) rotate(5deg)' }}
-                                  />
-                                  <span
-                                    className={cn('absolute rounded-full border opacity-60', c.bg, c.border, c.bgDark, c.borderDark)}
-                                    style={{ left: 2, top: 6, right: 8, bottom: 6, transform: 'translate(2px, 1.5px) rotate(2.5deg)' }}
-                                  />
-                                </>)}
-                                <span className={cn(
-                                  'relative z-[2] inline-flex items-center px-2.5 py-[3px] rounded-full text-[10px] font-bold border whitespace-nowrap shadow-sm',
-                                  c.bg, c.text, c.border, c.bgDark, c.textDark, c.borderDark
-                                )}>
+                              <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                                <span
+                                  className={cn('inline-flex items-center gap-[5px] px-[7px] py-0.5 border text-[10px] font-extrabold', c.text, c.border, c.textDark, c.borderDark)}
+                                  style={{ backgroundColor: `${c.dot}14` }}
+                                >
+                                  <i className="block w-1.5 h-1.5 shrink-0" style={{ backgroundColor: c.dot }} />
                                   {mainTag.nome}
                                 </span>
                                 {extra > 0 && (
-                                  <span className="absolute -top-0.5 right-0 z-[3] min-w-[15px] h-[15px] px-[3px] rounded-full flex items-center justify-center text-[8.5px] font-black bg-primary text-white border-2 border-surface-container-low leading-none">
+                                  <span title={extraNomes} className="inline-flex px-[5px] py-0.5 border border-[#E0D8BF] dark:border-white/[0.12] font-mono text-[10px] font-medium text-on-surface/45">
                                     +{extra}
                                   </span>
                                 )}
-                              </div>
+                              </span>
                             );
                           })()}
                         </td>
@@ -3782,42 +3778,36 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-on-surface/70">{fmtDate(t.data)}</td>
                         <td className="px-4 py-3">
-                          <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide',
+                          <span className={cn(
+                            'inline-flex items-center px-1.5 py-0.5 border text-[9px] font-black uppercase tracking-[0.06em]',
                             t.tipo === 'Receita'
-                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                              : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                              ? 'text-[#0A7A55] dark:text-[#34D399] border-current bg-[#0A7A55]/[0.07] dark:bg-[#34D399]/[0.07]'
+                              : 'text-[#B91818] dark:text-red-400 border-current bg-[#D81E1E]/[0.06]',
                           )}>
                             {t.tipo}
                           </span>
                         </td>
                         <td className="px-4 py-3">
                           {t.is_fatura_consolidada ? (
-                            <span className="inline-flex items-center gap-1 w-fit px-1.5 py-0.5 rounded-full text-[10px] font-semibold border border-primary/20 bg-primary/10 text-primary">
+                            <span className="inline-flex px-1.5 py-0.5 border border-[#D81E1E]/35 bg-[#D81E1E]/[0.06] text-[10px] font-extrabold text-[#D81E1E]">
                               Fatura
                             </span>
-                          ) : (() => {
-                            const numero = t.tipo_pagamento === 'Cheque' ? t.numero_cheque
-                              : t.tipo_pagamento === 'Boleto' ? (t.codigo_barras ? t.codigo_barras.slice(-8) : null)
-                              : t.identificacao;
-                            return (
-                              <div className="flex flex-col gap-1 items-start">
-                                <span className="inline-flex items-center gap-1 w-fit px-1.5 py-0.5 rounded-full text-[10px] font-semibold border border-on-surface/[0.14] text-on-surface/65">
-                                  {t.tipo_pagamento}
-                                  {t.vencimento && (
-                                    <span className="font-black text-primary">{t.numero_parcela ?? 1}/{t.total_parcelas ?? 1}</span>
-                                  )}
+                          ) : (
+                            <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                              <span className="inline-flex px-1.5 py-0.5 border border-[#E0D8BF] dark:border-white/[0.12] text-[10px] font-bold text-on-surface/70">
+                                {t.tipo_pagamento}
+                              </span>
+                              {t.vencimento ? (
+                                <span title="Parcela" className="inline-flex px-1.5 py-0.5 border border-[#D81E1E]/35 bg-[#D81E1E]/[0.06] font-mono text-[10px] font-medium text-[#D81E1E]">
+                                  {t.numero_parcela ?? 1}/{t.total_parcelas ?? 1}
                                 </span>
-                                {numero && (
-                                  <span
-                                    className="inline-flex items-center gap-1 w-fit max-w-[130px] px-1.5 py-0.5 rounded-full text-[10px] font-semibold border border-on-surface/10 bg-on-surface/[0.045] text-on-surface/45"
-                                    title={t.tipo_pagamento === 'Boleto' ? (t.codigo_barras ?? undefined) : numero}
-                                  >
-                                    <span className="truncate min-w-0">#{numero}</span>
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          })()}
+                              ) : (
+                                <span className="inline-flex px-1.5 py-0.5 border border-[#E0D8BF] dark:border-white/[0.12] text-[10px] font-bold text-on-surface/40">
+                                  À vista
+                                </span>
+                              )}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3 max-w-[180px]">
                           {t.is_fatura_consolidada ? (
@@ -3885,33 +3875,29 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                           {(() => {
                             const ids = t.tag_ids ?? [];
                             const mainTag = ids.length > 0 ? tags.find(tg => tg.id === ids[0]) : undefined;
-                            if (!mainTag) return <span className="text-[10px] italic text-on-surface/25">sem tag</span>;
+                            if (!mainTag) return (
+                              <span className="inline-flex px-1.5 py-0.5 border border-dashed border-[#E0D8BF] dark:border-white/[0.12] text-[10px] font-bold text-on-surface/30 whitespace-nowrap">
+                                sem tag
+                              </span>
+                            );
                             const c = TAG_COLOR_MAP[mainTag.cor] ?? TAG_COLOR_MAP.gray;
                             const extra = ids.length - 1;
+                            const extraNomes = ids.slice(1).map(id => tags.find(tg => tg.id === id)?.nome).filter(Boolean).join(', ');
                             return (
-                              <div className="relative inline-flex items-center w-fit -my-1.5 -mx-2 py-1.5 px-2">
-                                {extra > 0 && (<>
-                                  <span
-                                    className={cn('absolute rounded-full border opacity-35', c.bg, c.border, c.bgDark, c.borderDark)}
-                                    style={{ left: 2, top: 6, right: 8, bottom: 6, transform: 'translate(4px, 3px) rotate(5deg)' }}
-                                  />
-                                  <span
-                                    className={cn('absolute rounded-full border opacity-60', c.bg, c.border, c.bgDark, c.borderDark)}
-                                    style={{ left: 2, top: 6, right: 8, bottom: 6, transform: 'translate(2px, 1.5px) rotate(2.5deg)' }}
-                                  />
-                                </>)}
-                                <span className={cn(
-                                  'relative z-[2] inline-flex items-center px-2.5 py-[3px] rounded-full text-[10px] font-bold border whitespace-nowrap shadow-sm',
-                                  c.bg, c.text, c.border, c.bgDark, c.textDark, c.borderDark
-                                )}>
+                              <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                                <span
+                                  className={cn('inline-flex items-center gap-[5px] px-[7px] py-0.5 border text-[10px] font-extrabold', c.text, c.border, c.textDark, c.borderDark)}
+                                  style={{ backgroundColor: `${c.dot}14` }}
+                                >
+                                  <i className="block w-1.5 h-1.5 shrink-0" style={{ backgroundColor: c.dot }} />
                                   {mainTag.nome}
                                 </span>
                                 {extra > 0 && (
-                                  <span className="absolute -top-0.5 right-0 z-[3] min-w-[15px] h-[15px] px-[3px] rounded-full flex items-center justify-center text-[8.5px] font-black bg-primary text-white border-2 border-surface-container-low leading-none">
+                                  <span title={extraNomes} className="inline-flex px-[5px] py-0.5 border border-[#E0D8BF] dark:border-white/[0.12] font-mono text-[10px] font-medium text-on-surface/45">
                                     +{extra}
                                   </span>
                                 )}
-                              </div>
+                              </span>
                             );
                           })()}
                         </td>
