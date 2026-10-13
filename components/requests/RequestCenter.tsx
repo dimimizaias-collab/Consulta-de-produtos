@@ -441,7 +441,7 @@ export function RequestCenter({
       approve = { label: 'Imprimir', icon: <Printer size={12} />, cls: AB_OK };
       body = (
         <>
-          <Title text="Fila de Impressão" sub={`${items.length} produto${items.length !== 1 ? 's' : ''} · ${count} etiqueta${count !== 1 ? 's' : ''} · ${rc.template === 'produto' ? 'Produto' : 'Gôndola'}`} />
+          <Title text="Fila de Impressão" sub={`${items.length} produto${items.length !== 1 ? 's' : ''} · ${count} etiqueta${count !== 1 ? 's' : ''} · ${rc.template === 'produto40x20' ? 'Produto 40×20' : rc.template === 'produto' ? 'Produto' : 'Gôndola'}`} />
           {items.length > 0 && itemList(items.slice(0, 5).map((item, idx) => itemRow(idx, idx === 0, (
             <>
               <span className="flex-1 min-w-0 truncate">{item.name || item.ean || item.sku || <span className="text-on-surface/30 italic">Sem descrição</span>}</span>

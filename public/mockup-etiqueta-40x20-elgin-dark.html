@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="pt-BR" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etiqueta 40×20 Elgin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Arimo:wght@400;700&family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FFFCEC; --text: #1A1A0E; --muted: rgba(26,26,10,0.45); --faint: rgba(26,26,10,0.30);
+    --hdr: #FBF35E; --hdr-border: #D9CF45; --chip: rgba(0,0,0,0.09); --chip-c: #1A1A0E;
+    --modal: #FDFAF0; --section: #F1EAD3; --card: #FFFFFF; --border: #E0D8BF; --label: rgba(26,26,10,0.58);
+    --liner: #EDE6CF; --x-bd: rgba(0,0,0,0.14); --x-c: rgba(0,0,0,0.5); --foot: #EFE7CD; --foot-bd: #DDD2B0;
+    --tabshadow: inset 0 6px 8px -5px rgba(26,26,10,0.35);
+  }
+  html.dark {
+    --bg: #161612; --text: #F2F0E3; --muted: rgba(242,240,227,0.45); --faint: rgba(242,240,227,0.28);
+    --hdr: #252520; --hdr-border: rgba(242,240,227,0.08); --chip: rgba(216,30,30,0.16); --chip-c: #D81E1E;
+    --modal: #1E1E18; --section: #181814; --card: #1E1E18; --border: rgba(242,240,227,0.10); --label: rgba(242,240,227,0.55);
+    --liner: #2A2A24; --x-bd: rgba(255,255,255,0.10); --x-c: rgba(255,255,255,0.4); --foot: #181814; --foot-bd: rgba(255,255,255,0.08);
+    --tabshadow: inset 0 6px 8px -5px rgba(0,0,0,0.55);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; padding: 28px 16px 90px; }
+  button { font-family: inherit; }
+
+  .anno { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 100; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: center; padding: 8px 12px; border-radius: 14px; background: #1A1A0E; color: #F2F0E3; font-size: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.35); max-width: calc(100vw - 24px); }
+  .anno b { color: #FFE500; margin-right: 4px; }
+  .anno a { color: rgba(242,240,227,.6); font-size: 11px; margin-left: 6px; }
+
+  .wrap { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: 640px 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 1100px) { .wrap { grid-template-columns: 1fr; } }
+
+  /* Modal Etiquetas (recorte) */
+  .modal { background: var(--modal); border: 1px solid rgba(0,0,0,.12); box-shadow: 0 25px 50px -12px rgba(0,0,0,.25); }
+  html.dark .modal { border-color: rgba(255,255,255,.08); }
+  .mh { height: 48px; padding: 0 12px 0 14px; display: flex; align-items: center; gap: 11px; background: var(--hdr); border-bottom: 1px solid var(--hdr-border); }
+  .mh .ic { width: 30px; height: 30px; display: grid; place-items: center; background: var(--chip); color: var(--chip-c); font-weight: 900; }
+  .mh .t { flex: 1; } .mh h2 { margin: 0; font-size: 15px; font-weight: 900; } .mh p { margin: 0; font-size: 10.5px; font-weight: 700; color: var(--muted); }
+  .mh .x { width: 30px; height: 30px; border: 1px solid var(--x-bd); background: transparent; color: var(--x-c); font-weight: 900; }
+  .tabs { display: flex; }
+  .tab { height: 32px; min-width: 112px; padding: 0 14px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--hdr-border); border-top: 0; margin-left: -1px; background: var(--hdr); color: var(--text); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; box-shadow: var(--tabshadow); }
+  .tab:first-child { margin-left: 0; border-left: 0; } .tab span { opacity: .55; }
+  .tab.on { box-shadow: var(--tabshadow), inset 0 -3px 0 #D81E1E; } .tab.on span { opacity: 1; }
+  .mb { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .sec { background: var(--section); border: 1px solid var(--border); }
+  .sh { height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: #FFEC4D; border-bottom: 1.5px solid #8F7E10; }
+  .sh .i { color: #D81E1E; font-weight: 900; font-size: 11px; }
+  .sh b { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: rgba(26,26,10,.55); }
+  .sh .r { margin-left: auto; font-size: 10px; font-weight: 800; color: rgba(26,26,10,.55); }
+  .sb { padding: 10px; }
+  .lbl { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: var(--label); margin-bottom: 4px; }
+
+  /* seletor de modelo aberto */
+  .sel { height: 34px; padding: 0 10px; display: flex; align-items: center; justify-content: space-between; background: var(--card); border: 1px solid #D81E1E; box-shadow: 0 0 0 2px rgba(216,30,30,.12); font-size: 13px; font-weight: 700; }
+  .menu { margin-top: 2px; background: var(--card); border: 1px solid var(--border); box-shadow: 0 10px 24px rgba(0,0,0,.12); animation: drop .13s cubic-bezier(.23,1,.32,1); transform-origin: top; }
+  html.dark .menu { background: #2E2E28; }
+  @keyframes drop { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
+  .opt { padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.5px; font-weight: 700; }
+  .opt + .opt { border-top: 1px solid var(--border); }
+  .opt.on { box-shadow: inset 3px 0 0 #D81E1E; background: rgba(255,229,0,.12); }
+  .badge { font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; padding: 2px 6px; background: rgba(216,30,30,.10); color: #D81E1E; white-space: nowrap; }
+  .badge.new { background: #D81E1E; color: #fff; }
+  .note { margin-top: 8px; display: flex; gap: 6px; font-size: 10.5px; font-weight: 600; color: var(--muted); line-height: 1.4; }
+
+  /* prévia — rolo com 2 colunas */
+  .roll { background: var(--liner); padding: 14px 0; display: flex; flex-direction: column; align-items: center; gap: 12px; border: 1px solid var(--border); position: relative; overflow: hidden; }
+  .row { display: flex; gap: 18px; } /* 3mm × 6px */
+  .lab { position: relative; width: 240px; height: 120px; background: #fff; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,.12); overflow: hidden; color: #141400; font-family: Arimo, Arial, sans-serif; font-weight: 700; }
+  .lab.ghost { opacity: .45; }
+  .lab .e { position: absolute; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .lab .desc { left: 10.7px; top: 5.3px; width: 218px; height: 31.3px; font-size: 14.8px; line-height: 1.05; white-space: normal; }
+  .lab .ref { left: 10.7px; top: 38px; width: 218px; height: 13.2px; font-size: 11.6px; line-height: 13.2px; color: #3c3c3c; }
+  .lab .inf { left: 10.7px; width: 217px; height: 9.6px; font-size: 8.5px; line-height: 9.6px; color: #3c3c3c; }
+  .lab .bc { left: 12.2px; top: 87.3px; width: 216.7px; height: 21px; background: repeating-linear-gradient(90deg,#141400 0 1.6px, transparent 1.6px 3px, #141400 3px 3.6px, transparent 3.6px 5.4px); }
+  .lab .num { left: 78.4px; top: 107.9px; width: 83.2px; height: 12px; font-family: 'Courier New', monospace; font-size: 9.5px; line-height: 12px; text-align: center; color: #3c3c3c; }
+  .dims { position: absolute; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); }
+  .feed { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); }
+
+  .foot { padding: 10px 14px; background: var(--foot); border-top: 1px solid var(--foot-bd); display: flex; align-items: center; gap: 8px; }
+  .foot .tot { font-size: 12px; font-weight: 700; color: var(--muted); } .foot .tot b { color: var(--text); }
+  .btn { margin-left: auto; height: 36px; padding: 0 18px; display: flex; align-items: center; gap: 8px; background: #D81E1E; color: #fff; border: 0; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+
+  /* painel lateral: tamanho real + configuração */
+  .side { display: flex; flex-direction: column; gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); }
+  .card .sb { display: flex; flex-direction: column; gap: 10px; }
+  .spec { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); border: 1px solid var(--border); }
+  .spec div { background: var(--card); padding: 7px 10px; }
+  .spec small { display: block; font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .spec b { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; }
+  .real { display: flex; justify-content: center; padding: 14px; background: var(--liner); }
+  .real .r2 { display: flex; gap: 3mm; }
+  .real .lab { width: 40mm; height: 20mm; border-radius: 1mm; }
+  .real .lab .desc { left: 1.79mm; top: .88mm; width: 36.36mm; height: 5.22mm; font-size: 2.47mm; }
+  .real .lab .ref { left: 1.79mm; top: 6.33mm; width: 36.42mm; height: 2.2mm; font-size: 1.94mm; line-height: 2.2mm; }
+  .real .lab .inf { left: 1.79mm; width: 36.12mm; height: 1.6mm; font-size: 1.41mm; line-height: 1.6mm; }
+  .real .lab .bc { left: 2.04mm; top: 14.55mm; width: 36.12mm; height: 3.5mm; background: repeating-linear-gradient(90deg,#141400 0 .27mm, transparent .27mm .5mm, #141400 .5mm .6mm, transparent .6mm .9mm); }
+  .real .lab .num { left: 13.07mm; top: 17.99mm; width: 13.86mm; height: 2.01mm; font-size: 1.6mm; line-height: 2.01mm; }
+  ol { margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.55; }
+  ol li + li { margin-top: 4px; }
+  code { font-family: 'DM Mono', monospace; font-size: 11.5px; background: rgba(255,229,0,.35); padding: 0 4px; }
+  html.dark code { background: rgba(255,229,0,.12); }
+  .warn { display: flex; gap: 6px; padding: 7px 9px; font-size: 11px; font-weight: 700; line-height: 1.45; color: #92400E; background: rgba(217,119,6,.08); border: 1px solid rgba(217,119,6,.4); }
+  html.dark .warn { color: #FCD34D; background: rgba(252,211,77,.07); border-color: rgba(252,211,77,.35); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <!-- ── Módulo Etiquetas (recorte) ── -->
+  <div class="modal">
+    <div class="mh">
+      <div class="ic">🏷</div>
+      <div class="t"><h2>Etiquetas</h2><p>Elgin L42 Pro Full — impressão térmica</p></div>
+      <button class="x">✕</button>
+    </div>
+    <div class="tabs"><div class="tab"><span>Seleção</span></div><div class="tab on"><span>Visualização</span></div></div>
+    <div class="mb">
+      <div class="sec">
+        <div class="sh"><span class="i">▣</span><b>Modelo</b></div>
+        <div class="sb">
+          <div class="lbl">Modelo de etiqueta</div>
+          <div class="sel">Etiqueta de Produto 40×20 <span style="color:var(--muted)">▴</span></div>
+          <div class="menu">
+            <div class="opt">Etiqueta de Gôndola <span class="badge">Elgin 105×28mm</span></div>
+            <div class="opt">Etiqueta de Produto <span class="badge">Adesiva 40×40mm</span></div>
+            <div class="opt on">Etiqueta de Produto 40×20 <span class="badge new">Elgin · 2 colunas</span></div>
+          </div>
+          <div class="note">ⓘ <span>Mesmo layout da <b>Metade</b>, em rolo próprio de 40×20mm com 2 etiquetas por linha. Cada disparo imprime uma linha; com quantidade ímpar a última sai com a coluna da direita em branco.</span></div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sh"><span class="i">◉</span><b>Prévia</b><span class="r">5 etiquetas · 3 linhas</span></div>
+        <div class="roll">
+          <span class="feed">↑ saída da impressora</span>
+          <div class="row">
+            <div class="lab">
+              <div class="e desc">Refrigerante Guaraná Lata 350ml</div>
+              <div class="e ref">REF 0457</div>
+              <div class="e bc"></div><div class="e num">7891234500011</div>
+            </div>
+            <div class="lab">
+              <div class="e desc">Água Mineral s/Gás 500ml</div>
+              <div class="e ref">REF 0312</div>
+              <div class="e inf" style="top:55.1px"><b>Validade:</b> 12/2026</div>
+              <div class="e bc"></div><div class="e num">7891234512345</div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="lab">
+              <div class="e desc">Biscoito Recheado Chocolate com Morango 140g Tradicional</div>
+              <div class="e ref">REF 0623</div>
+              <div class="e inf" style="top:55.1px"><b>Fabricante:</b> Alimentos Bom Gosto Ltda</div>
+              <div class="e inf" style="top:64.8px"><b>CNPJ:</b> 12.345.678/0001-90</div>
+              <div class="e bc"></div><div class="e num">7891234587654</div>
+            </div>
+            <div class="lab">
+              <div class="e desc">Suco de Uva Integral 1L</div>
+              <div class="e ref">REF 0891</div>
+              <div class="e bc"></div><div class="e num">7891234598765</div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="lab">
+              <div class="e desc">Café Torrado e Moído 500g</div>
+              <div class="e ref">REF 4512</div>
+              <div class="e bc"></div><div class="e num">7896005800010</div>
+            </div>
+            <div class="lab ghost"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="foot"><span class="tot"><b>5</b> etiquetas · <b>3</b> disparos</span><button class="btn">🖨 Imprimir na Elgin</button></div>
+  </div>
+
+  <!-- ── Tamanho real + configuração ── -->
+  <div class="side">
+    <div class="card">
+      <div class="sh"><span class="i">⬚</span><b>Tamanho real (100% de zoom)</b></div>
+      <div class="real">
+        <div class="r2">
+          <div class="lab"><div class="e desc">Refrigerante Guaraná Lata 350ml</div><div class="e ref">REF 0457</div><div class="e bc"></div><div class="e num">7891234500011</div></div>
+          <div class="lab"><div class="e desc">Água Mineral s/Gás 500ml</div><div class="e ref">REF 0312</div><div class="e inf" style="top:9.19mm"><b>Validade:</b> 12/2026</div><div class="e bc"></div><div class="e num">7891234512345</div></div>
+        </div>
+      </div>
+      <div class="sb">
+        <div class="spec">
+          <div><small>Etiqueta</small><b>40 × 20 mm</b></div>
+          <div><small>Colunas</small><b>2 por linha</b></div>
+          <div><small>Espaço entre colunas</small><b>3 mm</b></div>
+          <div><small>Página (1 disparo)</small><b>83 × 20 mm</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="sh"><span class="i">⚙</span><b>Configurar na Elgin L42 Pro</b></div>
+      <div class="sb">
+        <ol>
+          <li>Painel de Controle → <b>Impressoras</b> → botão direito em <code>ELGIN L42PRO FULL</code> → <b>Preferências de impressão</b>.</li>
+          <li>Aba <b>Configuração de página</b> → em <b>Papel</b>, clique <b>Novo…</b></li>
+          <li>Nome: <code>Etiqueta 40x20</code> · Largura: <code>83 mm</code> · Altura: <code>20 mm</code> → OK.</li>
+          <li>Em <b>Tipo de mídia</b>: <i>Etiquetas com intervalos</i> (gap). Margens todas em <code>0</code>.</li>
+          <li>Coloque o rolo e faça a calibração (segure <b>FEED</b> até piscar) para a impressora achar o espaço entre as linhas.</li>
+          <li>No app, ao imprimir, escolha <code>ELGIN L42PRO FULL</code> e o papel <code>Etiqueta 40x20</code>, escala <b>100%</b>, sem margens.</li>
+        </ol>
+        <div class="warn">⚠ <span>83 mm = 40 + 3 + 40. Se o rolo tiver outro espaço entre as colunas (meça com régua), ajusto a largura e o deslocamento da 2ª coluna no app.</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="anno"><b>Etiqueta de Produto 40×20 · Elgin</b> layout da Metade em rolo de 2 colunas <a href="mockup-etiqueta-40x20-elgin-light.html">ver light →</a></div>
+</body>
+</html>

@@ -7,9 +7,10 @@ import { cn } from '@/lib/utils';
 import {
   ELGIN_LABEL_W, ELGIN_LABEL_H,
   PRODUTO_LABEL_SIZE, PRODUTO_HALF_H, PRODUTO_CODIGO_COUNT,
-  LabelPreview, ProdutoPreviewFull, ProdutoPreviewHalf, ProdutoPreviewTriple,
+  ROLO_40X20_W, ROLO_40X20_H,
+  LabelPreview, ProdutoPreviewFull, ProdutoPreviewHalf, ProdutoPreviewTriple, ProdutoPreviewRolo,
   IconWholeSquare, IconHalfHorizontal, IconTriple,
-  TEMPLATE_LABELS,
+  TEMPLATE_LABELS, TemplateMenuOptions, TemplateHints, templateHasSizes, fixedSizeChipCls,
   SAMPLE_FULL, SAMPLE_HALF_A, SAMPLE_HALF_B, SAMPLE_TRIPLE_C, SAMPLE_TRIPLE_D,
   blockWheelChange, effectiveLabelProduct,
   type LabelTemplate, type LabelSize, type QueueEntry, type LabelOverrides,
@@ -73,6 +74,14 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
   const previewTripleB = previewTripleItems[1] ?? SAMPLE_HALF_B;
   const previewTripleC = previewTripleItems[2] ?? SAMPLE_TRIPLE_C;
   const previewTripleD = previewTripleItems[3] ?? SAMPLE_TRIPLE_D;
+  const previewRoloItems = useMemo(() => {
+    const units: any[] = [];
+    for (const [, e] of queueList) {
+      for (let i = 0; i < e.qty && units.length < 2; i++) units.push(effectiveLabelProduct(e));
+      if (units.length >= 2) break;
+    }
+    return units.length > 0 ? units : [SAMPLE_HALF_A, SAMPLE_HALF_B];
+  }, [queueList]);
 
   const searchResults = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -249,21 +258,7 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                                   transition={{ duration: 0.13 }}
                                   className="absolute z-10 mt-1 w-full origin-top border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#2E2E28] shadow-[0_16px_36px_-10px_rgba(0,0,0,0.3)]"
                                 >
-                                  <button
-                                    type="button"
-                                    onClick={() => { setTemplate('gondola'); setTemplateMenuOpen(false); }}
-                                    className={cn('w-full text-left px-2.5 py-2 text-[12.5px] font-bold text-on-surface hover:bg-[#FFF8D0] dark:hover:bg-[#FFE500]/[0.08] transition-colors', template === 'gondola' && 'shadow-[inset_3px_0_0_#D81E1E]')}
-                                  >
-                                    {TEMPLATE_LABELS.gondola}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => { setTemplate('produto'); setTemplateMenuOpen(false); }}
-                                    className={cn('w-full text-left px-2.5 py-2 text-[12.5px] font-bold text-on-surface hover:bg-[#FFF8D0] dark:hover:bg-[#FFE500]/[0.08] transition-colors flex items-center justify-between gap-2 border-t border-[#E0D8BF] dark:border-white/[0.08]', template === 'produto' && 'shadow-[inset_3px_0_0_#D81E1E]')}
-                                  >
-                                    {TEMPLATE_LABELS.produto}
-                                    <span className="text-[8.5px] font-black uppercase tracking-[0.06em] px-1.5 py-0.5 bg-[#D81E1E]/10 text-[#D81E1E]">Adesiva 40×40mm</span>
-                                  </button>
+                                  <TemplateMenuOptions value={template} onPick={t => { setTemplate(t); setTemplateMenuOpen(false); }} />
                                 </motion.div>
                               )}
                             </AnimatePresence>
@@ -307,6 +302,9 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                                   </p>
                                 </div>
                                 <div className="flex items-center gap-2 flex-shrink-0">
+                                  {!templateHasSizes(template) ? (
+                                    <span className={fixedSizeChipCls}>40×20</span>
+                                  ) : (
                                   <div className={segCls}>
                                     <button type="button" onClick={() => setDraftSize(product.id, 'full')} className={segBtnCls(draft.size === 'full')}>
                                       {template === 'produto' && <IconWholeSquare size={12} />}
@@ -333,6 +331,7 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                                       </button>
                                     )}
                                   </div>
+                                  )}
                                   <input
                                     type="number"
                                     min={1}
@@ -374,18 +373,7 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                         </div>
                       )}
 
-                      {template === 'produto' && (
-                        <div className="flex flex-col gap-0.5">
-                          <p className="text-[10px] font-semibold text-on-surface/40 flex items-center gap-1.5">
-                            <IconHalfHorizontal size={11} />
-                            Metade corta a etiqueta ao meio na horizontal (duas de 40×20mm)
-                          </p>
-                          <p className="text-[10px] font-semibold text-on-surface/40 flex items-center gap-1.5">
-                            <IconTriple size={11} />
-                            Código imprime 4 códigos de barras por etiqueta, sem descrição
-                          </p>
-                        </div>
-                      )}
+                      <TemplateHints template={template} />
                     </div>
                   </div>
 
@@ -426,6 +414,12 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                             <LabelPreview variant="half" items={[previewHalfA, previewHalfB]} />
                             <p className="text-center font-mono text-[10px] font-medium text-on-surface/40 mt-1.5">2 × {(ELGIN_LABEL_W / 2).toFixed(1)} × {ELGIN_LABEL_H}mm</p>
                           </div>
+                        </div>
+                      ) : template === 'produto40x20' ? (
+                        <div>
+                          <span className={labelCls}>1ª linha do rolo</span>
+                          <ProdutoPreviewRolo items={[previewRoloItems[0], previewRoloItems[1]]} extraFields={[]} />
+                          <p className="text-center font-mono text-[10px] font-medium text-on-surface/40 mt-1.5">2 × {PRODUTO_LABEL_SIZE} × {ROLO_40X20_H}mm · papel {ROLO_40X20_W} × {ROLO_40X20_H}mm</p>
                         </div>
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -476,6 +470,9 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                                   <span className="shrink-0 text-[8px] font-black uppercase tracking-[0.06em] px-1.5 py-0.5 bg-[#D4C000]/25 dark:bg-[#FFE500]/20 text-[#7A6A00] dark:text-[#FFE500]">Editado</span>
                                 )}
                               </span>
+                              {!templateHasSizes(template) ? (
+                                <span className={fixedSizeChipCls}>40×20</span>
+                              ) : (
                               <div className={segCls}>
                                 <button type="button" onClick={() => updateQueueSize(id, 'full')} className={segBtnCls(entry.size === 'full')}>
                                   Inteira
@@ -489,6 +486,7 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                                   </button>
                                 )}
                               </div>
+                              )}
 
                               <div className="flex items-stretch h-[26px] flex-shrink-0 border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18]">
                                 <button

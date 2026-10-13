@@ -89,6 +89,15 @@ const PREVIEW_PX_PER_MM = 4; // escala de referência da prévia (~420px pra 105
 export const PRODUTO_LABEL_SIZE = 40; // mm — lado da etiqueta Inteira / folha impressa da Metade
 export const PRODUTO_HALF_H = PRODUTO_LABEL_SIZE / 2; // 20mm — altura de cada metade
 
+// Etiqueta de Produto 40×20 — rolo próprio na Elgin L42 Pro, com 2 etiquetas
+// lado a lado por linha. Usa o layout da Metade (PRODUTO_HALF_SPEC); cada
+// disparo/página é uma linha: 40 + vão + 40mm de largura por 20mm de altura.
+// No driver da Elgin, o papel "Etiqueta 40x20" precisa ter ROLO_40X20_W × 20mm.
+export const ROLO_40X20_GAP_MM = 3; // vão entre as duas colunas do rolo
+export const ROLO_40X20_W = PRODUTO_LABEL_SIZE * 2 + ROLO_40X20_GAP_MM; // 83mm
+export const ROLO_40X20_H = PRODUTO_HALF_H; // 20mm
+export const ROLO_40X20_COL2_X = PRODUTO_LABEL_SIZE + ROLO_40X20_GAP_MM; // onde começa a 2ª coluna
+
 // A Inteira, a Metade e o Código usam layouts fixos próprios — ver
 // PRODUTO_FULL_SPEC, PRODUTO_HALF_SPEC e PRODUTO_CODIGO_SPEC.
 const PT_MM = 0.3528; // 1pt em mm
@@ -533,15 +542,19 @@ function produtoHalfContent(product: any, extraFields: { label: string; value: s
   return { descLines, refText: `REF ${productRef(product)}`, infoRows, code, bcNumMm };
 }
 
-function ProdutoHalfPreviewCell({ product, extraFields, offsetYMm }: { product: any; extraFields: { label: string; value: string }[]; offsetYMm: number }) {
+// frameW/frameH = tamanho (mm) da área da prévia onde a célula é desenhada —
+// folha 40x40 da Metade ou linha 83x20 do rolo 40×20.
+function ProdutoHalfPreviewCell({ product, extraFields, offsetYMm, offsetXMm = 0, frameW = PRODUTO_LABEL_SIZE, frameH = PRODUTO_LABEL_SIZE }: {
+  product: any; extraFields: { label: string; value: string }[]; offsetYMm: number; offsetXMm?: number; frameW?: number; frameH?: number;
+}) {
   useArimoReady();
   const s = PRODUTO_HALF_SPEC;
   const c = produtoHalfContent(product, extraFields);
   const px = (mm: number) => mm * PREVIEW_PX_PER_MM;
   const box = (x: number, y: number, w: number, h: number, extra?: React.CSSProperties): React.CSSProperties => ({
     position: 'absolute',
-    left: `${(x / PRODUTO_LABEL_SIZE) * 100}%`, top: `${((y + offsetYMm) / PRODUTO_LABEL_SIZE) * 100}%`,
-    width: `${(w / PRODUTO_LABEL_SIZE) * 100}%`, height: `${(h / PRODUTO_LABEL_SIZE) * 100}%`,
+    left: `${((x + offsetXMm) / frameW) * 100}%`, top: `${((y + offsetYMm) / frameH) * 100}%`,
+    width: `${(w / frameW) * 100}%`, height: `${(h / frameH) * 100}%`,
     overflow: 'hidden', ...extra,
   });
   const font: React.CSSProperties = { fontFamily: NOME_FONT_FAMILY, fontWeight: NOME_FONT_WEIGHT };
@@ -570,11 +583,12 @@ function ProdutoHalfPreviewCell({ product, extraFields, offsetYMm }: { product: 
 }
 
 // HTML de impressão de uma Metade (mesmas medidas da prévia); offsetY desloca
-// a 2ª metade 20mm pra baixo dentro da folha 40x40 impressa.
-function buildProdutoHalfHtml(product: any, extraFields: { label: string; value: string }[], offsetY: number): string {
+// a 2ª metade 20mm pra baixo dentro da folha 40x40 impressa e offsetX leva a
+// etiqueta pra 2ª coluna do rolo 40×20.
+function buildProdutoHalfHtml(product: any, extraFields: { label: string; value: string }[], offsetY: number, offsetX = 0): string {
   const s = PRODUTO_HALF_SPEC;
   const c = produtoHalfContent(product, extraFields);
-  const pos = (x: number, y: number, w: number, h: number) => `left:${x.toFixed(2)}mm; top:${(y + offsetY).toFixed(2)}mm; width:${w.toFixed(2)}mm; height:${h.toFixed(2)}mm;`;
+  const pos = (x: number, y: number, w: number, h: number) => `left:${(x + offsetX).toFixed(2)}mm; top:${(y + offsetY).toFixed(2)}mm; width:${w.toFixed(2)}mm; height:${h.toFixed(2)}mm;`;
   let bcDataUrl = '';
   if (c.code) {
     try { bcDataUrl = generateBarcodeDataUrl(c.code); } catch { /* sem código de barras se falhar */ }
@@ -607,6 +621,34 @@ export function ProdutoPreviewHalf({ items, extraFields }: { items: any[]; extra
       {cell(0, 0)}
       {cell(1, PRODUTO_HALF_H)}
       <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox={`0 0 ${PRODUTO_LABEL_SIZE} ${PRODUTO_LABEL_SIZE}`} dangerouslySetInnerHTML={{ __html: CORTE_LINE_SVG_INNER }} />
+    </div>
+  );
+}
+
+// Prévia de uma linha do rolo 40×20 (2 colunas): papel de fundo creme com as
+// duas etiquetas brancas; a 2ª fica vazia (tracejada) quando não há produto.
+export function ProdutoPreviewRolo({ items, extraFields }: { items: (any | undefined)[]; extraFields: { label: string; value: string }[][] }) {
+  const pct = (mm: number, total: number) => `${(mm / total) * 100}%`;
+  return (
+    <div className="relative w-full overflow-hidden bg-[#EDE6CF] dark:bg-[#2A2A24] border border-black/10 dark:border-white/10" style={{ aspectRatio: `${ROLO_40X20_W} / ${ROLO_40X20_H}` }}>
+      {[0, ROLO_40X20_COL2_X].map((x, i) => (
+        <div
+          key={i}
+          className={cn('absolute top-0 h-full rounded-[3px] bg-white', items[i] ? 'shadow-[0_1px_2px_rgba(0,0,0,0.15)]' : 'opacity-60 border border-dashed border-black/20')}
+          style={{ left: pct(x, ROLO_40X20_W), width: pct(PRODUTO_LABEL_SIZE, ROLO_40X20_W) }}
+        />
+      ))}
+      {items.slice(0, 2).map((product, i) => product && (
+        <ProdutoHalfPreviewCell
+          key={i}
+          product={product}
+          extraFields={extraFields[i] ?? []}
+          offsetYMm={0}
+          offsetXMm={i === 0 ? 0 : ROLO_40X20_COL2_X}
+          frameW={ROLO_40X20_W}
+          frameH={ROLO_40X20_H}
+        />
+      ))}
     </div>
   );
 }
@@ -711,7 +753,13 @@ export function IconTriple({ size = 12 }: { size?: number }) {
   );
 }
 
-export type LabelTemplate = 'gondola' | 'produto';
+// 'produto40x20' = Etiqueta de Produto em rolo 40×20 de 2 colunas na Elgin —
+// sem Inteira/Metade/Código: toda unidade é uma etiqueta 40×20.
+export type LabelTemplate = 'gondola' | 'produto' | 'produto40x20';
+export const templateHasSizes = (t: LabelTemplate) => t !== 'produto40x20';
+// Informações adicionais (Fabricante/CNPJ/...) existem nas etiquetas de produto.
+export const templateHasInfo = (t: LabelTemplate, size: LabelSize) =>
+  t === 'produto40x20' || (t === 'produto' && size !== 'triple');
 // 'triple' (modelo Código) é exclusivo da Etiqueta de Produto — 4 códigos de
 // barras por folha 40x40mm (sem descrição/REF). Nome mantido pelas filas salvas.
 export type LabelSize = 'full' | 'half' | 'triple';
@@ -790,7 +838,66 @@ function escapeHtml(value: string): string {
 export const TEMPLATE_LABELS: Record<LabelTemplate, string> = {
   gondola: 'Etiqueta de Gôndola',
   produto: 'Etiqueta de Produto',
+  produto40x20: 'Etiqueta de Produto 40×20',
 };
+
+// Ordem e selo de cada modelo no seletor (compartilhado com a Fila de Impressão).
+export const TEMPLATE_OPTIONS: { id: LabelTemplate; badge?: string }[] = [
+  { id: 'gondola' },
+  { id: 'produto', badge: 'Adesiva 40×40mm' },
+  { id: 'produto40x20', badge: 'Elgin · 2 colunas' },
+];
+
+export function TemplateMenuOptions({ value, onPick }: { value: LabelTemplate; onPick: (t: LabelTemplate) => void }) {
+  return (
+    <>
+      {TEMPLATE_OPTIONS.map((opt, i) => (
+        <button
+          key={opt.id}
+          type="button"
+          onClick={() => onPick(opt.id)}
+          className={cn(
+            'w-full text-left px-2.5 py-2 text-[12.5px] font-bold text-on-surface hover:bg-[#FFF8D0] dark:hover:bg-[#FFE500]/[0.08] transition-colors flex items-center justify-between gap-2',
+            i > 0 && 'border-t border-[#E0D8BF] dark:border-white/[0.08]',
+            value === opt.id && 'shadow-[inset_3px_0_0_#D81E1E]',
+          )}
+        >
+          {TEMPLATE_LABELS[opt.id]}
+          {opt.badge && <span className="shrink-0 text-[8.5px] font-black uppercase tracking-[0.06em] px-1.5 py-0.5 bg-[#D81E1E]/10 text-[#D81E1E]">{opt.badge}</span>}
+        </button>
+      ))}
+    </>
+  );
+}
+
+// Aviso abaixo da busca explicando o que cada modelo faz.
+export function TemplateHints({ template }: { template: LabelTemplate }) {
+  if (template === 'produto') {
+    return (
+      <div className="flex flex-col gap-0.5">
+        <p className="text-[10px] font-semibold text-on-surface/40 flex items-center gap-1.5">
+          <IconHalfHorizontal size={11} />
+          Metade corta a etiqueta ao meio na horizontal (duas de 40×20mm)
+        </p>
+        <p className="text-[10px] font-semibold text-on-surface/40 flex items-center gap-1.5">
+          <IconTriple size={11} />
+          Código imprime 4 códigos de barras por etiqueta, sem descrição
+        </p>
+      </div>
+    );
+  }
+  if (template === 'produto40x20') {
+    return (
+      <p className="text-[10px] font-semibold text-on-surface/40 leading-snug">
+        Mesmo layout da Metade, no rolo de 40×20mm com 2 etiquetas por linha (Elgin). Cada disparo imprime uma linha; com quantidade ímpar, a coluna da direita da última linha sai em branco.
+      </p>
+    );
+  }
+  return null;
+}
+
+// Selo fixo no lugar do seletor Inteira/Metade quando o modelo tem um tamanho só.
+export const fixedSizeChipCls = 'h-[26px] flex items-center px-2 border border-[#E0D8BF] dark:border-white/[0.10] bg-black/[0.035] dark:bg-white/[0.03] font-mono text-[10.5px] font-medium text-on-surface/55 shrink-0';
 
 // Payload de um pedido remoto de impressão (Fila de Impressão / botão
 // "Enviar" deste módulo) — mandado como requisição pendente, sem imprimir na
@@ -868,7 +975,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
 
   // Campos preenchidos que entram na etiqueta deste item (vazio = layout mínimo).
   const labelInfoFor = useCallback((entry: QueueEntry) => {
-    if (template !== 'produto' || entry.size === 'triple' || !hasLabelInfo(entry.info)) return [];
+    if (!templateHasInfo(template, entry.size) || !hasLabelInfo(entry.info)) return [];
     const base = cadastroProduct(entry);
     return resolveLabelInfo(entry.info, base, manufacturersById.get(base.manufacturer_id));
   }, [template, cadastroProduct, manufacturersById]);
@@ -891,6 +998,17 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
   const previewTripleB = previewTripleItems[1] ?? SAMPLE_HALF_B;
   const previewTripleC = previewTripleItems[2] ?? SAMPLE_TRIPLE_C;
   const previewTripleD = previewTripleItems[3] ?? SAMPLE_TRIPLE_D;
+  // Rolo 40×20: primeira linha impressa = as 2 primeiras unidades da fila.
+  const previewRoloUnits = useMemo(() => {
+    const units: QueueEntry[] = [];
+    for (const [, e] of queueList) {
+      for (let i = 0; i < e.qty && units.length < 2; i++) units.push(e);
+      if (units.length >= 2) break;
+    }
+    return units;
+  }, [queueList]);
+  const previewRoloItems = previewRoloUnits.length > 0 ? previewRoloUnits.map(effectiveLabelProduct) : [SAMPLE_HALF_A, SAMPLE_HALF_B];
+  const previewRoloFields = previewRoloUnits.map(e => labelFieldsFor(e));
 
   const searchResults = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -1204,6 +1322,57 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
       .then(() => setTimeout(doPrint, 300));
   };
 
+  // Rolo 40×20 na Elgin: cada página é uma linha do rolo (2 etiquetas lado a
+  // lado, ROLO_40X20_W × 20mm). Unidade ímpar no fim sai com a 2ª coluna vazia.
+  const printRolo40x20 = async () => {
+    if (template !== 'produto40x20' || totalLabels === 0) return;
+    onPrinted?.();
+
+    const win = window.open('', '_blank', 'width=500,height=300');
+    if (!win) return;
+    await ensureArimoLoaded();
+
+    const units: { product: any; fields: { label: string; value: string }[] }[] = [];
+    queueList.forEach(([, entry]) => {
+      const product = effectiveLabelProduct(entry);
+      const fields = labelFieldsFor(entry);
+      for (let i = 0; i < entry.qty; i++) units.push({ product, fields });
+    });
+
+    const pages: string[] = [];
+    for (let i = 0; i < units.length; i += 2) {
+      const left = units[i];
+      const right = units[i + 1];
+      pages.push(
+        `<div class="rolo-row">${buildProdutoHalfHtml(left.product, left.fields, 0, 0)}${right ? buildProdutoHalfHtml(right.product, right.fields, 0, ROLO_40X20_COL2_X) : ''}</div>`
+      );
+    }
+
+    win.document.write(`
+      <html><head><title>Etiquetas de Produto 40x20 — Elgin L42 Pro</title>
+      <style>
+        @font-face { font-family: 'Arimo'; font-weight: 400 700; src: url('${window.location.origin}${ARIMO_FONT_URL}') format('truetype'); }
+        @page { size: ${ROLO_40X20_W}mm ${ROLO_40X20_H}mm; margin: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, Helvetica, sans-serif; }
+        .rolo-row {
+          position: relative; width: ${ROLO_40X20_W}mm; height: ${ROLO_40X20_H}mm;
+          page-break-after: always; overflow: hidden; background: #fff;
+        }
+        .rolo-row:last-child { page-break-after: auto; }
+        ${PRODUTO_FULL_PRINT_CSS}
+        ${PRODUTO_HALF_PRINT_CSS}
+      </style></head>
+      <body>${pages.join('')}</body></html>
+    `);
+    win.document.close();
+    win.focus();
+    const doPrint = () => { win.print(); };
+    (win.document.fonts?.load(`${NOME_FONT_WEIGHT} 16px Arimo`) ?? Promise.resolve())
+      .catch(() => undefined)
+      .then(() => setTimeout(doPrint, 300));
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -1281,21 +1450,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                                   transition={{ duration: 0.13 }}
                                   className="absolute z-10 mt-1 w-full origin-top border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#2E2E28] shadow-[0_16px_36px_-10px_rgba(0,0,0,0.3)]"
                                 >
-                                  <button
-                                    type="button"
-                                    onClick={() => { setTemplate('gondola'); setTemplateMenuOpen(false); }}
-                                    className={cn('w-full text-left px-2.5 py-2 text-[12.5px] font-bold text-on-surface hover:bg-[#FFF8D0] dark:hover:bg-[#FFE500]/[0.08] transition-colors', template === 'gondola' && 'shadow-[inset_3px_0_0_#D81E1E]')}
-                                  >
-                                    {TEMPLATE_LABELS.gondola}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => { setTemplate('produto'); setTemplateMenuOpen(false); }}
-                                    className={cn('w-full text-left px-2.5 py-2 text-[12.5px] font-bold text-on-surface hover:bg-[#FFF8D0] dark:hover:bg-[#FFE500]/[0.08] transition-colors flex items-center justify-between gap-2 border-t border-[#E0D8BF] dark:border-white/[0.08]', template === 'produto' && 'shadow-[inset_3px_0_0_#D81E1E]')}
-                                  >
-                                    {TEMPLATE_LABELS.produto}
-                                    <span className="text-[8.5px] font-black uppercase tracking-[0.06em] px-1.5 py-0.5 bg-[#D81E1E]/10 text-[#D81E1E]">Adesiva 40×40mm</span>
-                                  </button>
+                                  <TemplateMenuOptions value={template} onPick={t => { setTemplate(t); setTemplateMenuOpen(false); }} />
                                 </motion.div>
                               )}
                             </AnimatePresence>
@@ -1339,6 +1494,9 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                                   </p>
                                 </div>
                                 <div className="flex items-center gap-2 flex-shrink-0">
+                                  {!templateHasSizes(template) ? (
+                                    <span className={fixedSizeChipCls}>40×20</span>
+                                  ) : (
                                   <div className={segCls}>
                                     <button type="button" onClick={() => setDraftSize(product.id, 'full')} className={segBtnCls(draft.size === 'full')}>
                                       {template === 'produto' && <IconWholeSquare size={12} />}
@@ -1365,6 +1523,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                                       </button>
                                     )}
                                   </div>
+                                  )}
                                   <input
                                     type="number"
                                     min={1}
@@ -1406,18 +1565,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                         </div>
                       )}
 
-                      {template === 'produto' && (
-                        <div className="flex flex-col gap-0.5">
-                          <p className="text-[10px] font-semibold text-on-surface/40 flex items-center gap-1.5">
-                            <IconHalfHorizontal size={11} />
-                            Metade corta a etiqueta ao meio na horizontal (duas de 40×20mm)
-                          </p>
-                          <p className="text-[10px] font-semibold text-on-surface/40 flex items-center gap-1.5">
-                            <IconTriple size={11} />
-                            Código imprime 4 códigos de barras por etiqueta, sem descrição
-                          </p>
-                        </div>
-                      )}
+                      <TemplateHints template={template} />
                     </div>
                   </div>
 
@@ -1459,6 +1607,14 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                             <p className="text-center font-mono text-[10px] font-medium text-on-surface/40 mt-1.5">2 × {(ELGIN_LABEL_W / 2).toFixed(1)} × {ELGIN_LABEL_H}mm</p>
                           </div>
                         </div>
+                      ) : template === 'produto40x20' ? (
+                        <div>
+                          <span className={labelCls}>1ª linha do rolo</span>
+                          <ProdutoPreviewRolo items={[previewRoloItems[0], previewRoloItems[1]]} extraFields={previewRoloFields} />
+                          <p className="text-center font-mono text-[10px] font-medium text-on-surface/40 mt-1.5">
+                            2 × {PRODUTO_LABEL_SIZE} × {ROLO_40X20_H}mm · papel {ROLO_40X20_W} × {ROLO_40X20_H}mm · {Math.ceil(totalLabels / 2)} disparo{Math.ceil(totalLabels / 2) !== 1 ? 's' : ''}
+                          </p>
+                        </div>
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                           <div>
@@ -1499,7 +1655,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                         {queueList.map(([id, entry], idx) => {
                           const edited = !!entry.overrides;
                           const effective = effectiveLabelProduct(entry);
-                          const infoAvailable = template === 'produto' && entry.size !== 'triple';
+                          const infoAvailable = templateHasInfo(template, entry.size);
                           const infoOn = infoAvailable && hasLabelInfo(entry.info);
                           const infoRows = infoOn ? labelInfoFor(entry) : [];
                           const infoMissing = infoOn ? LABEL_INFO_FIELDS.filter(f => entry.info?.[f.key] && !infoRows.some(r => r.key === f.key)) : [];
@@ -1512,6 +1668,9 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                                   <span className="shrink-0 text-[8px] font-black uppercase tracking-[0.06em] px-1.5 py-0.5 bg-[#D4C000]/25 dark:bg-[#FFE500]/20 text-[#7A6A00] dark:text-[#FFE500]">Editado</span>
                                 )}
                               </span>
+                              {!templateHasSizes(template) ? (
+                                <span className={fixedSizeChipCls}>40×20</span>
+                              ) : (
                               <div className={segCls}>
                                 <button type="button" onClick={() => updateQueueSize(id, 'full')} className={segBtnCls(entry.size === 'full')}>
                                   Inteira
@@ -1525,6 +1684,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                                   </button>
                                 )}
                               </div>
+                              )}
 
                               <div className="flex items-stretch h-[26px] flex-shrink-0 border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18]">
                                 <button
@@ -1556,7 +1716,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                                   <Plus size={11} strokeWidth={2.6} />
                                 </button>
                               </div>
-                              {template === 'produto' && (
+                              {template !== 'gondola' && (
                                 <button
                                   type="button"
                                   role="switch"
@@ -1662,7 +1822,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
               )}
               <button
                 type="button"
-                onClick={() => (template === 'gondola' ? printElgin() : printProduto())}
+                onClick={() => (template === 'gondola' ? printElgin() : template === 'produto40x20' ? printRolo40x20() : printProduto())}
                 disabled={totalLabels === 0}
                 className={btnPrimaryCls}
               >
@@ -1684,7 +1844,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
           <LabelInfoModal
             isOpen={!!infoEntry}
             product={infoEntry ? cadastroProduct(infoEntry) : null}
-            subtitle={infoEntry ? `${effectiveLabelProduct(infoEntry).name} · ${infoEntry.size === 'half' ? 'Metade' : 'Inteira'} ×${infoEntry.qty}` : undefined}
+            subtitle={infoEntry ? `${effectiveLabelProduct(infoEntry).name} · ${template === 'produto40x20' ? '40×20' : infoEntry.size === 'half' ? 'Metade' : 'Inteira'} ×${infoEntry.qty}` : undefined}
             config={infoEntry?.info}
             manufacturers={manufacturers}
             onManufacturerSaved={upsertManufacturer}

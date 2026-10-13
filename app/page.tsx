@@ -549,7 +549,7 @@ export default function Page() {
   const [showFilaImpressaoModal, setShowFilaImpressaoModal] = useState(false);
   const [printQueuePreload, setPrintQueuePreload] = useState<{
     requestId: string;
-    template: 'gondola' | 'produto';
+    template: 'gondola' | 'produto' | 'produto40x20';
     queue: { product: any; qty: number; size: 'full' | 'half' | 'triple'; info?: LabelInfoConfig }[];
   } | null>(null);
   const [bulkDrafts, setBulkDrafts] = useState<any[]>([]);
