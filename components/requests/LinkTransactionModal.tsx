@@ -13,6 +13,9 @@ import type { ReviewNote } from './LogisticsCenter';
 import { useFinanceEstablishments } from '@/hooks/useFinanceEstablishments';
 import { useFinanceTags } from '@/hooks/useFinanceTags';
 import { TagSelector } from '@/components/finance/TagSelector';
+import { Highlight, FavMatchWhy } from '@/components/finance/FavorecidoMatch';
+import { searchFavorecidos } from '@/lib/favorecidoSearch';
+import type { Favorecido, Supplier } from '@/types/finance';
 
 const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
 
@@ -51,12 +54,6 @@ interface BankAccount {
   numero_conta: string;
   imagem_url: string;
   saldo_inicial: number;
-}
-
-interface Favorecido {
-  id: string;
-  nome_fiscal: string;
-  nome_banco: string;
 }
 
 type TxForm = Omit<Transaction, 'id'> & { vencimento: string; tag_ids: string[]; observacoes: string | null };
@@ -197,6 +194,21 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
   const [novoFavorecido,      setNovoFavorecido]      = useState('');
   const [novoNomeBanco,       setNovoNomeBanco]       = useState('');
   const [favSubmitting,       setFavSubmitting]       = useState(false);
+  const [favListSearch,       setFavListSearch]       = useState('');
+
+  // ── Combobox de Favorecido (mesmo do Controle Financeiro) ────────────────
+  const [suppliers,     setSuppliers]     = useState<Supplier[]>([]);
+  const [favOpen,       setFavOpen]       = useState(false);
+  const [favActiveIdx,  setFavActiveIdx]  = useState(0);
+  const favRef = useRef<HTMLDivElement>(null);
+  const favMatches = useMemo(
+    () => searchFavorecidos(favorecidos, suppliers, txForm.favorecido),
+    [favorecidos, suppliers, txForm.favorecido],
+  );
+  const favListMatches = useMemo(
+    () => searchFavorecidos(favorecidos, suppliers, favListSearch),
+    [favorecidos, suppliers, favListSearch],
+  );
 
   const calendarRef = useRef<HTMLDivElement>(null);
 
@@ -222,6 +234,8 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
     const handler = (e: MouseEvent) => {
       if (calendarRef.current && !calendarRef.current.contains(e.target as Node))
         setShowCalendarPopover(false);
+      if (favRef.current && !favRef.current.contains(e.target as Node))
+        setFavOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -230,14 +244,16 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
   // ── Data fetching ─────────────────────────────────────────────────────────
   const fetchAll = async () => {
     setLoading(true);
-    const [txRes, accRes, favRes] = await Promise.all([
+    const [txRes, accRes, favRes, supRes] = await Promise.all([
       supabase.from('finance_transactions').select('*').order('data', { ascending: false }),
       supabase.from('finance_accounts').select('*').order('created_at', { ascending: false }),
       supabase.from('finance_favorecidos').select('*').order('nome_fiscal'),
+      supabase.from('suppliers').select('id, name, nome_fantasia, razao_social, documento').order('name'),
     ]);
     if (txRes.data)  setTransactions(txRes.data as Transaction[]);
     if (accRes.data) setAccounts(accRes.data as BankAccount[]);
     if (favRes.data) setFavorecidos(favRes.data as Favorecido[]);
+    if (supRes.data) setSuppliers(supRes.data as Supplier[]);
     setLoading(false);
   };
 
@@ -352,7 +368,7 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
   const openSub = (tab: Exclude<CreateTab, 'transaction'>) => {
     setCreateTab(tab);
     if (tab === 'account')    { setAccountForm(emptyAccountForm()); setAccountError(null); }
-    if (tab === 'favorecido') { setNovoFavorecido(''); setNovoNomeBanco(''); }
+    if (tab === 'favorecido') { setNovoFavorecido(''); setNovoNomeBanco(''); setFavListSearch(''); }
   };
 
   const nextParcelaDate = (prev: typeof parcelas) => {
@@ -935,10 +951,71 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
                       <div className="flex flex-col gap-1">
                         <label className={labelCls}>Favorecido</label>
                         <div className="flex gap-2">
-                          <input list="link-fav-list" value={txForm.favorecido} onChange={e => setTxForm(f => ({ ...f, favorecido: e.target.value }))} placeholder="Nome do favorecido" className={inputCls} />
-                          <datalist id="link-fav-list">
-                            {favorecidos.map(f => <option key={f.id} value={f.nome_fiscal} />)}
-                          </datalist>
+                          <div className="relative flex-1 min-w-0" ref={favRef}>
+                            <input
+                              value={txForm.favorecido}
+                              onChange={e => { setTxForm(f => ({ ...f, favorecido: e.target.value })); setFavActiveIdx(0); setFavOpen(true); }}
+                              onFocus={() => setFavOpen(true)}
+                              onKeyDown={e => {
+                                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                                  e.preventDefault();
+                                  setFavOpen(true);
+                                  const n = favMatches.length;
+                                  if (n) setFavActiveIdx(i => (i + (e.key === 'ArrowDown' ? 1 : n - 1)) % n);
+                                } else if (e.key === 'Enter' && favOpen && favMatches[favActiveIdx]) {
+                                  e.preventDefault();
+                                  setTxForm(f => ({ ...f, favorecido: favMatches[favActiveIdx].fav.nome_fiscal }));
+                                  setFavOpen(false);
+                                } else if (e.key === 'Escape' && favOpen) {
+                                  e.stopPropagation();
+                                  setFavOpen(false);
+                                }
+                              }}
+                              placeholder="Nome, apelido, extrato ou CNPJ..."
+                              className={inputCls}
+                              autoComplete="off"
+                            />
+                            <AnimatePresence>
+                              {favOpen && (favMatches.length > 0 || !!txForm.favorecido.trim()) && (
+                                <motion.ul
+                                  initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                                  exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                                  transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
+                                  className="absolute left-0 right-0 top-full mt-0.5 z-50 bg-white dark:bg-[#2E2E28] border border-[#E0D8BF] dark:border-white/[0.10] shadow-xl overflow-hidden max-h-60 overflow-y-auto origin-top"
+                                >
+                                  {txForm.favorecido.trim() && favMatches.length > 0 && (
+                                    <li className="h-6 px-2.5 flex items-center text-[9px] font-black uppercase tracking-[0.1em] text-on-surface/30 border-b border-[#E0D8BF] dark:border-white/[0.10]">
+                                      {favMatches.length === 1 ? '1 resultado' : `${favMatches.length} resultados`}
+                                      <span className="ml-auto font-['DM_Mono',monospace] font-medium normal-case tracking-normal">↑↓ Enter</span>
+                                    </li>
+                                  )}
+                                  {favMatches.map((m, idx) => (
+                                    <li
+                                      key={m.fav.id}
+                                      onMouseDown={() => { setTxForm(f => ({ ...f, favorecido: m.fav.nome_fiscal })); setFavOpen(false); }}
+                                      onMouseEnter={() => setFavActiveIdx(idx)}
+                                      className={cn(
+                                        'px-2.5 py-[7px] flex flex-col gap-[3px] cursor-pointer border-l-2 transition-colors',
+                                        idx === favActiveIdx ? 'bg-[#FFF8D0] dark:bg-[#FFE500]/[0.08] border-[#D81E1E]' : 'border-transparent',
+                                      )}
+                                    >
+                                      <span className="flex items-baseline gap-2 min-w-0">
+                                        <Highlight text={m.fav.nome_fiscal} range={m.field === 'nome' ? m.range : null} className="text-[13px] font-bold text-on-surface truncate" />
+                                        {m.fav.nome_banco && m.field !== 'extrato' && (
+                                          <span className="ml-auto text-[11px] font-semibold text-on-surface/30 truncate shrink-0 max-w-[45%]">{m.fav.nome_banco}</span>
+                                        )}
+                                      </span>
+                                      <FavMatchWhy match={m} />
+                                    </li>
+                                  ))}
+                                  {favMatches.length === 0 && (
+                                    <li className="px-2.5 py-2 text-[12px] italic text-on-surface/45">Nenhum favorecido encontrado</li>
+                                  )}
+                                </motion.ul>
+                              )}
+                            </AnimatePresence>
+                          </div>
                           <button type="button" onClick={() => openSub('favorecido')} title="Cadastrar favorecido" className={dashedBtnCls}>
                             <Plus size={15} />
                           </button>
@@ -1083,25 +1160,6 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
                               <span key={`fill-${i}`} className="hidden sm:block bg-white dark:bg-[#1E1E18]" />
                             ))}
                           </div>
-
-                          {/* Boleto: código de barras de cada parcela */}
-                          {txForm.tipo_pagamento === 'Boleto' && (
-                            <div className="px-2.5 pt-2 flex flex-col gap-1.5">
-                              <span className={labelCls}>Código de barras do boleto</span>
-                              {parcelas.map((p, idx) => (
-                                <div key={idx} className="flex items-center gap-1.5">
-                                  <span className="w-[22px] shrink-0 text-center text-[10px] font-black text-on-surface/40">{p.seq}</span>
-                                  <input
-                                    type="text"
-                                    value={p.codigo_barras}
-                                    onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, codigo_barras: e.target.value } : x))}
-                                    placeholder="Código de barras do boleto"
-                                    className={cn(parcInputCls, 'flex-1 min-w-0')}
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          )}
 
                           <div className="px-2.5 py-2">
                             <button
@@ -1307,13 +1365,46 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
                       <div className={sectionHeadCls}>
                         <Users size={12} strokeWidth={2.4} className="text-[#D81E1E] shrink-0" />
                         <span className={sectionTitleCls}>Favorecidos cadastrados</span>
-                        <span className={sectionCountCls}>{favorecidos.length}</span>
+                        <span className={sectionCountCls}>
+                          {favListSearch.trim() ? `${favListMatches.length} de ${favorecidos.length}` : favorecidos.length}
+                        </span>
+                      </div>
+                      <div className="px-2.5 pt-2.5">
+                        <div className="relative">
+                          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface/35 pointer-events-none" />
+                          <input
+                            type="text"
+                            value={favListSearch}
+                            onChange={e => setFavListSearch(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Escape' && favListSearch) { e.stopPropagation(); setFavListSearch(''); } }}
+                            placeholder="Buscar por nome, apelido, extrato ou CNPJ..."
+                            className={cn(inputCls, 'pl-8', favListSearch && 'pr-8')}
+                            autoComplete="off"
+                          />
+                          {favListSearch && (
+                            <button
+                              type="button"
+                              onClick={() => setFavListSearch('')}
+                              title="Limpar busca"
+                              className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-on-surface/40 hover:text-[#D81E1E] transition-colors"
+                            >
+                              <X size={13} />
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div className="p-2.5 max-h-52 overflow-y-auto">
-                        {favorecidos.map((f, idx) => (
-                          <div key={f.id} className={cn('flex items-center gap-2.5 px-2.5 py-1.5 bg-white dark:bg-[#1E1E18] border border-[#B5AA86] dark:border-white/[0.10]', idx > 0 && 'border-t-0')}>
-                            <p className="text-[12.5px] font-extrabold text-on-surface truncate flex-1 min-w-0">{f.nome_fiscal}</p>
-                            {f.nome_banco && <p className="text-[11px] font-semibold text-on-surface/45 truncate max-w-[45%]">{f.nome_banco}</p>}
+                        {favListMatches.length === 0 ? (
+                          <p className="px-2.5 py-3 text-[12px] italic text-on-surface/45 bg-white dark:bg-[#1E1E18] border border-[#B5AA86] dark:border-white/[0.10]">
+                            Nenhum favorecido encontrado
+                          </p>
+                        ) : favListMatches.map((m, idx) => (
+                          <div key={m.fav.id} className={cn('flex flex-col gap-[3px] px-2.5 py-1.5 bg-white dark:bg-[#1E1E18] border border-[#B5AA86] dark:border-white/[0.10]', idx > 0 && 'border-t-0')}>
+                            <span className="flex items-center gap-2.5 min-w-0">
+                              <Highlight text={m.fav.nome_fiscal} range={m.field === 'nome' ? m.range : null} className="text-[12.5px] font-extrabold text-on-surface truncate flex-1 min-w-0" />
+                              {m.fav.nome_banco && m.field !== 'extrato' && <span className="text-[11px] font-semibold text-on-surface/45 truncate max-w-[45%]">{m.fav.nome_banco}</span>}
+                            </span>
+                            <FavMatchWhy match={m} />
                           </div>
                         ))}
                       </div>
