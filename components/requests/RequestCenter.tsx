@@ -3,20 +3,14 @@
 import {
   Plus,
   X,
-  Edit2,
   Check,
   Trash2,
   ArrowLeftRight,
-  Package,
-  Clock,
   CheckCircle2,
   ImageOff,
   Search,
-  ClipboardList,
-  FilePenLine,
   CheckSquare,
-  AlertTriangle,
-  ChevronDown,
+  ChevronRight,
   Info,
   BarChart3,
   Printer,
@@ -24,31 +18,7 @@ import {
 import { motion } from 'motion/react';
 import { cn, getDirectImageUrl } from '@/lib/utils';
 import Image from 'next/image';
-import { useState, useMemo } from 'react';
-
-// ── Thermometer SVG icon ────────────────────────────────────────────────────
-
-function ThermometerIcon({ level, className }: { level: 'Alta' | 'Média' | 'Baixa' | null; className?: string }) {
-  const fillPct = level === 'Alta' ? 85 : level === 'Média' ? 45 : level === 'Baixa' ? 15 : 20;
-  const color = level === 'Alta' ? '#EF4444' : level === 'Média' ? '#F97316' : level === 'Baixa' ? '#22C55E' : 'currentColor';
-  const tubeH = 20; // total tube height in svg units
-  const filled = (fillPct / 100) * tubeH;
-  return (
-    <svg viewBox="0 0 24 40" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
-      {/* Tube outline */}
-      <rect x="9" y="2" width="6" height="22" rx="3" stroke={color} strokeWidth="1.5" fill="none" opacity="0.3" />
-      {/* Fill */}
-      <rect x="10.5" y={2 + tubeH - filled} width="3" height={filled} rx="1.5" fill={color} />
-      {/* Bulb */}
-      <circle cx="12" cy="31" r="6" fill={color} />
-      <circle cx="12" cy="31" r="3.5" fill="white" opacity="0.35" />
-      {/* Tick marks */}
-      <line x1="15" y1="8"  x2="17" y2="8"  stroke={color} strokeWidth="1" opacity="0.5" />
-      <line x1="15" y1="13" x2="17" y2="13" stroke={color} strokeWidth="1" opacity="0.5" />
-      <line x1="15" y1="18" x2="17" y2="18" stroke={color} strokeWidth="1" opacity="0.5" />
-    </svg>
-  );
-}
+import { Fragment, useState, useMemo } from 'react';
 
 // ── Análise de Produtos: cruzamento com o histórico de notas ───────────────
 
@@ -65,7 +35,7 @@ interface SupplierStat {
 // Cruza um produto com o histórico de notas aprovadas: quem já forneceu, com que
 // frequência, a que preço (custo unitário = valor da linha / multiplicador da embalagem)
 // e em quantos dias entre "Data do pedido" e "Data de recebimento" (quando ambas existem).
-// Compartilhada entre a visão "Por Produto" (1 produto) e "Por Fornecedor" (todos de uma vez).
+// Compartilhada entre a visão "Por Produto" e "Por Fornecedor".
 function computeSupplierBreakdown(productId: string, reviewNotes: any[]): SupplierStat[] {
   const bySupplier = new Map<string, {
     supplierName: string; qtyTotal: number; noteCount: number;
@@ -115,11 +85,83 @@ function computeSupplierBreakdown(productId: string, reviewNotes: any[]): Suppli
     .sort((a, b) => b.qtyTotal - a.qtyTotal);
 }
 
+// Fornecedores empatados no menor preço / menor prazo de um produto (viram selos).
+function bestKeys(breakdown: SupplierStat[]) {
+  const priced = breakdown.filter(s => s.lastPrice != null);
+  const timed = breakdown.filter(s => s.avgLeadTime != null);
+  const minPrice = priced.length ? Math.min(...priced.map(s => s.lastPrice as number)) : null;
+  const minLead = timed.length ? Math.min(...timed.map(s => s.avgLeadTime as number)) : null;
+  return {
+    minPrice,
+    price: new Set(priced.filter(s => s.lastPrice === minPrice).map(s => s.supplierKey)),
+    lead: new Set(timed.filter(s => s.avgLeadTime === minLead).map(s => s.supplierKey)),
+  };
+}
+
 // Faixa de "atenção" antes do crítico: 20% acima do mínimo, arredondado pra cima,
 // com margem mínima de 1 unidade — evita que mínimos pequenos (1-4 un) fiquem sem faixa.
 function attentionThreshold(minStock: number): number {
   return minStock + Math.max(Math.ceil(minStock * 0.2), minStock > 0 ? 1 : 0);
 }
+
+const fmtBRL = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+// ── Tokens visuais do padrão quadrado ───────────────────────────────────────
+
+const PILL = 'inline-flex items-center gap-1.5 h-5 px-2 border text-[9.5px] font-black uppercase tracking-[0.05em] whitespace-nowrap shrink-0';
+const TONE = {
+  red: 'text-[#D81E1E] border-[rgba(216,30,30,0.3)] bg-[rgba(216,30,30,0.06)] dark:border-[rgba(216,30,30,0.4)] dark:bg-[rgba(216,30,30,0.10)]',
+  amber: 'text-[#92400E] dark:text-[#FCD34D] border-amber-400/55 dark:border-amber-400/40 bg-amber-50 dark:bg-amber-400/[0.07]',
+  green: 'text-[#0A7A55] dark:text-[#34D399] border-[rgba(10,122,85,0.3)] dark:border-[rgba(52,211,153,0.3)] bg-[rgba(10,122,85,0.08)] dark:bg-[rgba(52,211,153,0.08)]',
+  blue: 'text-[#2563EB] dark:text-[#60A5FA] border-[rgba(37,99,235,0.3)] dark:border-[rgba(96,165,250,0.3)] bg-[rgba(37,99,235,0.06)] dark:bg-[rgba(96,165,250,0.08)]',
+  purple: 'text-[#7C3AED] dark:text-[#A78BFA] border-[rgba(124,58,237,0.3)] dark:border-[rgba(167,139,250,0.3)] bg-[rgba(124,58,237,0.06)] dark:bg-[rgba(167,139,250,0.08)]',
+  neutral: 'text-on-surface border-[#CFC4A2] dark:border-white/20 bg-black/[0.035] dark:bg-white/[0.03]',
+} as const;
+type Tone = keyof typeof TONE;
+
+// Faixa de 3px no topo do card, na cor do tipo/prioridade.
+const ACCENT: Record<Tone, string> = {
+  red: 'shadow-[inset_0_3px_0_#D81E1E]',
+  amber: 'shadow-[inset_0_3px_0_#F59E0B]',
+  green: 'shadow-[inset_0_3px_0_#0A7A55] dark:shadow-[inset_0_3px_0_#34D399]',
+  blue: 'shadow-[inset_0_3px_0_#2563EB] dark:shadow-[inset_0_3px_0_#60A5FA]',
+  purple: 'shadow-[inset_0_3px_0_#7C3AED] dark:shadow-[inset_0_3px_0_#A78BFA]',
+  neutral: 'shadow-[inset_0_3px_0_#1A1A0E] dark:shadow-[inset_0_3px_0_#F2F0E3]',
+};
+
+const BORDER = 'border-[#E0D8BF] dark:border-white/[0.10]';
+const SURFACE = 'bg-white dark:bg-[#1E1E18]';
+const SUB = 'bg-[#FDFBF4] dark:bg-[#1B1B16]';
+const AB = 'h-[30px] inline-flex items-center justify-center gap-1 px-2 border text-[9.5px] font-black uppercase tracking-[0.05em] whitespace-nowrap transition-[color,background-color,border-color,opacity,transform] duration-150 active:scale-[0.95]';
+const AB_GHOST = cn(AB, 'flex-1', BORDER, SURFACE, 'text-on-surface/45 hover:text-on-surface hover:border-[#CFC4A2] dark:hover:border-white/20');
+const AB_OK = cn(AB, 'flex-1 bg-primary border-primary text-white hover:bg-[#B91818]');
+const AB_DEL = cn(AB, 'w-[30px] px-0 shrink-0', BORDER, SURFACE, 'text-on-surface/45 opacity-60 group-hover:opacity-100 hover:!text-[#D81E1E] hover:border-[rgba(216,30,30,0.3)] hover:bg-[rgba(216,30,30,0.06)]');
+const TH = 'h-8 px-2.5 text-left whitespace-nowrap text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.55)] bg-[#FFEC4D]';
+const TH_LINE = 'shadow-[inset_-1px_0_0_#B8A31F,inset_0_-1.5px_0_#8F7E10]';
+const TH_LAST = 'shadow-[inset_0_-1.5px_0_#8F7E10]';
+const TABLE = 'w-full table-fixed text-[12.5px] border-collapse [&_td]:px-2.5 [&_td]:whitespace-nowrap [&_td]:overflow-hidden [&_td]:text-ellipsis [&_td]:border-r [&_td]:border-b [&_td]:border-[#A8A290] dark:[&_td]:border-white/20 [&_td:last-child]:border-r-0';
+const ROW = (idx: number) => cn(
+  'transition-colors',
+  idx % 2 === 0 ? 'bg-white dark:bg-[#1E1E18]' : 'bg-[#FAF7EE] dark:bg-[#1A1A15]',
+  'hover:bg-[#FFF8D0] dark:hover:bg-[#FFE500]/[0.06]',
+);
+const CHILD = cn('[&_td]:h-[30px] text-[12px] text-on-surface/45', SUB);
+
+type RequestKind = 'impressao' | 'tarefa' | 'alteracao' | 'rascunho' | 'produto';
+
+function requestKind(rc: any): RequestKind {
+  if (rc.is_print_queue) return 'impressao';
+  if (rc.is_task) return 'tarefa';
+  if (rc.is_product_alteration) return 'alteracao';
+  if (rc.is_bulk_products) return 'rascunho';
+  return 'produto';
+}
+
+const FIELD_LABELS: Record<string, string> = {
+  name: 'Nome', sku: 'SKU', price: 'Preço', count: 'Estoque',
+  location: 'Localização', ean: 'EAN', category: 'Categoria',
+  subcategory: 'Subcategoria', brand: 'Marca', status: 'Status',
+};
 
 interface RequestCenterProps {
   requests: any[];
@@ -143,10 +185,10 @@ function ProductImage({ src, alt }: { src: string, alt: string }) {
   return (
     <div className="relative w-full h-full flex items-center justify-center">
       {directSrc && !error ? (
-        <Image 
+        <Image
           key={directSrc}
-          className="object-cover" 
-          alt={alt} 
+          className="object-cover"
+          alt={alt}
           src={directSrc}
           fill
           referrerPolicy="no-referrer"
@@ -154,9 +196,32 @@ function ProductImage({ src, alt }: { src: string, alt: string }) {
           onError={() => setError(true)}
         />
       ) : (
-        <ImageOff size={20} className="text-on-surface/10" />
+        <ImageOff size={18} className="text-on-surface/15" />
       )}
     </div>
+  );
+}
+
+// Barra de nível do estoque com a marca do mínimo.
+function StockLevel({ count, min, tone }: { count: number; min: number; tone: 'red' | 'amber' }) {
+  const scale = Math.max(attentionThreshold(min) * 1.5, count, 1);
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className={cn('relative w-[70px] h-1.5 border', BORDER, 'bg-black/[0.035] dark:bg-white/[0.03]')}>
+        <span className={cn('block h-full', tone === 'red' ? 'bg-[#D81E1E]' : 'bg-[#F59E0B]')} style={{ width: `${Math.min(100, (count / scale) * 100)}%` }} />
+        <span className="absolute -top-[3px] -bottom-[3px] w-[1.5px] bg-on-surface/50" style={{ left: `${(min / scale) * 100}%` }} />
+      </span>
+      <span className="font-mono text-[11.5px] text-on-surface">{count} / {min}</span>
+    </span>
+  );
+}
+
+function SupplierTags({ isBestPrice, isBestLead }: { isBestPrice: boolean; isBestLead: boolean }) {
+  return (
+    <>
+      {isBestPrice && <span className="ml-1.5 text-[8.5px] font-black uppercase tracking-[0.05em] px-[5px] leading-[15px] border border-current text-[#0A7A55] dark:text-[#34D399]">Melhor preço</span>}
+      {isBestLead && <span className="ml-1.5 text-[8.5px] font-black uppercase tracking-[0.05em] px-[5px] leading-[15px] border border-current text-[#2563EB] dark:text-[#60A5FA]">Menor prazo</span>}
+    </>
   );
 }
 
@@ -206,35 +271,22 @@ export function RequestCenter({
     [products]
   );
 
-  const supplierBreakdown = useMemo(() => {
-    if (!expandedProductId) return [];
-    return computeSupplierBreakdown(expandedProductId, reviewNotes);
-  }, [expandedProductId, reviewNotes]);
+  // Fornecedores de cada produto em falta/atenção — alimenta a coluna "Melhor preço",
+  // as linhas expandidas e a visão "Por Fornecedor". Só calcula com a aba Análise aberta
+  // (cruza todos esses produtos com o histórico de notas de uma vez).
+  const breakdownByProduct = useMemo(() => {
+    const map = new Map<string, SupplierStat[]>();
+    if (activeView !== 'analise') return map;
+    for (const p of lowStockProducts) map.set(p.id, computeSupplierBreakdown(p.id, reviewNotes));
+    return map;
+  }, [activeView, lowStockProducts, reviewNotes]);
 
-  const bestPriceKeys = useMemo(() => {
-    const priced = supplierBreakdown.filter(s => s.lastPrice != null);
-    if (priced.length === 0) return new Set<string>();
-    const min = Math.min(...priced.map(s => s.lastPrice as number));
-    return new Set(priced.filter(s => s.lastPrice === min).map(s => s.supplierKey));
-  }, [supplierBreakdown]);
-
-  const bestLeadTimeKeys = useMemo(() => {
-    const timed = supplierBreakdown.filter(s => s.avgLeadTime != null);
-    if (timed.length === 0) return new Set<string>();
-    const min = Math.min(...timed.map(s => s.avgLeadTime as number));
-    return new Set(timed.filter(s => s.avgLeadTime === min).map(s => s.supplierKey));
-  }, [supplierBreakdown]);
-
-  // Visão "Por Fornecedor" — só calculada quando essa sub-view está ativa (é mais
-  // pesada: cruza TODOS os produtos em falta/atenção com o histórico de notas de uma vez).
   const supplierGroups = useMemo(() => {
-    if (analysisGrouping !== 'fornecedor' || lowStockProducts.length === 0) return { groups: [], uncovered: [] as any[] };
-
     const bySupplier = new Map<string, { supplierName: string; products: { product: any; stat: SupplierStat }[] }>();
     const uncovered: any[] = [];
 
     for (const product of lowStockProducts) {
-      const breakdown = computeSupplierBreakdown(product.id, reviewNotes);
+      const breakdown = breakdownByProduct.get(product.id) ?? [];
       if (breakdown.length === 0) {
         uncovered.push(product);
         continue;
@@ -254,7 +306,7 @@ export function RequestCenter({
       .sort((a, b) => b.products.length - a.products.length);
 
     return { groups, uncovered };
-  }, [analysisGrouping, lowStockProducts, reviewNotes]);
+  }, [lowStockProducts, breakdownByProduct]);
 
   // Inicializa checkedItems a partir dos dados salvos no banco
   const [checkedItems, setCheckedItems] = useState<Record<string, Set<number>>>(() => {
@@ -271,6 +323,34 @@ export function RequestCenter({
   });
 
   const [filterQuery, setFilterQuery] = useState('');
+  const [kindFilter, setKindFilter] = useState<'todas' | RequestKind>('todas');
+
+  // Requisições já com o JSON aberto e o tipo resolvido, pra filtrar/contar sem re-parsear.
+  const parsedRequests = useMemo(() => pendingRequests.map(request => {
+    let rc: any = {};
+    try { rc = JSON.parse(request.requested_changes || '{}'); } catch { /* ignora */ }
+    const kind = requestKind(rc);
+    const productData = kind === 'produto' && !rc.is_new_product ? request.products : rc;
+    const haystack = [
+      rc.title, rc.observacao, rc.product_name, rc.product_sku,
+      productData?.name, productData?.sku, productData?.brand,
+      ...(Array.isArray(rc.items) ? rc.items.map((it: any) => `${it.name || ''} ${it.ean || ''} ${it.sku || ''}`) : []),
+    ].filter(Boolean).join(' ').toLowerCase();
+    return { request, rc, kind, productData, haystack };
+  }), [pendingRequests]);
+
+  const kindCounts = useMemo(() => {
+    const c: Record<'todas' | RequestKind, number> = { todas: parsedRequests.length, rascunho: 0, tarefa: 0, alteracao: 0, impressao: 0, produto: 0 };
+    for (const p of parsedRequests) c[p.kind] += 1;
+    return c;
+  }, [parsedRequests]);
+
+  const visibleRequests = useMemo(() => {
+    const q = filterQuery.trim().toLowerCase();
+    return parsedRequests.filter(p =>
+      (kindFilter === 'todas' || p.kind === kindFilter) && (!q || p.haystack.includes(q))
+    );
+  }, [parsedRequests, kindFilter, filterQuery]);
 
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -290,10 +370,10 @@ export function RequestCenter({
     });
   }
 
+  const allVisibleSelected = visibleRequests.length > 0 && visibleRequests.every(p => selectedIds.has(p.request.id));
+
   function toggleSelectAll() {
-    setSelectedIds(prev =>
-      prev.size === pendingRequests.length ? new Set() : new Set(pendingRequests.map(r => r.id))
-    );
+    setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleRequests.map(p => p.request.id)));
   }
 
   function handleBulkApprove() {
@@ -318,42 +398,246 @@ export function RequestCenter({
     });
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Header — Desktop: mesmo padrão "folder tabs" da página Inventory */}
-      <div className="relative mb-14 hidden lg:block">
-        <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-tl-[20px] rounded-tr-[20px] rounded-br-[20px] px-6 py-5 flex items-center gap-3.5">
-          <div className="w-[52px] h-[52px] rounded-[14px] bg-[rgba(26,26,10,0.09)] dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center text-[#1A1A0E] dark:text-primary shrink-0">
-            <ArrowLeftRight size={24} strokeWidth={2} />
+  const TABS = [
+    { id: 'requisicoes' as const, label: 'Requisições', count: pendingRequests.length, alert: false },
+    { id: 'analise' as const, label: 'Análise', count: stockStatusProducts.critical.length, alert: true },
+  ];
+
+  // ── Card de requisição ───────────────────────────────────────────────────
+  function renderCard({ request, rc, kind, productData }: (typeof parsedRequests)[number]) {
+    const selected = selectedIds.has(request.id);
+    const items: any[] = Array.isArray(rc.items) ? rc.items : [];
+    const openedAt = request.created_at
+      ? new Date(request.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+      : null;
+    const stop = (fn: () => void) => (e: React.MouseEvent) => { e.stopPropagation(); fn(); };
+
+    let tone: Tone = 'neutral';
+    let pills: { label: string; tone: Tone }[] = [];
+    let editLabel = 'Ver';
+    let approve = { label: 'Aprovar', icon: <CheckCircle2 size={12} />, cls: AB_OK };
+    let body: React.ReactNode = null;
+
+    const itemList = (rows: React.ReactNode[], total: number, shown: number) => (
+      <div className={cn('border max-h-[124px] overflow-y-auto', BORDER, SUB)}>
+        {rows}
+        {total > shown && (
+          <div className={cn('h-7 flex items-center px-2.5 border-t text-[11px] italic text-on-surface/30', BORDER)}>
+            +{total - shown} {kind === 'tarefa' ? 'itens' : 'produtos'}
           </div>
-          <div>
-            <h1 className="text-[26px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight leading-tight">Requisições</h1>
+        )}
+      </div>
+    );
+    const itemRow = (key: number, first: boolean, children: React.ReactNode) => (
+      <div key={key} className={cn('h-7 flex items-center gap-2 px-2.5 text-[11.5px] font-semibold text-on-surface', !first && cn('border-t', BORDER))}>
+        {children}
+      </div>
+    );
+
+    if (kind === 'impressao') {
+      const count = rc.count ?? items.reduce((acc, it) => acc + (it.qty || 0), 0);
+      tone = 'neutral';
+      pills = [{ label: 'Impressão', tone: 'neutral' }];
+      approve = { label: 'Imprimir', icon: <Printer size={12} />, cls: AB_OK };
+      body = (
+        <>
+          <Title text="Fila de Impressão" sub={`${items.length} produto${items.length !== 1 ? 's' : ''} · ${count} etiqueta${count !== 1 ? 's' : ''} · ${rc.template === 'produto' ? 'Produto' : 'Gôndola'}`} />
+          {items.length > 0 && itemList(items.slice(0, 5).map((item, idx) => itemRow(idx, idx === 0, (
+            <>
+              <span className="flex-1 min-w-0 truncate">{item.name || item.ean || item.sku || <span className="text-on-surface/30 italic">Sem descrição</span>}</span>
+              <span className={cn('text-[9px] font-black uppercase tracking-[0.04em] px-[5px] leading-4 border shrink-0',
+                item.size === 'half' || item.size === 'triple' ? 'border-[rgba(216,30,30,0.3)] text-[#D81E1E]' : cn(BORDER, 'text-on-surface/45'))}>
+                {item.size === 'half' ? 'Metade' : item.size === 'triple' ? 'Código' : 'Inteira'} ×{item.qty}
+              </span>
+            </>
+          ))), items.length, 5)}
+        </>
+      );
+    } else if (kind === 'tarefa') {
+      const clevel = rc.classificacao as 'Alta' | 'Média' | 'Baixa' | null;
+      tone = clevel === 'Alta' ? 'red' : clevel === 'Média' ? 'amber' : clevel === 'Baixa' ? 'green' : 'blue';
+      pills = [{ label: 'Tarefa', tone: 'blue' }];
+      if (clevel) pills.push({ label: clevel, tone });
+      const typeLabel = rc.task_type === 'revisao' ? 'Revisão de mercadoria' : 'Tarefa';
+      const obs: string = rc.observacao || '';
+      body = (
+        <>
+          <Title
+            text={obs ? obs.slice(0, 80) + (obs.length > 80 ? '…' : '') : 'Nova tarefa'}
+            sub={items.length > 0 ? `${typeLabel} · ${items.length} ite${items.length !== 1 ? 'ns' : 'm'}` : typeLabel}
+          />
+          {items.length > 0 && itemList(items.slice(0, 4).map((item, idx) => itemRow(idx, idx === 0, (
+            <>
+              <span className="flex-1 min-w-0 truncate">{item.name || item.ean || 'Item'}</span>
+              {item.newPriceEnabled && item.newPrice && <span className="font-mono text-[11px] text-[#D81E1E] shrink-0">→ R$ {item.newPrice}</span>}
+            </>
+          ))), items.length, 4)}
+        </>
+      );
+    } else if (kind === 'alteracao') {
+      const changedFields: string[] = rc.changed_fields || [];
+      tone = 'purple';
+      pills = [{ label: 'Alteração', tone: 'purple' }];
+      approve = { label: 'Sincronizado', icon: <CheckCircle2 size={12} />, cls: cn(AB, 'flex-1 bg-[#7C3AED] border-[#7C3AED] dark:bg-[#8B5CF6] dark:border-[#8B5CF6] text-white hover:brightness-90') };
+      body = (
+        <>
+          <Title text={rc.product_name || 'Produto'} sub={rc.product_sku ? `SKU ${rc.product_sku}` : undefined} mono />
+          {changedFields.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {changedFields.map(field => (
+                <span key={field} className="text-[9px] font-black uppercase tracking-[0.05em] px-[5px] leading-4 border border-[rgba(124,58,237,0.3)] dark:border-[rgba(167,139,250,0.3)] text-[#7C3AED] dark:text-[#A78BFA]">
+                  {FIELD_LABELS[field] ?? field}
+                </span>
+              ))}
+            </div>
+          )}
+        </>
+      );
+    } else if (kind === 'rascunho') {
+      const checked = checkedItems[request.id];
+      const done = checked ? Array.from(checked).filter(i => i < items.length).length : 0;
+      tone = 'red';
+      pills = [{ label: 'Rascunho', tone: 'red' }];
+      editLabel = 'Revisar';
+      body = (
+        <>
+          <Title text={rc.title || 'Rascunho em lote'} sub={`${items.length} produto${items.length !== 1 ? 's' : ''}`} />
+          {items.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className={cn('w-[90px] h-1.5 border', BORDER, 'bg-black/[0.035] dark:bg-white/[0.03]')}>
+                <span className="block h-full bg-[#0A7A55] dark:bg-[#34D399] transition-[width] duration-200" style={{ width: `${(done / items.length) * 100}%` }} />
+              </span>
+              <span className="text-[11px] font-bold text-on-surface/45">{done}/{items.length} conferidos</span>
+            </div>
+          )}
+          {items.length > 0 && itemList(items.slice(0, 5).map((item, idx) => {
+            const on = checked?.has(idx);
+            return itemRow(idx, idx === 0, (
+              <>
+                <span className="flex-1 min-w-0 truncate">{item.name || item.ean || item.sku || <span className="text-on-surface/30 italic">Sem descrição</span>}</span>
+                {item.price && <span className="font-mono text-[11px] text-on-surface/45 shrink-0">R$ {item.price}</span>}
+                <button
+                  onClick={stop(() => toggleCheck(request.id, idx))}
+                  title={on ? 'Desmarcar' : 'Marcar como conferido'}
+                  className={cn('w-4 h-4 border-[1.5px] flex items-center justify-center shrink-0 transition-colors',
+                    on ? 'bg-[#0A7A55] border-[#0A7A55] dark:bg-[#34D399] dark:border-[#34D399] text-white dark:text-[#1A1A0E]' : 'border-on-surface/20 text-transparent hover:border-[#0A7A55] dark:hover:border-[#34D399]')}
+                >
+                  <Check size={10} strokeWidth={3.5} />
+                </button>
+              </>
+            ));
+          }), items.length, 5)}
+        </>
+      );
+    } else {
+      const isNew = !!rc.is_new_product;
+      tone = 'green';
+      pills = [{ label: isNew ? 'Produto novo' : 'Atualização', tone: isNew ? 'green' : 'amber' }];
+      if (!isNew) tone = 'amber';
+      editLabel = 'Ajustar';
+      const entries = Object.entries(rc).filter(([key, value]) => !key.startsWith('is_') && key !== 'image' && value !== '' && value != null);
+      body = (
+        <>
+          <div className="flex gap-2.5 items-center">
+            <div className={cn('relative w-[52px] h-[52px] shrink-0 border overflow-hidden', BORDER, 'bg-black/[0.035] dark:bg-white/[0.03]')}>
+              <ProductImage src={productData?.image} alt={productData?.name} />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-[14px] font-black leading-tight tracking-[-0.01em] text-on-surface line-clamp-2">{productData?.name || 'Produto'}</h3>
+              <p className="mt-0.5 text-[11px] font-bold text-on-surface/45 truncate">{[productData?.brand, productData?.sku && `SKU ${productData.sku}`].filter(Boolean).join(' · ') || '—'}</p>
+            </div>
           </div>
+          {entries.length > 0 && (
+            <div className={cn('border max-h-[124px] overflow-y-auto', BORDER)}>
+              {entries.map(([key, value], i) => (
+                <div key={key} className={cn('h-7 flex items-center justify-between gap-3 px-2.5', i > 0 && cn('border-t', BORDER))}>
+                  <span className="text-[9px] font-black uppercase tracking-[0.1em] text-on-surface/45 shrink-0">{FIELD_LABELS[key] ?? key}</span>
+                  <span className={cn('text-[11.5px] font-semibold truncate', isNew ? 'text-[#0A7A55] dark:text-[#34D399]' : 'text-[#92400E] dark:text-[#FCD34D]')}>{String(value)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      );
+    }
+
+    return (
+      <motion.div
+        layout
+        key={request.id}
+        initial={{ opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+        onClick={() => selectionMode && toggleSelect(request.id)}
+        className={cn(
+          'group relative flex flex-col border transition-colors', SURFACE, ACCENT[tone],
+          selected ? 'border-primary outline outline-1 outline-primary' : cn(BORDER, 'hover:border-[#CFC4A2] dark:hover:border-white/20'),
+          selectionMode && 'cursor-pointer',
+        )}
+      >
+        <div className="flex items-center gap-1.5 px-3 pt-[11px]">
+          {pills.map(p => (
+            <span key={p.label} className={cn(PILL, TONE[p.tone])}>
+              <span className="w-1.5 h-1.5 rounded-full bg-current" />{p.label}
+            </span>
+          ))}
+          {openedAt && <span className="ml-auto font-mono text-[11px] text-on-surface/30">{openedAt}</span>}
+          {selectionMode && (
+            <span className={cn('w-4 h-4 border-[1.5px] flex items-center justify-center shrink-0 transition-colors', !openedAt && 'ml-auto',
+              selected ? 'bg-primary border-primary text-white' : 'border-on-surface/20 text-transparent')}>
+              <Check size={10} strokeWidth={3.5} />
+            </span>
+          )}
         </div>
 
-        <div className="absolute left-0 top-full flex">
-          {([
-            { id: 'requisicoes' as const, label: 'Requisições' },
-            { id: 'analise' as const, label: 'Análise de Produtos' },
-          ]).map((tab, i, arr) => {
+        <div className="flex-1 flex flex-col gap-2 px-3 pt-2 pb-3">{body}</div>
+
+        <div className={cn('flex gap-1 px-2.5 py-2 border-t', BORDER, SUB)}>
+          <button onClick={stop(() => onEditRequest(request))} className={AB_GHOST}>{editLabel}</button>
+          <button
+            onClick={stop(() => kind === 'impressao' ? onEditRequest(request) : onApproveRequest(request.id))}
+            className={approve.cls}
+          >
+            {approve.icon}{approve.label}
+          </button>
+          <button onClick={stop(() => onDeleteRequest(request.id))} title="Excluir" className={AB_DEL}>
+            <X size={13} strokeWidth={2.5} />
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <div className="space-y-2.5">
+      {/* Abas — Desktop: penduradas direto no cabeçalho do site (o título já fica nele).
+          -ml-7/-mt-5 desfazem o padding do conteúdo pra colar na barra e no menu lateral. */}
+      <div className="hidden md:block sticky top-11 z-20 -ml-7 -mt-5 w-max max-w-[calc(100%+1.75rem)]">
+        <div className="flex overflow-x-auto [scrollbar-width:none]">
+          {TABS.map((tab, i) => {
             const active = activeView === tab.id;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveView(tab.id)}
                 className={cn(
-                  'h-[34px] px-6 flex items-center justify-center shrink-0',
-                  'bg-[#FFE500] dark:bg-[#252520] border border-t-0 border-[#D4C000] dark:border-white/[0.07]',
-                  i === arr.length - 1 && 'rounded-br-[12px]',
-                  'text-[12px] font-extrabold uppercase tracking-wide',
-                  'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35)] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55)]',
-                  'transition-[opacity,transform] duration-150 active:scale-[0.97]',
+                  'min-w-[112px] h-8 px-3.5 flex items-center justify-center gap-1.5 shrink-0',
+                  'bg-[#FBF35E] dark:bg-[#252520] border border-t-0 border-[#D9CF45] dark:border-white/[0.08]',
+                  i === 0 ? 'border-l-0' : '-ml-px',
+                  'text-[11px] font-extrabold uppercase tracking-[0.05em] text-[#1A1A0E] dark:text-[#F2F0E3]',
                   active
-                    ? 'text-[#1A1A0E] dark:text-[#F2F0E3] opacity-100'
-                    : 'text-[#1A1A0E] dark:text-white/75 opacity-55 hover:opacity-85'
+                    ? 'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35),inset_0_-3px_0_#D81E1E] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55),inset_0_-3px_0_#D81E1E]'
+                    : 'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35)] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55)]',
+                  'transition-transform duration-150 active:scale-[0.97]',
                 )}
               >
-                {tab.label}
+                <span className={cn('truncate transition-opacity', active ? 'opacity-100' : 'opacity-55 hover:opacity-85')}>{tab.label}</span>
+                {tab.count > 0 && (
+                  <span className={cn('text-[9px] font-black px-1.5 py-px rounded-full shrink-0',
+                    tab.alert ? 'bg-[rgba(216,30,30,0.18)] text-[#D81E1E]' : 'bg-[rgba(26,26,10,0.12)] dark:bg-white/10')}>
+                    {tab.count}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -361,13 +645,10 @@ export function RequestCenter({
       </div>
 
       {/* Header — Mobile: título solto + pills, mesmo padrão da página Inventory */}
-      <div className="lg:hidden mb-6">
+      <div className="md:hidden mb-4">
         <h1 className="text-[32px] font-black text-on-surface tracking-tight leading-tight">Requisições</h1>
         <div className="flex items-center gap-2 mt-3">
-          {([
-            { id: 'requisicoes' as const, label: 'Requisições' },
-            { id: 'analise' as const, label: 'Análise de Produtos' },
-          ]).map(tab => {
+          {TABS.map(tab => {
             const active = activeView === tab.id;
             return (
               <button
@@ -388,713 +669,333 @@ export function RequestCenter({
       </div>
 
       {activeView === 'analise' ? (
-        <div className="space-y-4">
+        <div className="space-y-2.5">
+          {/* Barra de ferramentas */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className={cn('h-7 flex items-center gap-1.5 px-2.5 border text-[11px] font-bold text-on-surface/45 whitespace-nowrap', BORDER)}>
+              <b className="font-black text-on-surface">{lowStockProducts.length}</b> {lowStockProducts.length === 1 ? 'produto em alerta' : 'produtos em alerta'}
+            </span>
+            <div className={cn('flex border', BORDER, SURFACE)}>
+              {([['produto', 'Por produto'], ['fornecedor', 'Por fornecedor']] as const).map(([k, l], i) => (
+                <button
+                  key={k}
+                  onClick={() => setAnalysisGrouping(k)}
+                  className={cn(
+                    'h-[26px] px-2.5 text-[10.5px] font-extrabold uppercase tracking-[0.05em] whitespace-nowrap transition-colors',
+                    i > 0 && cn('border-l', BORDER),
+                    analysisGrouping === k ? 'bg-primary text-white' : 'text-on-surface/45 hover:text-on-surface',
+                  )}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+            <span className="ml-auto text-[10.5px] font-semibold text-on-surface/30">Base: últimas 300 notas de entrada aprovadas</span>
+          </div>
+
           {noMinStockCount > 0 && (
-            <div className="flex items-center gap-2.5 text-xs font-bold text-on-surface/50 bg-surface-container-low/30 border border-on-surface/[0.05] rounded-2xl px-4 py-3">
-              <Info size={15} className="shrink-0 text-on-surface/30" />
-              {noMinStockCount} produto{noMinStockCount !== 1 ? 's' : ''} sem Estoque Mínimo definido — {noMinStockCount !== 1 ? 'não entram' : 'não entra'} nos alertas abaixo. Defina em Editar Produto.
+            <div className={cn('flex items-center gap-2 px-3 py-2 border text-xs font-semibold text-on-surface/45', BORDER, SURFACE)}>
+              <Info size={14} className="shrink-0 text-on-surface/30" />
+              <span>
+                <b className="text-on-surface">{noMinStockCount} produto{noMinStockCount !== 1 ? 's' : ''}</b> sem Estoque Mínimo definido {noMinStockCount !== 1 ? 'não entram' : 'não entra'} nos alertas — defina em Editar Produto.
+              </span>
             </div>
           )}
 
           {lowStockProducts.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex flex-col items-center justify-center py-32 text-on-surface/10 bg-surface-container-low/20 rounded-[3rem] border-2 border-dashed border-on-surface/[0.03]"
-            >
-              <BarChart3 size={56} className="mb-5 opacity-20" />
-              <p className="text-base font-black uppercase tracking-[0.25em] text-on-surface/20">Estoque dentro do esperado</p>
-              <p className="text-sm font-medium opacity-50 mt-2">Nenhum produto com Estoque Mínimo definido está abaixo do limite ou perto dele.</p>
-            </motion.div>
+            <EmptyState icon={<BarChart3 size={30} />} title="Estoque dentro do esperado" text="Nenhum produto com Estoque Mínimo definido está abaixo do limite ou perto dele." />
           ) : (
             <>
-              {/* Alternância Por Produto x Por Fornecedor */}
-              <div className="flex items-center gap-2">
+              {/* Resumo */}
+              <div className={cn('grid grid-cols-2 sm:grid-cols-4 gap-px border bg-[#E0D8BF] dark:bg-white/[0.10]', BORDER)}>
                 {([
-                  { id: 'produto' as const, label: 'Por Produto' },
-                  { id: 'fornecedor' as const, label: 'Por Fornecedor' },
-                ]).map(opt => (
-                  <button
-                    key={opt.id}
-                    onClick={() => setAnalysisGrouping(opt.id)}
-                    className={cn(
-                      'px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border',
-                      analysisGrouping === opt.id
-                        ? 'bg-primary text-white border-primary'
-                        : 'bg-surface-container-low/30 text-on-surface/50 border-on-surface/[0.06] hover:border-primary/30 hover:text-primary'
-                    )}
-                  >
-                    {opt.label}
-                  </button>
+                  ['Crítico', stockStatusProducts.critical.length, 'bg-[#D81E1E]', 'text-[#D81E1E]'],
+                  ['Atenção', stockStatusProducts.attention.length, 'bg-[#F59E0B]', 'text-[#92400E] dark:text-[#FCD34D]'],
+                  ['Fornecedores', supplierGroups.groups.length, '', 'text-on-surface'],
+                  ['Sem fornecedor', supplierGroups.uncovered.length, '', 'text-on-surface/45'],
+                ] as const).map(([l, v, dot, color]) => (
+                  <div key={l} className={cn('px-3 py-2', SURFACE)}>
+                    <div className="flex items-center gap-1.5 text-[8.5px] font-black uppercase tracking-[0.1em] text-on-surface/45">
+                      {dot && <span className={cn('w-[7px] h-[7px]', dot)} />}{l}
+                    </div>
+                    <div className={cn('text-[20px] font-black tracking-[-0.02em] mt-0.5', color)}>{v}</div>
+                  </div>
                 ))}
               </div>
 
               {analysisGrouping === 'produto' ? (
-                <div className="space-y-5">
-                  {([
-                    { tier: 'critical' as const, list: stockStatusProducts.critical, title: 'Crítico — comprar agora', accent: 'red' as const },
-                    { tier: 'attention' as const, list: stockStatusProducts.attention, title: 'Atenção — se aproximando do mínimo', accent: 'amber' as const },
-                  ]).map(section => section.list.length === 0 ? null : (
-                    <div key={section.tier} className="space-y-2.5">
-                      <p className={cn(
-                        'text-[10px] font-black uppercase tracking-widest',
-                        section.accent === 'red' ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'
-                      )}>
-                        {section.title} ({section.list.length})
-                      </p>
-                      <div className="space-y-3">
-                        {section.list.map(p => {
-                          const deficit = (p.min_stock || 0) - (p.count || 0);
-                          const isExpanded = expandedProductId === p.id;
-                          return (
-                            <div key={p.id} className="bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[20px] overflow-hidden">
-                              <button
-                                onClick={() => setExpandedProductId(isExpanded ? null : p.id)}
-                                className="w-full flex items-center gap-4 p-4 text-left"
-                              >
-                                <div className={cn(
-                                  'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
-                                  section.accent === 'red' ? 'bg-red-500/10 text-red-600 dark:text-red-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                                )}>
-                                  <AlertTriangle size={18} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-black text-on-surface truncate">{p.name}</p>
-                                  <p className="text-[10px] font-bold text-on-surface/40 uppercase tracking-widest">
-                                    SKU {p.sku || '—'} · Estoque {p.count || 0} un · Mínimo {p.min_stock} un
-                                  </p>
-                                </div>
-                                <span className={cn(
-                                  'text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest shrink-0',
-                                  section.accent === 'red' ? 'bg-red-500/10 text-red-600 dark:text-red-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                                )}>
-                                  {section.tier === 'critical' ? (deficit > 0 ? `Faltam ${deficit}` : 'No limite') : 'Perto do mínimo'}
-                                </span>
-                                <ChevronDown size={16} className={cn('transition-transform shrink-0 text-on-surface/30', isExpanded && 'rotate-180')} />
-                              </button>
-                              {isExpanded && (
-                                <div className="px-4 pb-4 pt-1 border-t border-[#E0D8BF] dark:border-white/[0.08]">
-                                  <p className="text-[10px] font-black text-on-surface/30 uppercase tracking-widest mb-2 mt-2">Fornecedores deste produto</p>
-                                  {supplierBreakdown.length === 0 ? (
-                                    <p className="text-xs text-on-surface/40">Nenhuma nota de entrada aprovada encontrada com este produto ainda.</p>
-                                  ) : (
-                                    <div className="space-y-1.5">
-                                      {supplierBreakdown.map((s) => (
-                                        <div key={s.supplierKey} className="flex items-center justify-between gap-3 bg-surface-container-lowest rounded-xl px-3.5 py-2.5 text-xs">
-                                          <div className="min-w-0">
-                                            <div className="flex items-center gap-1.5 flex-wrap">
-                                              <p className="font-black text-on-surface truncate">{s.supplierName}</p>
-                                              {bestPriceKeys.has(s.supplierKey) && (
-                                                <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 uppercase tracking-widest shrink-0">Melhor preço</span>
-                                              )}
-                                              {bestLeadTimeKeys.has(s.supplierKey) && (
-                                                <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-700 dark:text-blue-400 uppercase tracking-widest shrink-0">Menor prazo</span>
-                                              )}
-                                            </div>
-                                            <p className="text-[10px] text-on-surface/40">{s.noteCount} nota{s.noteCount !== 1 ? 's' : ''} · {s.qtyTotal} un compradas</p>
-                                          </div>
-                                          <div className="text-right shrink-0">
-                                            <p className="font-black text-on-surface">{s.lastPrice ? `R$ ${s.lastPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}</p>
-                                            <p className="text-[10px] text-on-surface/40">
-                                              {s.avgLeadTime != null ? `~${s.avgLeadTime}d de prazo (${s.leadTimeSampleSize} nota${s.leadTimeSampleSize !== 1 ? 's' : ''})` : 'sem prazo registrado'}
-                                            </p>
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
+                ([
+                  { tier: 'critical' as const, list: stockStatusProducts.critical, title: 'Crítico — comprar agora' },
+                  { tier: 'attention' as const, list: stockStatusProducts.attention, title: 'Atenção — perto do mínimo' },
+                ]).map(section => section.list.length === 0 ? null : (
+                  <div key={section.tier}>
+                    <div className={cn('h-[30px] flex items-center gap-2 px-2.5 border border-b-0 text-[10px] font-black uppercase tracking-[0.1em]', BORDER, SURFACE,
+                      section.tier === 'critical' ? 'text-[#D81E1E]' : 'text-[#92400E] dark:text-[#FCD34D]')}>
+                      <span className={cn('w-2 h-2', section.tier === 'critical' ? 'bg-[#D81E1E]' : 'bg-[#F59E0B]')} />
+                      {section.title}
+                      <span className="text-on-surface/45">({section.list.length})</span>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-[10px] font-bold text-on-surface/30">Baseado nas últimas 300 notas de entrada aprovadas. Fornecedores cadastrados em duplicidade podem aparecer separados.</p>
-                  {supplierGroups.groups.map(group => {
-                    const isExpanded = expandedSupplierKey === group.supplierKey;
-                    return (
-                      <div key={group.supplierKey} className="bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[20px] overflow-hidden">
-                        <button
-                          onClick={() => setExpandedSupplierKey(isExpanded ? null : group.supplierKey)}
-                          className="w-full flex items-center gap-4 p-4 text-left"
-                        >
-                          <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                            <BarChart3 size={18} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-black text-on-surface truncate">{group.supplierName}</p>
-                            <p className="text-[10px] font-bold text-on-surface/40 uppercase tracking-widest">
-                              Cobre {group.products.length} produto{group.products.length !== 1 ? 's' : ''} em falta/atenção
-                            </p>
-                          </div>
-                          <ChevronDown size={16} className={cn('transition-transform shrink-0 text-on-surface/30', isExpanded && 'rotate-180')} />
-                        </button>
-                        {isExpanded && (
-                          <div className="px-4 pb-4 pt-1 border-t border-[#E0D8BF] dark:border-white/[0.08] space-y-1.5">
-                            {group.products.map(({ product, stat }) => (
-                              <div key={product.id} className="flex items-center justify-between gap-3 bg-surface-container-lowest rounded-xl px-3.5 py-2.5 text-xs">
-                                <div className="min-w-0">
-                                  <p className="font-black text-on-surface truncate">{product.name}</p>
-                                  <p className="text-[10px] text-on-surface/40">Estoque {product.count || 0} un · Mínimo {product.min_stock} un</p>
-                                </div>
-                                <div className="text-right shrink-0">
-                                  <p className="font-black text-on-surface">{stat.lastPrice ? `R$ ${stat.lastPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}</p>
-                                  <p className="text-[10px] text-on-surface/40">{stat.avgLeadTime != null ? `~${stat.avgLeadTime}d de prazo` : 'sem prazo registrado'}</p>
-                                </div>
-                              </div>
+                    <div className={cn('border overflow-x-auto', BORDER, SURFACE)}>
+                      <table className={cn(TABLE, 'min-w-[900px] [&_td]:h-[38px]')}>
+                        <colgroup><col /><col style={{ width: 110 }} /><col style={{ width: 200 }} /><col style={{ width: 150 }} /><col style={{ width: 150 }} /></colgroup>
+                        <thead>
+                          <tr>
+                            {([['Produto', ''], ['SKU', ''], ['Estoque / Mínimo', ''], ['Melhor preço', 'text-right'], ['Situação', '']] as const).map(([l, c], i, arr) => (
+                              <th key={l} className={cn(TH, c, i === arr.length - 1 ? TH_LAST : TH_LINE)}>{l}</th>
                             ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {supplierGroups.uncovered.length > 0 && (
-                    <div className="bg-surface-container-low/30 border border-on-surface/[0.05] rounded-[20px] p-4 space-y-2">
-                      <p className="text-[10px] font-black text-on-surface/40 uppercase tracking-widest">
-                        Sem fornecedor conhecido ({supplierGroups.uncovered.length})
-                      </p>
-                      <div className="space-y-1.5">
-                        {supplierGroups.uncovered.map(p => (
-                          <div key={p.id} className="flex items-center justify-between gap-3 bg-surface-container-lowest rounded-xl px-3.5 py-2.5 text-xs">
-                            <p className="font-black text-on-surface truncate">{p.name}</p>
-                            <p className="text-[10px] text-on-surface/40 shrink-0">Estoque {p.count || 0} un · Mínimo {p.min_stock} un</p>
-                          </div>
-                        ))}
-                      </div>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {section.list.map((p, idx) => {
+                            const count = p.count || 0;
+                            const deficit = (p.min_stock || 0) - count;
+                            const isExpanded = expandedProductId === p.id;
+                            const breakdown = breakdownByProduct.get(p.id) ?? [];
+                            const best = bestKeys(breakdown);
+                            return (
+                              <Fragment key={p.id}>
+                                <tr onClick={() => setExpandedProductId(isExpanded ? null : p.id)} className={cn(ROW(idx), 'cursor-pointer')}>
+                                  <td>
+                                    <span className="inline-flex items-center gap-1.5 min-w-0 max-w-full">
+                                      <ChevronRight size={12} strokeWidth={2.5} className={cn('shrink-0 text-on-surface/45 transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)]', isExpanded && 'rotate-90')} />
+                                      <span className="font-extrabold text-on-surface truncate">{p.name}</span>
+                                    </span>
+                                  </td>
+                                  <td className="font-mono text-[11.5px] text-on-surface/70">{p.sku || '—'}</td>
+                                  <td><StockLevel count={count} min={p.min_stock} tone={section.tier === 'critical' ? 'red' : 'amber'} /></td>
+                                  <td className="text-right font-mono text-on-surface">{best.minPrice != null ? fmtBRL(best.minPrice) : <span className="text-on-surface/20">—</span>}</td>
+                                  <td>
+                                    <span className={cn(PILL, section.tier === 'critical' ? TONE.red : TONE.amber)}>
+                                      <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                                      {section.tier === 'critical' ? (deficit > 0 ? `Faltam ${deficit}` : 'No limite') : 'Perto do mínimo'}
+                                    </span>
+                                  </td>
+                                </tr>
+                                {isExpanded && (breakdown.length === 0 ? (
+                                  <tr className={CHILD}>
+                                    <td colSpan={5} className="!pl-[34px]">Nenhuma nota de entrada aprovada encontrada com este produto ainda.</td>
+                                  </tr>
+                                ) : breakdown.map(s => (
+                                  <tr key={s.supplierKey} className={CHILD}>
+                                    <td className="!pl-[34px] font-semibold text-on-surface">
+                                      {s.supplierName}
+                                      <SupplierTags isBestPrice={best.price.has(s.supplierKey)} isBestLead={best.lead.has(s.supplierKey)} />
+                                    </td>
+                                    <td>{s.noteCount} nota{s.noteCount !== 1 ? 's' : ''}</td>
+                                    <td>{s.qtyTotal} un compradas</td>
+                                    <td className="text-right font-mono text-on-surface">{s.lastPrice ? fmtBRL(s.lastPrice) : '—'}</td>
+                                    <td>{s.avgLeadTime != null ? `~${s.avgLeadTime}d de prazo (${s.leadTimeSampleSize} nota${s.leadTimeSampleSize !== 1 ? 's' : ''})` : 'sem prazo registrado'}</td>
+                                  </tr>
+                                )))}
+                              </Fragment>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
-                  )}
+                  </div>
+                ))
+              ) : (
+                <div className={cn('border overflow-x-auto', BORDER, SURFACE)}>
+                  <table className={cn(TABLE, 'min-w-[900px] [&_td]:h-[38px]')}>
+                    <colgroup><col /><col style={{ width: 190 }} /><col style={{ width: 160 }} /><col style={{ width: 150 }} /></colgroup>
+                    <thead>
+                      <tr>
+                        {([['Fornecedor', ''], ['Prazo médio', ''], ['Estoque / Mínimo', ''], ['Último preço', 'text-right']] as const).map(([l, c], i, arr) => (
+                          <th key={l} className={cn(TH, c, i === arr.length - 1 ? TH_LAST : TH_LINE)}>{l}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        ...supplierGroups.groups.map(g => ({ key: g.supplierKey, name: g.supplierName, rows: g.products.map(({ product, stat }) => ({ product, stat: stat as SupplierStat | null })) })),
+                        ...(supplierGroups.uncovered.length > 0
+                          ? [{ key: '__sem_fornecedor__', name: 'Sem fornecedor conhecido', rows: supplierGroups.uncovered.map(product => ({ product, stat: null as SupplierStat | null })) }]
+                          : []),
+                      ].map((g, idx) => {
+                        const isExpanded = expandedSupplierKey === g.key;
+                        const unknown = g.key === '__sem_fornecedor__';
+                        return (
+                          <Fragment key={g.key}>
+                            <tr onClick={() => setExpandedSupplierKey(isExpanded ? null : g.key)} className={cn(ROW(idx), 'cursor-pointer')}>
+                              <td>
+                                <span className="inline-flex items-center gap-1.5 min-w-0 max-w-full">
+                                  <ChevronRight size={12} strokeWidth={2.5} className={cn('shrink-0 text-on-surface/45 transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)]', isExpanded && 'rotate-90')} />
+                                  <span className={cn('font-extrabold truncate', unknown ? 'text-on-surface/45' : 'text-on-surface')}>{g.name}</span>
+                                </span>
+                              </td>
+                              <td colSpan={3}>
+                                <b className="text-on-surface">{g.rows.length}</b>
+                                <span className="text-on-surface/45"> produto{g.rows.length !== 1 ? 's' : ''} em falta/atenção</span>
+                              </td>
+                            </tr>
+                            {isExpanded && g.rows.map(({ product, stat }) => (
+                              <tr key={product.id} className={CHILD}>
+                                <td className="!pl-[34px] font-semibold text-on-surface">{product.name}</td>
+                                <td>{stat ? (stat.avgLeadTime != null ? `~${stat.avgLeadTime}d de prazo` : 'sem prazo registrado') : '—'}</td>
+                                <td className="font-mono">{product.count || 0} / {product.min_stock}</td>
+                                <td className="text-right font-mono text-on-surface">{stat?.lastPrice ? fmtBRL(stat.lastPrice) : '—'}</td>
+                              </tr>
+                            ))}
+                          </Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  <p className={cn('px-2.5 py-1.5 border-t text-[10.5px] font-semibold text-on-surface/30', BORDER)}>
+                    Fornecedores cadastrados em duplicidade podem aparecer separados.
+                  </p>
                 </div>
               )}
             </>
           )}
         </div>
       ) : (
-      <>
-      {/* Campo de filtro */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
-          <input
-            type="text"
-            value={filterQuery}
-            onChange={e => setFilterQuery(e.target.value)}
-            placeholder="Filtrar requisições..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-on-surface/[0.06] bg-[#FFF6C9] dark:bg-surface-container-low/30 text-sm text-on-surface/70 focus:outline-none focus:border-primary/30 transition-colors placeholder:text-on-surface/30"
-          />
-        </div>
-        <button
-          onClick={onAddRequest}
-          className="shrink-0 h-full px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 bg-primary text-white shadow-md shadow-primary/20 hover:opacity-90 active:scale-95"
-        >
-          <Plus size={14} />
-          Add Request
-        </button>
-        <button
-          onClick={toggleSelectionMode}
-          className={cn(
-            'shrink-0 h-full px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 border',
-            selectionMode
-              ? 'bg-on-surface text-surface-container border-on-surface'
-              : 'bg-surface-container-low/30 text-on-surface/60 border-on-surface/[0.06] hover:border-primary/30 hover:text-primary'
-          )}
-        >
-          {selectionMode ? <X size={14} /> : <CheckSquare size={14} />}
-          {selectionMode ? 'Cancelar' : 'Selecionar'}
-        </button>
-      </div>
-
-      {selectionMode && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          className="flex items-center justify-between flex-wrap gap-3 bg-surface-container-low/40 border border-on-surface/[0.06] rounded-2xl px-5 py-3"
-        >
-          <button onClick={toggleSelectAll} className="flex items-center gap-2.5 group">
-            <div className={cn(
-              'w-5 h-5 rounded-md border-[1.5px] flex items-center justify-center transition-all shrink-0',
-              pendingRequests.length > 0 && selectedIds.size === pendingRequests.length
-                ? 'bg-primary border-primary text-white'
-                : 'border-on-surface/25 text-transparent group-hover:border-primary/50'
-            )}>
-              <Check size={12} />
-            </div>
-            <span className="text-xs font-black text-on-surface/60 uppercase tracking-widest">
-              Selecionar tudo
-              {selectedIds.size > 0 && (
-                <span className="text-primary ml-1">({selectedIds.size} selecionada{selectedIds.size !== 1 ? 's' : ''})</span>
-              )}
+        <>
+          {/* Barra de ferramentas — mesmo padrão das abas Notas/Distribuição */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className={cn('h-7 flex items-center gap-1.5 px-2.5 border text-[11px] font-bold text-on-surface/45 whitespace-nowrap', BORDER)}>
+              <b className="font-black text-on-surface">{visibleRequests.length}</b> {visibleRequests.length === 1 ? 'pendente' : 'pendentes'}
             </span>
-          </button>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleBulkApprove}
-              disabled={selectedIds.size === 0}
-              className="h-10 px-4 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-on-surface transition-all flex items-center justify-center gap-2 shadow-md shadow-primary/20 disabled:opacity-30 disabled:pointer-events-none"
-            >
-              <CheckCircle2 size={14} />
-              Aprovar / Sincronizar
-            </button>
-            <button
-              onClick={handleBulkDelete}
-              disabled={selectedIds.size === 0}
-              className="h-10 px-4 bg-red-50 text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-100/50 flex items-center justify-center gap-2 disabled:opacity-30 disabled:pointer-events-none"
-            >
-              <Trash2 size={14} />
-              Excluir
-            </button>
-          </div>
-        </motion.div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {pendingRequests.map((request) => {
-          const requestedChanges = JSON.parse(request.requested_changes);
-          const isBulkProducts = requestedChanges.is_bulk_products;
-          const isTask = requestedChanges.is_task;
-          const isPrintQueue = requestedChanges.is_print_queue;
-          const isProductAlteration = requestedChanges.is_product_alteration;
-          const isNewProduct = requestedChanges.is_new_product && !isBulkProducts && !isTask && !isPrintQueue && !isProductAlteration;
-          const productData = isNewProduct ? requestedChanges : request.products;
-
-          // ── Print Queue card — pedido remoto de impressão de etiquetas
-          // (enviado pelo módulo "Fila de Impressão" no botão Mobile). "Ver /
-          // Ajustar" e "Imprimir" abrem a tela de Etiquetas em Inventory já
-          // carregada com esses itens — dali sai a impressão de verdade, que
-          // remove este card da lista de pendentes. ──
-          if (isPrintQueue) {
-            const items: any[] = requestedChanges.items || [];
-            const count = requestedChanges.count ?? items.reduce((acc, it) => acc + (it.qty || 0), 0);
-            const templateLabel = requestedChanges.template === 'produto' ? 'Produto' : 'Gôndola';
-            return (
-              <motion.div layout key={request.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                onClick={() => selectionMode && toggleSelect(request.id)}
-                className={cn('relative bg-surface-container-lowest rounded-[1.5rem] border border-on-surface/[0.04] hover:border-primary/20 shadow-md shadow-on-surface/[0.03] overflow-hidden flex flex-col group transition-all',
-                  selectionMode && 'cursor-pointer', selectedIds.has(request.id) && 'ring-2 ring-primary ring-offset-2 ring-offset-surface-container-lowest')}>
-                {selectionMode && (
-                  <div className={cn('absolute top-3 right-3 z-10 w-6 h-6 rounded-lg border-[1.5px] flex items-center justify-center shadow-sm transition-all',
-                    selectedIds.has(request.id) ? 'bg-primary border-primary text-white' : 'bg-surface-container-lowest border-on-surface/20 text-transparent')}>
-                    <Check size={14} />
-                  </div>
-                )}
-                <div className="p-5 flex-1 space-y-3">
-                  <div className="flex gap-3 items-center">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 shrink-0 group-hover:scale-105 transition-transform duration-300 flex items-center justify-center">
-                      <Printer size={22} className="text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest bg-primary text-white inline-block mb-1">
-                        Impressão
-                      </span>
-                      <h3 className="text-sm font-black text-on-surface truncate leading-tight group-hover:text-primary transition-colors">
-                        Fila de Impressão
-                      </h3>
-                      <p className="text-[9px] font-bold text-on-surface/30 uppercase tracking-widest">
-                        {items.length} produto{items.length !== 1 ? 's' : ''} · {count} etiqueta{count !== 1 ? 's' : ''} · {templateLabel}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 text-[8px] font-black text-primary/40 uppercase tracking-widest bg-primary/5 px-2 py-1 rounded-full shrink-0">
-                      <Clock size={10} />
-                      Pendente
-                    </div>
-                  </div>
-
-                  <div className="space-y-1 bg-surface-container-low/30 px-3 py-2 rounded-xl border border-on-surface/[0.03] max-h-28 overflow-y-auto">
-                    {items.slice(0, 5).map((item: any, idx: number) => (
-                      <div key={idx} className="flex items-center gap-2 text-[11px] py-0.5">
-                        <span className="flex-1 min-w-0 truncate font-bold text-on-surface/80">
-                          {item.name || item.ean || item.sku || <span className="text-on-surface/30 italic">Sem descrição</span>}
-                        </span>
-                        <span className={cn(
-                          'text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full shrink-0',
-                          item.size === 'half' || item.size === 'triple' ? 'bg-primary/10 text-primary' : 'bg-on-surface/[0.06] text-on-surface/45'
-                        )}>
-                          {item.size === 'half' ? 'Metade' : item.size === 'triple' ? 'Código' : 'Inteira'} ×{item.qty}
-                        </span>
-                      </div>
-                    ))}
-                    {items.length > 5 && (
-                      <p className="text-[9px] text-on-surface/35 italic pt-1 border-t border-on-surface/[0.04]">
-                        +{items.length - 5} mais...
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="px-4 py-3 bg-surface-container-low/20 border-t border-on-surface/[0.03] flex gap-2">
-                  <button onClick={() => onEditRequest(request)}
-                    className="flex-1 h-9 bg-surface-container-lowest border border-on-surface/10 text-on-surface/70 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-on-surface hover:text-surface-container transition-all flex items-center justify-center gap-1.5 shadow-sm">
-                    <Edit2 size={12} /> Ver
-                  </button>
-                  <button onClick={() => onEditRequest(request)}
-                    className="flex-1 h-9 bg-primary text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-on-surface transition-all flex items-center justify-center gap-1.5 shadow-md shadow-primary/20">
-                    <Printer size={13} /> Imprimir
-                  </button>
-                  <button onClick={() => onDeleteRequest(request.id)}
-                    className="w-9 h-9 bg-red-50 text-red-500 rounded-xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all border border-red-100/50">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </motion.div>
-            );
-          }
-
-          // ── Task card ──
-          if (isTask) {
-            const clevel = requestedChanges.classificacao as 'Alta' | 'Média' | 'Baixa' | null;
-            const borderCls = clevel === 'Alta' ? 'border-red-400/40 hover:border-red-400/70'
-              : clevel === 'Média' ? 'border-orange-400/40 hover:border-orange-400/70'
-              : clevel === 'Baixa' ? 'border-green-400/40 hover:border-green-400/70'
-              : 'border-on-surface/[0.04] hover:border-primary/20';
-            const iconBg = clevel === 'Alta' ? 'bg-red-500/10 border-red-400/20'
-              : clevel === 'Média' ? 'bg-orange-500/10 border-orange-400/20'
-              : clevel === 'Baixa' ? 'bg-green-500/10 border-green-400/20'
-              : 'bg-primary/10 border-primary/20';
-            const taskItems = requestedChanges.items || [];
-            const taskTypeLabel = requestedChanges.task_type === 'revisao' ? 'Revisão de mercadoria' : 'Tarefa';
-            return (
-              <motion.div layout key={request.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                onClick={() => selectionMode && toggleSelect(request.id)}
-                className={cn('relative bg-surface-container-lowest rounded-[1.5rem] border shadow-md shadow-on-surface/[0.03] overflow-hidden flex flex-col group transition-all', borderCls,
-                  selectionMode && 'cursor-pointer', selectedIds.has(request.id) && 'ring-2 ring-primary ring-offset-2 ring-offset-surface-container-lowest')}>
-                {selectionMode && (
-                  <div className={cn('absolute top-3 right-3 z-10 w-6 h-6 rounded-lg border-[1.5px] flex items-center justify-center shadow-sm transition-all',
-                    selectedIds.has(request.id) ? 'bg-primary border-primary text-white' : 'bg-surface-container-lowest border-on-surface/20 text-transparent')}>
-                    <Check size={14} />
-                  </div>
-                )}
-                <div className="p-5 flex-1 space-y-3">
-                  <div className="flex gap-3 items-start">
-                    <div className={cn('w-12 h-12 rounded-xl border shrink-0 flex items-center justify-center p-2', iconBg)}>
-                      <ThermometerIcon level={clevel} className="w-full h-full" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                        <span className={cn('text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest',
-                          clevel === 'Alta' ? 'bg-red-500/15 text-red-600' :
-                          clevel === 'Média' ? 'bg-orange-500/15 text-orange-600' :
-                          clevel === 'Baixa' ? 'bg-green-500/15 text-green-700' : 'bg-primary/10 text-primary')}>
-                          {clevel || 'Tarefa'}
-                        </span>
-                        <span className="text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest bg-on-surface/5 text-on-surface/40">
-                          {taskTypeLabel}
-                        </span>
-                      </div>
-                      <h3 className="text-sm font-black text-on-surface leading-tight">
-                        {requestedChanges.observacao?.slice(0, 60) || 'Nova tarefa'}
-                        {requestedChanges.observacao?.length > 60 && '...'}
-                      </h3>
-                      {taskItems.length > 0 && (
-                        <p className="text-[9px] font-bold text-on-surface/30 uppercase tracking-widest mt-0.5">
-                          {taskItems.length} item{taskItems.length !== 1 ? 's' : ''}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  {taskItems.length > 0 && (
-                    <div className="bg-surface-container-low/30 px-3 py-2 rounded-xl border border-on-surface/[0.03] max-h-28 overflow-y-auto space-y-1">
-                      {taskItems.slice(0, 4).map((item: any, idx: number) => (
-                        <p key={idx} className="text-[10px] text-on-surface/60 truncate">
-                          {item.name || item.ean || 'Item'}
-                          {item.newPriceEnabled && item.newPrice && <span className="text-primary ml-1">→ R${item.newPrice}</span>}
-                        </p>
-                      ))}
-                      {taskItems.length > 4 && <p className="text-[9px] text-on-surface/35 italic">+{taskItems.length - 4} mais...</p>}
-                    </div>
-                  )}
-                </div>
-                <div className="px-4 py-3 bg-surface-container-low/20 border-t border-on-surface/[0.03] flex gap-2">
-                  <button onClick={() => onEditRequest(request)}
-                    className="flex-1 h-9 bg-surface-container-lowest border border-on-surface/10 text-on-surface/70 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-on-surface hover:text-surface-container transition-all flex items-center justify-center gap-1.5 shadow-sm">
-                    <Edit2 size={12} /> Ver
-                  </button>
-                  <button onClick={() => onApproveRequest(request.id)}
-                    className="flex-1 h-9 bg-primary text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-on-surface transition-all flex items-center justify-center gap-1.5 shadow-md shadow-primary/20">
-                    <CheckCircle2 size={13} /> Aprovar
-                  </button>
-                  <button onClick={() => onDeleteRequest(request.id)}
-                    className="w-9 h-9 bg-red-50 text-red-500 rounded-xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all border border-red-100/50">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </motion.div>
-            );
-          }
-
-          // ── Product Alteration card ──
-          if (isProductAlteration) {
-            const changedFields: string[] = requestedChanges.changed_fields || [];
-            const FIELD_LABELS: Record<string, string> = {
-              name: 'Nome', sku: 'SKU', price: 'Preço', count: 'Estoque',
-              location: 'Localização', ean: 'EAN', category: 'Categoria',
-              subcategory: 'Subcategoria', brand: 'Marca', status: 'Status',
-            };
-            return (
-              <motion.div layout key={request.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                onClick={() => selectionMode && toggleSelect(request.id)}
-                className={cn('relative bg-surface-container-lowest rounded-[1.5rem] border border-purple-400/30 hover:border-purple-400/60 shadow-md shadow-on-surface/[0.03] overflow-hidden flex flex-col group transition-all',
-                  selectionMode && 'cursor-pointer', selectedIds.has(request.id) && 'ring-2 ring-primary ring-offset-2 ring-offset-surface-container-lowest')}>
-                {selectionMode && (
-                  <div className={cn('absolute top-3 right-3 z-10 w-6 h-6 rounded-lg border-[1.5px] flex items-center justify-center shadow-sm transition-all',
-                    selectedIds.has(request.id) ? 'bg-primary border-primary text-white' : 'bg-surface-container-lowest border-on-surface/20 text-transparent')}>
-                    <Check size={14} />
-                  </div>
-                )}
-                <div className="p-5 flex-1 space-y-3">
-                  <div className="flex gap-3 items-start">
-                    <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 shrink-0 flex items-center justify-center">
-                      <FilePenLine size={22} className="text-purple-600 dark:text-purple-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest bg-purple-500/15 text-purple-700 dark:text-purple-300 inline-block mb-1">
-                        Produtos alterados
-                      </span>
-                      <h3 className="text-sm font-black text-on-surface leading-tight truncate">
-                        {requestedChanges.product_name || 'Produto'}
-                      </h3>
-                      {requestedChanges.product_sku && (
-                        <p className="text-[9px] font-bold text-on-surface/30 uppercase tracking-widest mt-0.5">
-                          {requestedChanges.product_sku}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  {changedFields.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {changedFields.map((field) => (
-                        <span key={field}
-                          className="text-[8px] font-black px-2 py-0.5 rounded-full border border-purple-400/40 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 uppercase tracking-widest">
-                          {FIELD_LABELS[field] ?? field}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="px-4 py-3 bg-surface-container-low/20 border-t border-on-surface/[0.03] flex gap-2">
-                  <button onClick={() => onEditRequest(request)}
-                    className="flex-1 h-9 bg-surface-container-lowest border border-on-surface/10 text-on-surface/70 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-on-surface hover:text-surface-container transition-all flex items-center justify-center gap-1.5 shadow-sm">
-                    <Edit2 size={12} /> Ver
-                  </button>
-                  <button onClick={() => onApproveRequest(request.id)}
-                    className="flex-1 h-9 bg-purple-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-on-surface transition-all flex items-center justify-center gap-1.5 shadow-md shadow-purple-600/20">
-                    <CheckCircle2 size={13} /> Sincronizado
-                  </button>
-                  <button onClick={() => onDeleteRequest(request.id)}
-                    className="w-9 h-9 bg-red-50 text-red-500 rounded-xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all border border-red-100/50">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </motion.div>
-            );
-          }
-
-          if (isBulkProducts) {
-            const items = requestedChanges.items || [];
-            return (
-              <motion.div
-                layout
-                key={request.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                onClick={() => selectionMode && toggleSelect(request.id)}
-                className={cn('relative bg-surface-container-lowest rounded-[1.5rem] border border-on-surface/[0.04] shadow-md shadow-on-surface/[0.03] overflow-hidden flex flex-col group hover:border-primary/20 transition-all',
-                  selectionMode && 'cursor-pointer', selectedIds.has(request.id) && 'ring-2 ring-primary ring-offset-2 ring-offset-surface-container-lowest')}
-              >
-                {selectionMode && (
-                  <div className={cn('absolute top-3 right-3 z-10 w-6 h-6 rounded-lg border-[1.5px] flex items-center justify-center shadow-sm transition-all',
-                    selectedIds.has(request.id) ? 'bg-primary border-primary text-white' : 'bg-surface-container-lowest border-on-surface/20 text-transparent')}>
-                    <Check size={14} />
-                  </div>
-                )}
-                <div className="p-5 flex-1 space-y-3">
-                  <div className="flex gap-3 items-center">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 shrink-0 group-hover:scale-105 transition-transform duration-300 flex items-center justify-center">
-                      <Package size={24} className="text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest bg-primary text-white inline-block mb-1">
-                        Bulk Draft
-                      </span>
-                      <h3 className="text-sm font-black text-on-surface truncate leading-tight group-hover:text-primary transition-colors">
-                        {requestedChanges.title || 'Rascunho em Bulk'}
-                      </h3>
-                      <p className="text-[9px] font-bold text-on-surface/30 uppercase tracking-widest">
-                        {items.length} produto{items.length !== 1 ? 's' : ''}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 text-[8px] font-black text-primary/40 uppercase tracking-widest bg-primary/5 px-2 py-1 rounded-full shrink-0">
-                      <Clock size={10} />
-                      Pending
-                    </div>
-                  </div>
-
-                  <div className="space-y-1 bg-surface-container-low/30 px-3 py-2 rounded-xl border border-on-surface/[0.03] max-h-36 overflow-y-auto">
-                    {items.slice(0, 5).map((item: any, idx: number) => (
-                      <div key={idx} className="flex items-center gap-2 text-[11px] py-0.5">
-                        <div className="flex-1 min-w-0 truncate">
-                          <span className="font-bold text-on-surface/80">
-                            {item.name || item.ean || item.sku || <span className="text-on-surface/30 italic">Sem descrição</span>}
-                          </span>
-                          {item.price && <span className="text-emerald-600 dark:text-emerald-400 ml-1">R${item.price}</span>}
-                        </div>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); toggleCheck(request.id, idx); }}
-                          className={cn(
-                            'w-4 h-4 rounded-full border-[1.5px] flex items-center justify-center shrink-0 transition-all',
-                            checkedItems[request.id]?.has(idx)
-                              ? 'bg-emerald-500 border-emerald-500 text-white'
-                              : 'border-on-surface/25 text-transparent hover:border-emerald-400'
-                          )}
-                        >
-                          <Check size={8} />
-                        </button>
-                      </div>
-                    ))}
-                    {items.length > 5 && (
-                      <p className="text-[9px] text-on-surface/35 italic pt-1 border-t border-on-surface/[0.04]">
-                        +{items.length - 5} mais...
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="px-4 py-3 bg-surface-container-low/20 border-t border-on-surface/[0.03] flex gap-2">
-                  <button
-                    onClick={() => onEditRequest(request)}
-                    className="flex-1 h-9 bg-surface-container-lowest border border-on-surface/10 text-on-surface/70 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-on-surface hover:text-surface-container transition-all flex items-center justify-center gap-1.5 shadow-sm"
-                  >
-                    <Edit2 size={12} />
-                    Review
-                  </button>
-                  <button
-                    onClick={() => onApproveRequest(request.id)}
-                    className="flex-1 h-9 bg-primary text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-on-surface transition-all flex items-center justify-center gap-1.5 shadow-md shadow-primary/20"
-                  >
-                    <CheckCircle2 size={13} />
-                    Approve
-                  </button>
-                  <button
-                    onClick={() => onDeleteRequest(request.id)}
-                    className="w-9 h-9 bg-red-50 text-red-500 rounded-xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all border border-red-100/50"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </motion.div>
-            );
-          }
-
-          return (
-            <motion.div
-              layout
-              key={request.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              onClick={() => selectionMode && toggleSelect(request.id)}
-              className={cn('relative bg-surface-container-lowest rounded-[2.5rem] border border-on-surface/[0.03] shadow-xl shadow-on-surface/[0.02] overflow-hidden flex flex-col group hover:border-primary/20 transition-all',
-                selectionMode && 'cursor-pointer', selectedIds.has(request.id) && 'ring-2 ring-primary ring-offset-2 ring-offset-surface-container-lowest')}
-            >
-              {selectionMode && (
-                <div className={cn('absolute top-4 right-4 z-10 w-7 h-7 rounded-lg border-[1.5px] flex items-center justify-center shadow-sm transition-all',
-                  selectedIds.has(request.id) ? 'bg-primary border-primary text-white' : 'bg-surface-container-lowest border-on-surface/20 text-transparent')}>
-                  <Check size={16} />
-                </div>
+            <div className="relative group">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface/30 group-focus-within:text-primary transition-colors pointer-events-none" />
+              <input
+                type="text"
+                value={filterQuery}
+                onChange={e => setFilterQuery(e.target.value)}
+                placeholder="Buscar por título, produto ou SKU..."
+                className={cn('h-7 w-64 border pl-8 pr-7 text-xs font-semibold text-on-surface placeholder:text-on-surface/25 placeholder:font-medium caret-[#D81E1E] outline-none hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] transition-[border-color,box-shadow]', BORDER, SURFACE)}
+              />
+              {filterQuery && (
+                <button onClick={() => setFilterQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-on-surface/30 hover:text-on-surface transition-colors">
+                  <X size={13} />
+                </button>
               )}
-              <div className="p-8 flex-1 space-y-6">
-                <div className="flex gap-6">
-                  <div className="w-24 h-24 rounded-3xl bg-surface-container-low/50 border border-on-surface/[0.02] overflow-hidden shrink-0 group-hover:scale-105 transition-transform duration-500">
-                    <ProductImage src={productData?.image} alt={productData?.name} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={cn(
-                        "text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest",
-                        isNewProduct ? "bg-primary text-white" : "bg-on-surface/5 text-on-surface/40"
-                      )}>
-                        {isNewProduct ? "Genesis" : (productData?.sku || 'Update')}
-                      </span>
-                    </div>
-                    <h3 className="text-lg font-black text-on-surface truncate leading-tight mb-1 group-hover:text-primary transition-colors">
-                      {productData?.name}
-                    </h3>
-                    <p className="text-[10px] font-black text-on-surface/20 uppercase tracking-[0.2em]">
-                      {productData?.brand || 'Global Entity'}
-                    </p>
-                  </div>
-                </div>
+            </div>
 
-                <div className="space-y-4 pt-6 border-t border-on-surface/[0.03]">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[10px] font-black text-on-surface/30 uppercase tracking-widest">
-                      {isNewProduct ? "Attribute Set:" : "Delta Sequence:"}
-                    </p>
-                    <div className="flex items-center gap-2 text-[9px] font-black text-primary/40 uppercase tracking-widest bg-primary/5 px-3 py-1 rounded-full">
-                       <Clock size={12} />
-                       Pending Sync
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 gap-2 bg-surface-container-low/30 p-4 rounded-2xl border border-on-surface/[0.02]">
-                    {Object.entries(requestedChanges)
-                      .filter(([key]) => key !== 'is_new_product')
-                      .map(([key, value]: [string, any]) => (
-                      <div key={key} className="flex items-center justify-between text-xs group/item">
-                        <span className="text-on-surface/40 font-bold uppercase tracking-widest text-[9px]">{key}:</span>
-                        <span className={cn(
-                          "font-black tracking-tight",
-                          isNewProduct ? "text-primary" : "text-amber-600"
-                        )}>{String(value)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+            <div className={cn('flex border overflow-x-auto [scrollbar-width:none] max-w-full', BORDER, SURFACE)}>
+              {([
+                ['todas', 'Todas'], ['rascunho', 'Rascunhos'], ['tarefa', 'Tarefas'], ['alteracao', 'Alterações'], ['impressao', 'Impressão'], ['produto', 'Produtos'],
+              ] as const).filter(([k]) => k === 'todas' || kindCounts[k] > 0 || kindFilter === k).map(([k, l], i) => {
+                const on = kindFilter === k;
+                return (
+                  <button
+                    key={k}
+                    onClick={() => setKindFilter(k)}
+                    className={cn(
+                      'h-[26px] flex items-center gap-1.5 px-2.5 text-[10.5px] font-extrabold uppercase tracking-[0.05em] whitespace-nowrap transition-colors shrink-0',
+                      i > 0 && cn('border-l', BORDER),
+                      on ? 'bg-primary text-white' : 'text-on-surface/45 hover:text-on-surface',
+                    )}
+                  >
+                    {l}
+                    <span className={cn('text-[9px] font-black px-[5px] leading-[15px] rounded-full tracking-normal',
+                      on ? 'bg-white/25' : 'bg-black/[0.10] dark:bg-white/10')}>
+                      {kindCounts[k]}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
-              <div className="px-8 py-6 bg-surface-container-low/20 border-t border-on-surface/[0.03] flex gap-3">
-                <button 
-                  onClick={() => onEditRequest(request)}
-                  className="flex-1 h-12 bg-surface-container-lowest border border-on-surface/10 text-on-surface/70 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-on-surface hover:text-surface-container transition-all flex items-center justify-center gap-2 shadow-sm"
+            <div className="ml-auto flex items-center gap-1.5">
+              <button
+                onClick={toggleSelectionMode}
+                className={cn(
+                  'h-7 flex items-center gap-1.5 px-2.5 border text-[10.5px] font-extrabold uppercase tracking-[0.05em] transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.97]',
+                  selectionMode
+                    ? 'bg-on-surface text-surface border-on-surface'
+                    : cn(BORDER, SURFACE, 'text-on-surface/45 hover:text-on-surface hover:border-[#CFC4A2] dark:hover:border-white/20'),
+                )}
+              >
+                {selectionMode ? <X size={13} /> : <CheckSquare size={13} />}
+                {selectionMode ? 'Cancelar' : 'Selecionar'}
+              </button>
+              <button
+                onClick={onAddRequest}
+                className="h-7 flex items-center gap-1.5 px-3 bg-primary text-white text-[10.5px] font-extrabold uppercase tracking-[0.05em] hover:bg-[#B91818] active:scale-[0.97] transition-[background-color,transform] duration-150"
+              >
+                <Plus size={13} strokeWidth={3} />
+                Nova requisição
+              </button>
+            </div>
+          </div>
+
+          {selectionMode && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+              className="flex items-center flex-wrap gap-2.5 min-h-[38px] py-1 pl-2.5 pr-1.5 border border-[rgba(216,30,30,0.3)] bg-[rgba(216,30,30,0.06)] dark:border-[rgba(216,30,30,0.4)] dark:bg-[rgba(216,30,30,0.10)]"
+            >
+              <button onClick={toggleSelectAll} className="flex items-center gap-2 group">
+                <span className={cn(
+                  'w-4 h-4 border-[1.5px] flex items-center justify-center transition-colors shrink-0',
+                  allVisibleSelected ? 'bg-primary border-primary text-white' : 'border-on-surface/25 text-transparent group-hover:border-primary/60'
+                )}>
+                  <Check size={10} strokeWidth={3.5} />
+                </span>
+                <span className="text-[11.5px] font-extrabold text-on-surface">
+                  Selecionar tudo · <span className="text-primary">{selectedIds.size} selecionada{selectedIds.size !== 1 ? 's' : ''}</span>
+                </span>
+              </button>
+
+              <div className="ml-auto flex items-center gap-1.5">
+                <button
+                  onClick={handleBulkApprove}
+                  disabled={selectedIds.size === 0}
+                  className="h-7 flex items-center gap-1.5 px-3 bg-primary text-white text-[10.5px] font-extrabold uppercase tracking-[0.05em] hover:bg-[#B91818] active:scale-[0.97] transition-[background-color,transform] duration-150 disabled:opacity-30 disabled:pointer-events-none"
                 >
-                  <Edit2 size={14} />
-                  Refine
+                  <CheckCircle2 size={13} />
+                  Aprovar / Sincronizar
                 </button>
-                <button 
-                  onClick={() => onApproveRequest(request.id)}
-                  className="flex-1 h-12 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-on-surface transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={selectedIds.size === 0}
+                  className={cn('h-7 flex items-center gap-1.5 px-3 border border-[rgba(216,30,30,0.3)] text-[#D81E1E] text-[10.5px] font-extrabold uppercase tracking-[0.05em] hover:bg-[#D81E1E] hover:text-white active:scale-[0.97] transition-[background-color,color,transform] duration-150 disabled:opacity-30 disabled:pointer-events-none', SURFACE)}
                 >
-                  <CheckCircle2 size={16} />
-                  Authorize
-                </button>
-                <button 
-                  onClick={() => onDeleteRequest(request.id)}
-                  className="w-12 h-12 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all border border-red-100/50 shadow-sm"
-                >
-                  <Trash2 size={18} />
+                  <Trash2 size={13} />
+                  Excluir
                 </button>
               </div>
             </motion.div>
-          );
-        })}
-      </div>
+          )}
 
-      {pendingRequests.length === 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex flex-col items-center justify-center py-40 text-on-surface/10 bg-surface-container-low/20 rounded-[3rem] border-2 border-dashed border-on-surface/[0.03]"
-        >
-          <ArrowLeftRight size={64} className="mb-6 opacity-20" />
-          <p className="text-lg font-black uppercase tracking-[0.3em] text-on-surface/20">Protocol Clearance</p>
-          <p className="text-sm font-medium opacity-50 mt-2">No pending revision requests in the system.</p>
-        </motion.div>
+          {visibleRequests.length === 0 ? (
+            pendingRequests.length === 0
+              ? <EmptyState icon={<ArrowLeftRight size={30} />} title="Nada pendente" text="Nenhuma requisição aguardando aprovação." />
+              : <EmptyState icon={<Search size={28} />} title="Nenhuma requisição encontrada" text="Ajuste a busca ou o filtro de tipo." />
+          ) : (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-2.5">
+              {visibleRequests.map(renderCard)}
+            </div>
+          )}
+        </>
       )}
-      </>
-      )}
+    </div>
+  );
+}
+
+function Title({ text, sub, mono }: { text: string; sub?: string; mono?: boolean }) {
+  return (
+    <div>
+      <h3 className="text-[14px] font-black leading-tight tracking-[-0.01em] text-on-surface line-clamp-2">{text}</h3>
+      {sub && <p className={cn('mt-0.5 text-[11px] font-bold text-on-surface/45', mono && 'font-mono font-medium')}>{sub}</p>}
+    </div>
+  );
+}
+
+function EmptyState({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
+  return (
+    <div className="bg-white dark:bg-[#1E1E18] p-10 border border-[#E0D8BF] dark:border-white/[0.10] flex items-center gap-8">
+      <div className="w-16 h-16 bg-on-surface/5 text-on-surface/20 flex items-center justify-center shrink-0">
+        {icon}
+      </div>
+      <div>
+        <h4 className="text-lg font-black text-on-surface leading-tight uppercase tracking-[0.1em]">{title}</h4>
+        <p className="text-sm text-on-surface/40 font-medium mt-1 leading-relaxed">{text}</p>
+      </div>
     </div>
   );
 }

@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="pt-BR" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Requisições</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FFFCEC; --text: #1A1A0E; --muted: rgba(26,26,10,0.45); --faint: rgba(26,26,10,0.28); --ghost: rgba(26,26,10,0.16);
+    --hdr: #FBF35E; --hdr-border: #D9CF45;
+    --card: #FFFFFF; --border: #E0D8BF; --border-hover: #CFC4A2;
+    --th: #FFEC4D; --th-bottom: #8F7E10; --th-line: #B8A31F; --th-text: rgba(26,26,10,0.55); --grid: #A8A290;
+    --row-odd: #FAF7EE; --row-hover: #FFF8D0; --sub: #FDFBF4; --view: rgba(0,0,0,0.035);
+    --green: #0A7A55; --green-bg: rgba(10,122,85,0.08); --green-bd: rgba(10,122,85,0.3);
+    --amber: #92400E; --amber-bg: #FFFBEB; --amber-border: rgba(251,191,36,0.55);
+    --red: #D81E1E; --red-bg: rgba(216,30,30,0.06); --red-bd: rgba(216,30,30,0.3);
+    --blue: #2563EB; --blue-bg: rgba(37,99,235,0.06); --blue-bd: rgba(37,99,235,0.3);
+    --purple: #7C3AED; --purple-bg: rgba(124,58,237,0.06); --purple-bd: rgba(124,58,237,0.3);
+    --tabshadow: inset 0 6px 8px -5px rgba(26,26,10,0.35);
+  }
+  html.dark {
+    --bg: #161612; --text: #F2F0E3; --muted: rgba(242,240,227,0.42); --faint: rgba(242,240,227,0.25); --ghost: rgba(242,240,227,0.14);
+    --hdr: #252520; --hdr-border: rgba(242,240,227,0.08);
+    --card: #1E1E18; --border: rgba(242,240,227,0.10); --border-hover: rgba(242,240,227,0.20);
+    --grid: rgba(242,240,227,0.18); --th-text: rgba(26,26,10,0.58);
+    --row-odd: #1A1A15; --row-hover: rgba(255,229,0,0.06); --sub: #1B1B16; --view: rgba(255,255,255,0.03);
+    --green: #34D399; --green-bg: rgba(52,211,153,0.08); --green-bd: rgba(52,211,153,0.3);
+    --amber: #FCD34D; --amber-bg: rgba(251,191,36,0.07); --amber-border: rgba(251,191,36,0.40);
+    --red-bg: rgba(216,30,30,0.10); --red-bd: rgba(216,30,30,0.4);
+    --blue: #60A5FA; --blue-bg: rgba(96,165,250,0.08); --blue-bd: rgba(96,165,250,0.3);
+    --purple: #A78BFA; --purple-bg: rgba(167,139,250,0.08); --purple-bd: rgba(167,139,250,0.3);
+    --tabshadow: inset 0 6px 8px -5px rgba(0,0,0,0.55);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+  button, input { font-family: inherit; }
+  .mono { font-family: 'DM Mono', monospace; font-variant-numeric: tabular-nums; }
+
+  .anno { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 100; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: center; padding: 8px 10px; border-radius: 14px; background: #1A1A0E; color: #F2F0E3; font-size: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.35); max-width: calc(100vw - 24px); }
+  .anno b { color: #FFE500; margin-right: 4px; }
+  .anno a { color: rgba(242,240,227,.6); font-size: 11px; margin-left: 4px; }
+
+  .hdr { position: fixed; top: 0; left: 0; right: 0; z-index: 10; height: 44px; display: flex; align-items: center; background: #2B2B26; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .hdr .logo { width: 64px; display: grid; place-items: center; }
+  .hdr .logo span { width: 32px; height: 32px; display: grid; place-items: center; background: #fff; color: #D81E1E; font-size: 8.5px; font-weight: 900; }
+  .hdr h1 { margin: 0; font-size: 15px; font-weight: 900; color: #F2F0E3; }
+  .rail { position: fixed; left: 0; top: 44px; bottom: 0; width: 64px; background: var(--hdr); border-right: 1px solid var(--hdr-border); }
+  main { margin-left: 64px; padding-top: 44px; }
+
+  .tabs { display: flex; width: max-content; position: sticky; top: 44px; z-index: 5; }
+  .tab { height: 32px; min-width: 112px; padding: 0 14px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--hdr-border); border-top: 0; margin-left: -1px; background: var(--hdr); color: var(--text); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; box-shadow: var(--tabshadow); cursor: pointer; transition: transform .15s; }
+  .tab:active { transform: scale(.97); }
+  .tab:first-child { margin-left: 0; border-left: 0; }
+  .tab span { opacity: .55; } .tab:hover span { opacity: .85; }
+  .tab.on { box-shadow: var(--tabshadow), inset 0 -3px 0 #D81E1E; } .tab.on span { opacity: 1; }
+  .tab .n { opacity: 1; font-size: 9px; font-weight: 900; padding: 1px 6px; border-radius: 999px; background: rgba(26,26,10,.12); }
+  html.dark .tab .n { background: rgba(255,255,255,.1); }
+  .page { padding: 14px 28px 110px; display: flex; flex-direction: column; gap: 10px; }
+
+  /* Barra de ferramentas */
+  .tbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .cntc { height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid var(--border); background: var(--card); font-size: 11px; font-weight: 700; color: var(--muted); }
+  .cntc b { color: var(--text); font-weight: 900; }
+  .srch { position: relative; } .srch span { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--faint); font-size: 12px; }
+  .srch input { height: 28px; width: 260px; background: var(--card); border: 1px solid var(--border); padding: 0 10px 0 28px; font-size: 12px; font-weight: 600; color: var(--text); outline: none; caret-color: #D81E1E; transition: border-color .13s, box-shadow .13s; }
+  .srch input::placeholder { color: var(--faint); }
+  .srch input:focus { border-color: #D81E1E; box-shadow: 0 0 0 2px rgba(216,30,30,.12); }
+  .fseg { display: flex; border: 1px solid var(--border); background: var(--card); }
+  .fseg button { height: 26px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border: 0; background: transparent; font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); cursor: pointer; white-space: nowrap; }
+  .fseg button + button { border-left: 1px solid var(--border); }
+  .fseg button.on { background: #D81E1E; color: #fff; }
+  .fseg button:not(.on):hover { color: var(--text); }
+  .fseg .n { font-size: 9px; font-weight: 900; padding: 0 5px; line-height: 15px; border-radius: 999px; background: rgba(0,0,0,.08); }
+  html.dark .fseg .n { background: rgba(255,255,255,.1); }
+  .fseg button.on .n { background: rgba(255,255,255,.25); }
+  .sp { flex: 1; }
+  .tb { height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 11px; border: 1px solid var(--border); background: var(--card); color: var(--muted); font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; cursor: pointer; transition: transform .15s, color .13s, border-color .13s; }
+  .tb:hover { color: var(--text); border-color: var(--border-hover); }
+  .tb:active { transform: scale(.97); }
+  .tb.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .tb.pri { background: #D81E1E; border-color: #D81E1E; color: #fff; }
+  .tb.pri:hover { background: #B91818; }
+
+  /* Barra de seleção */
+  .selbar { display: none; align-items: center; gap: 10px; padding: 0 6px 0 10px; height: 38px; border: 1px solid var(--red-bd); background: var(--red-bg); animation: rin .18s cubic-bezier(.23,1,.32,1); }
+  .selbar.show { display: flex; }
+  @keyframes rin { from { opacity: 0; transform: translateY(-4px); } }
+  .selbar .t { font-size: 11.5px; font-weight: 800; }
+  .selbar .t b { color: #D81E1E; }
+  .selbar .tb.del { color: #D81E1E; border-color: var(--red-bd); }
+  .selbar .tb.del:hover { background: #D81E1E; color: #fff; }
+
+  /* Tabela */
+  .dt { background: var(--card); border: 1px solid var(--border); overflow-x: auto; }
+  table { width: 100%; min-width: 1060px; table-layout: fixed; border-collapse: collapse; font-size: 12.5px; }
+  th { height: 32px; padding: 0 10px; background: var(--th); text-align: left; box-shadow: inset -1px 0 0 var(--th-line), inset 0 -1.5px 0 var(--th-bottom); font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: var(--th-text); white-space: nowrap; }
+  th.r, td.r { text-align: right; } th.c, td.c { text-align: center; }
+  td { height: 40px; padding: 0 10px; border-right: 1px solid var(--grid); border-bottom: 1px solid var(--grid); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  td:last-child { border-right: 0; }
+  tr.ev { background: var(--card); } tr.od { background: var(--row-odd); }
+  tr.rw { cursor: pointer; transition: background .12s; }
+  tr.rw:hover { background: var(--row-hover); }
+  tr.rw.sel { background: var(--red-bg); }
+  tr.child td { background: var(--sub); font-size: 12px; height: 30px; color: var(--muted); }
+  tr.child td.nm { padding-left: 44px; color: var(--text); font-weight: 600; }
+  tr.child.more td { font-style: italic; color: var(--faint); }
+  .chev { display: inline-block; width: 12px; font-size: 8px; color: var(--muted); transition: transform .18s cubic-bezier(.23,1,.32,1); }
+  .chev.open { transform: rotate(90deg); }
+  .ttl { font-weight: 800; }
+  .ttl small { font-weight: 700; color: var(--faint); margin-left: 6px; font-family: 'DM Mono', monospace; font-size: 11px; }
+
+  .pill { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 8px; border: 1px solid; font-size: 9.5px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+  .pill i { width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+  .p-rasc { color: #D81E1E; border-color: var(--red-bd); background: var(--red-bg); }
+  .p-task { color: var(--blue); border-color: var(--blue-bd); background: var(--blue-bg); }
+  .p-alt { color: var(--purple); border-color: var(--purple-bd); background: var(--purple-bg); }
+  .p-imp { color: var(--text); border-color: var(--border-hover); background: var(--view); }
+  .p-prod { color: var(--green); border-color: var(--green-bd); background: var(--green-bg); }
+  .p-alta { color: #D81E1E; border-color: var(--red-bd); background: var(--red-bg); }
+  .p-media { color: var(--amber); border-color: var(--amber-border); background: var(--amber-bg); }
+  .p-baixa { color: var(--green); border-color: var(--green-bd); background: var(--green-bg); }
+  .chips { display: inline-flex; gap: 4px; }
+  .chip { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; padding: 0 5px; line-height: 16px; border: 1px solid var(--purple-bd); color: var(--purple); }
+  .dash { color: var(--ghost); }
+
+  .prog { display: inline-flex; align-items: center; gap: 7px; }
+  .prog .bar { width: 56px; height: 6px; border: 1px solid var(--border); background: var(--view); }
+  .prog .bar i { display: block; height: 100%; background: var(--green); }
+  .prog span { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+
+  .acts { display: inline-flex; gap: 4px; }
+  .ab { height: 26px; min-width: 26px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border: 1px solid var(--border); background: var(--card); color: var(--muted); font-size: 9.5px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; cursor: pointer; transition: all .13s; }
+  .ab:hover { color: var(--text); border-color: var(--border-hover); }
+  .ab:active { transform: scale(.95); }
+  .ab.ok { background: #D81E1E; border-color: #D81E1E; color: #fff; }
+  .ab.ok:hover { background: #B91818; }
+  .ab.del { padding: 0; width: 26px; }
+  .ab.del:hover { color: #D81E1E; border-color: var(--red-bd); background: var(--red-bg); }
+  tr.rw .ab.del { opacity: .35; } tr.rw:hover .ab.del { opacity: 1; }
+
+  .ck { width: 16px; height: 16px; display: inline-grid; place-items: center; border: 1.5px solid var(--ghost); color: transparent; font-size: 10px; font-weight: 900; cursor: pointer; transition: all .13s; vertical-align: middle; }
+  .ck.on { background: #D81E1E; border-color: #D81E1E; color: #fff; }
+  .ck.g.on { background: var(--green); border-color: var(--green); color: #fff; }
+  .selcol { display: none; } .selmode .selcol { display: table-cell; }
+
+  .empty2 { background: var(--card); border: 1px solid var(--border); padding: 34px; display: flex; align-items: center; gap: 24px; }
+  .empty2 .ic { width: 56px; height: 56px; display: grid; place-items: center; background: var(--view); color: var(--ghost); font-size: 26px; }
+  .empty2 h4 { margin: 0; font-size: 15px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; }
+  .empty2 p { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+
+  /* Análise */
+  .info { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--border); background: var(--card); font-size: 12px; font-weight: 600; color: var(--muted); }
+  .info b { color: var(--text); }
+  .kp { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); }
+  .kp > div { background: var(--card); padding: 9px 12px; }
+  .kp .l { font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .kp .l i { width: 7px; height: 7px; }
+  .kp .v { font-size: 20px; font-weight: 900; letter-spacing: -.02em; margin-top: 2px; }
+  .sech { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border: 1px solid var(--border); border-bottom: 0; background: var(--card); font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; }
+  .sech i { width: 8px; height: 8px; }
+  .sech.crit { color: #D81E1E; } .sech.crit i { background: #D81E1E; }
+  .sech.att { color: var(--amber); } .sech.att i { background: #F59E0B; }
+  .sech em { font-style: normal; color: var(--muted); margin-left: 2px; }
+  .lvl { display: inline-flex; align-items: center; gap: 7px; }
+  .lvl .bar { width: 70px; height: 6px; border: 1px solid var(--border); background: var(--view); position: relative; }
+  .lvl .bar i { display: block; height: 100%; }
+  .lvl .bar b { position: absolute; top: -3px; bottom: -3px; width: 1.5px; background: var(--text); opacity: .5; }
+  .tag { font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; padding: 0 5px; line-height: 15px; border: 1px solid currentColor; margin-left: 6px; }
+  .tag.gp { color: var(--green); } .tag.bp { color: var(--blue); }
+  .note { font-size: 10.5px; font-weight: 600; color: var(--faint); }
+  .hide { display: none !important; }
+  /* Cards quadrados */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+  .cd { position: relative; background: var(--card); border: 1px solid var(--border); display: flex; flex-direction: column; box-shadow: inset 0 3px 0 var(--acc, var(--border)); transition: border-color .13s; animation: cin .2s cubic-bezier(.23,1,.32,1) both; }
+  @keyframes cin { from { opacity: 0; transform: translateY(4px); } }
+  .cd:hover { border-color: var(--border-hover); }
+  .t-rasc { --acc: #D81E1E; } .t-alta { --acc: #D81E1E; } .t-baixa { --acc: var(--green); } .t-alt { --acc: var(--purple); } .t-imp { --acc: var(--text); } .t-prod { --acc: var(--green); }
+  .ch { display: flex; align-items: center; gap: 5px; padding: 11px 12px 0; }
+  .ch .dt2 { margin-left: auto; font-size: 11px; color: var(--faint); }
+  .ch .sk { display: none; margin-left: 6px; }
+  .selmode .ch .sk { display: inline-grid; }
+  .selmode .cd { cursor: pointer; }
+  .cd.sel { border-color: #D81E1E; box-shadow: inset 0 3px 0 var(--acc), 0 0 0 1px #D81E1E; }
+  .cb { flex: 1; padding: 9px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .cb h3 { margin: 0; font-size: 14px; font-weight: 900; line-height: 1.25; letter-spacing: -.01em; }
+  .cb .sub { margin: -5px 0 0; font-size: 11px; font-weight: 700; color: var(--muted); }
+  .items { border: 1px solid var(--border); background: var(--sub); max-height: 120px; overflow-y: auto; }
+  .it { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 9px; font-size: 11.5px; font-weight: 600; }
+  .it + .it { border-top: 1px solid var(--border); }
+  .it .nm { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .it .pr { font-size: 11px; color: var(--muted); }
+  .it.more { color: var(--faint); font-style: italic; font-size: 11px; }
+  .sz { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .04em; padding: 0 5px; line-height: 16px; border: 1px solid var(--border); color: var(--muted); }
+  .sz.on { border-color: var(--red-bd); color: #D81E1E; }
+  .cf { display: flex; gap: 4px; padding: 8px 10px; border-top: 1px solid var(--border); background: var(--sub); }
+  .cf .ab { flex: 1; height: 30px; }
+  .cf .ab.del { flex: 0 0 30px; width: 30px; height: 30px; opacity: .6; }
+  .cd:hover .cf .ab.del { opacity: 1; }
+  .ab.ok.alt { background: var(--purple); border-color: var(--purple); }
+  .pimg { display: flex; gap: 10px; align-items: center; }
+  .ph { width: 52px; height: 52px; flex-shrink: 0; display: grid; place-items: center; border: 1px solid var(--border); background: var(--view); color: var(--ghost); font-size: 20px; }
+  .kv { border: 1px solid var(--border); }
+  .kv div { display: flex; justify-content: space-between; gap: 10px; height: 28px; align-items: center; padding: 0 9px; font-size: 11.5px; }
+  .kv div + div { border-top: 1px solid var(--border); }
+  .kv span { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .kv b { font-weight: 600; font-size: 11.5px; color: var(--green); }
+  .cd .prog span:last-child { font-family: 'DM Sans'; font-weight: 700; }
+  .cd .prog .bar { width: 90px; }
+</style>
+</head>
+<body>
+<div class="hdr"><div class="logo"><span>LOGO</span></div><h1>Requisições</h1></div>
+<div class="rail"></div>
+
+<main>
+  <div class="tabs">
+    <button class="tab on" data-view="req"><span>Requisições</span><em class="n" style="font-style:normal">6</em></button>
+    <button class="tab" data-view="ana"><span>Análise</span><em class="n" style="font-style:normal;background:rgba(216,30,30,.18);color:#D81E1E">3</em></button>
+  </div>
+
+  <!-- ═════════════ REQUISIÇÕES ═════════════ -->
+  <div class="page" id="v-req">
+    <div class="tbar">
+      <div class="cntc"><b>6</b> pendentes</div>
+      <div class="srch"><span>⌕</span><input placeholder="Buscar por título, produto ou SKU"></div>
+      <div class="fseg" id="fseg">
+        <button class="on">Todas <span class="n">6</span></button>
+        <button>Rascunhos <span class="n">2</span></button>
+        <button>Tarefas <span class="n">2</span></button>
+        <button>Alterações <span class="n">1</span></button>
+        <button>Impressão <span class="n">1</span></button>
+      </div>
+      <div class="sp"></div>
+      <button class="tb" id="selbtn">☐ Selecionar</button>
+      <button class="tb pri">＋ Nova requisição</button>
+    </div>
+
+    <div class="selbar" id="selbar">
+      <span class="ck" id="ckall">✓</span>
+      <span class="t">Selecionar tudo · <b id="selcount">0 selecionadas</b></span>
+      <div class="sp"></div>
+      <button class="tb pri">✓ Aprovar / Sincronizar</button>
+      <button class="tb del">🗑 Excluir</button>
+    </div>
+
+    <div class="cards" id="cards">
+      <!-- Rascunho -->
+      <div class="cd t-rasc">
+        <div class="ch"><span class="pill p-rasc"><i></i>Rascunho</span><span class="dt2 mono">10/10</span><span class="ck sk">✓</span></div>
+        <div class="cb">
+          <h3>Nota Atacadão 18/09</h3>
+          <p class="sub">14 produtos</p>
+          <div class="prog"><span class="bar"><i style="width:43%"></i></span><span>6/14 conferidos</span></div>
+          <div class="items">
+            <div class="it"><span class="nm">Refrigerante Cola 2L</span><span class="mono pr">R$ 8,99</span><span class="ck g on">✓</span></div>
+            <div class="it"><span class="nm">Biscoito Recheado 130g</span><span class="mono pr">R$ 3,49</span><span class="ck g on">✓</span></div>
+            <div class="it"><span class="nm">Detergente Neutro 500ml</span><span class="mono pr">R$ 2,79</span><span class="ck g">✓</span></div>
+            <div class="it more">+11 produtos</div>
+          </div>
+        </div>
+        <div class="cf"><button class="ab">Revisar</button><button class="ab ok">✓ Aprovar</button><button class="ab del">✕</button></div>
+      </div>
+
+      <!-- Tarefa alta -->
+      <div class="cd t-alta">
+        <div class="ch"><span class="pill p-task"><i></i>Tarefa</span><span class="pill p-alta"><i></i>Alta</span><span class="dt2 mono">12/10</span><span class="ck sk">✓</span></div>
+        <div class="cb">
+          <h3>Conferir validade dos laticínios da geladeira 2</h3>
+          <p class="sub">Revisão de mercadoria · 3 itens</p>
+          <div class="items">
+            <div class="it"><span class="nm">Iogurte Natural 170g</span></div>
+            <div class="it"><span class="nm">Queijo Mussarela fatiado</span><span class="mono pr" style="color:#D81E1E">→ R$ 7,90</span></div>
+            <div class="it"><span class="nm">Requeijão Cremoso 200g</span></div>
+          </div>
+        </div>
+        <div class="cf"><button class="ab">Ver</button><button class="ab ok">✓ Aprovar</button><button class="ab del">✕</button></div>
+      </div>
+
+      <!-- Alteração -->
+      <div class="cd t-alt">
+        <div class="ch"><span class="pill p-alt"><i></i>Alteração</span><span class="dt2 mono">12/10</span><span class="ck sk">✓</span></div>
+        <div class="cb">
+          <h3>Café Torrado 500g</h3>
+          <p class="sub mono">SKU 004512</p>
+          <div class="chips"><span class="chip">Preço</span><span class="chip">EAN</span><span class="chip">Localização</span></div>
+        </div>
+        <div class="cf"><button class="ab">Ver</button><button class="ab ok alt">✓ Sincronizado</button><button class="ab del">✕</button></div>
+      </div>
+
+      <!-- Impressão -->
+      <div class="cd t-imp">
+        <div class="ch"><span class="pill p-imp"><i></i>Impressão</span><span class="dt2 mono">13/10</span><span class="ck sk">✓</span></div>
+        <div class="cb">
+          <h3>Fila de Impressão</h3>
+          <p class="sub">5 produtos · 18 etiquetas · Gôndola</p>
+          <div class="items">
+            <div class="it"><span class="nm">Arroz Tipo 1 5kg</span><span class="sz">Inteira ×6</span></div>
+            <div class="it"><span class="nm">Feijão Carioca 1kg</span><span class="sz on">Metade ×12</span></div>
+            <div class="it more">+3 produtos</div>
+          </div>
+        </div>
+        <div class="cf"><button class="ab">Ver</button><button class="ab ok">🖨 Imprimir</button><button class="ab del">✕</button></div>
+      </div>
+
+      <!-- Tarefa baixa -->
+      <div class="cd t-baixa">
+        <div class="ch"><span class="pill p-task"><i></i>Tarefa</span><span class="pill p-baixa"><i></i>Baixa</span><span class="dt2 mono">13/10</span><span class="ck sk">✓</span></div>
+        <div class="cb">
+          <h3>Reorganizar corredor de limpeza</h3>
+          <p class="sub">Tarefa · sem itens</p>
+        </div>
+        <div class="cf"><button class="ab">Ver</button><button class="ab ok">✓ Aprovar</button><button class="ab del">✕</button></div>
+      </div>
+
+      <!-- Produto novo -->
+      <div class="cd t-prod">
+        <div class="ch"><span class="pill p-prod"><i></i>Produto novo</span><span class="dt2 mono">13/10</span><span class="ck sk">✓</span></div>
+        <div class="cb">
+          <div class="pimg"><div class="ph">▣</div><div><h3>Molho de Tomate Tradicional 340g</h3><p class="sub" style="margin-top:2px">Marca Boa Mesa</p></div></div>
+          <div class="kv">
+            <div><span>Preço</span><b class="mono">R$ 4,29</b></div>
+            <div><span>EAN</span><b class="mono">7891234567890</b></div>
+            <div><span>Categoria</span><b>Mercearia</b></div>
+          </div>
+        </div>
+        <div class="cf"><button class="ab">Ajustar</button><button class="ab ok">✓ Aprovar</button><button class="ab del">✕</button></div>
+      </div>
+    </div>
+
+    <div class="empty2 hide" id="empty">
+      <div class="ic">⇄</div>
+      <div><h4>Nada pendente</h4><p>Nenhuma requisição aguardando aprovação.</p></div>
+    </div>
+  </div>
+
+  <!-- ═════════════ ANÁLISE ═════════════ -->
+  <div class="page hide" id="v-ana">
+    <div class="tbar">
+      <div class="cntc"><b>5</b> produtos em alerta</div>
+      <div class="fseg" id="gseg">
+        <button class="on">Por produto</button>
+        <button>Por fornecedor</button>
+      </div>
+      <div class="sp"></div>
+      <span class="note">Base: últimas 300 notas de entrada aprovadas</span>
+    </div>
+
+    <div class="info">ⓘ <span><b>42 produtos</b> sem Estoque Mínimo definido não entram nos alertas — defina em Editar Produto.</span></div>
+
+    <div class="kp">
+      <div><div class="l"><i style="background:#D81E1E"></i>Crítico</div><div class="v" style="color:#D81E1E">3</div></div>
+      <div><div class="l"><i style="background:#F59E0B"></i>Atenção</div><div class="v" style="color:var(--amber)">2</div></div>
+      <div><div class="l">Fornecedores</div><div class="v">4</div></div>
+      <div><div class="l">Sem fornecedor</div><div class="v" style="color:var(--muted)">1</div></div>
+    </div>
+
+    <div id="a-prod">
+      <div class="sech crit"><i></i>Crítico — comprar agora <em>(3)</em></div>
+      <div class="dt" style="margin-bottom:10px">
+        <table style="min-width:900px">
+          <colgroup><col><col style="width:110px"><col style="width:200px"><col style="width:140px"><col style="width:150px"></colgroup>
+          <thead><tr><th>Produto</th><th>SKU</th><th>Estoque / Mínimo</th><th class="r">Melhor preço</th><th>Situação</th></tr></thead>
+          <tbody>
+            <tr class="rw ev" data-g="a1">
+              <td><span class="chev open">▶</span> <span class="ttl">Leite Integral 1L</span></td>
+              <td class="mono">001122</td>
+              <td><span class="lvl"><span class="bar"><i style="width:20%;background:#D81E1E"></i><b style="left:60%"></b></span><span class="mono">4 / 12</span></span></td>
+              <td class="r mono">R$ 4,15</td>
+              <td><span class="pill p-alta"><i></i>Faltam 8</span></td>
+            </tr>
+            <tr class="child" data-p="a1"><td class="nm">Laticínios Serra Azul<span class="tag gp">Melhor preço</span></td><td>6 notas</td><td>120 un compradas</td><td class="r mono" style="color:var(--text)">R$ 4,15</td><td>~3d de prazo</td></tr>
+            <tr class="child" data-p="a1"><td class="nm">Distribuidora Central<span class="tag bp">Menor prazo</span></td><td>2 notas</td><td>48 un compradas</td><td class="r mono" style="color:var(--text)">R$ 4,39</td><td>~1d de prazo</td></tr>
+
+            <tr class="rw od" data-g="a2">
+              <td><span class="chev">▶</span> <span class="ttl">Açúcar Refinado 1kg</span></td>
+              <td class="mono">003301</td>
+              <td><span class="lvl"><span class="bar"><i style="width:30%;background:#D81E1E"></i><b style="left:50%"></b></span><span class="mono">6 / 10</span></span></td>
+              <td class="r mono">R$ 3,80</td>
+              <td><span class="pill p-alta"><i></i>Faltam 4</span></td>
+            </tr>
+            <tr class="child hide" data-p="a2"><td class="nm">Atacadão<span class="tag gp">Melhor preço</span><span class="tag bp">Menor prazo</span></td><td>4 notas</td><td>80 un compradas</td><td class="r mono" style="color:var(--text)">R$ 3,80</td><td>~2d de prazo</td></tr>
+
+            <tr class="rw ev" data-g="a3">
+              <td><span class="chev">▶</span> <span class="ttl">Papel Toalha 2 rolos</span></td>
+              <td class="mono">008870</td>
+              <td><span class="lvl"><span class="bar"><i style="width:45%;background:#D81E1E"></i><b style="left:45%"></b></span><span class="mono">5 / 5</span></span></td>
+              <td class="r"><span class="dash">—</span></td>
+              <td><span class="pill p-alta"><i></i>No limite</span></td>
+            </tr>
+            <tr class="child hide" data-p="a3"><td class="nm" style="color:var(--muted);font-weight:600">Nenhuma nota de entrada aprovada com este produto ainda.</td><td></td><td></td><td></td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="sech att"><i></i>Atenção — perto do mínimo <em>(2)</em></div>
+      <div class="dt">
+        <table style="min-width:900px">
+          <colgroup><col><col style="width:110px"><col style="width:200px"><col style="width:140px"><col style="width:150px"></colgroup>
+          <thead><tr><th>Produto</th><th>SKU</th><th>Estoque / Mínimo</th><th class="r">Melhor preço</th><th>Situação</th></tr></thead>
+          <tbody>
+            <tr class="rw ev"><td><span class="chev">▶</span> <span class="ttl">Óleo de Soja 900ml</span></td><td class="mono">002210</td><td><span class="lvl"><span class="bar"><i style="width:55%;background:#F59E0B"></i><b style="left:50%"></b></span><span class="mono">11 / 10</span></span></td><td class="r mono">R$ 6,49</td><td><span class="pill p-media"><i></i>Perto do mínimo</span></td></tr>
+            <tr class="rw od"><td><span class="chev">▶</span> <span class="ttl">Sabão em Pó 800g</span></td><td class="mono">009001</td><td><span class="lvl"><span class="bar"><i style="width:60%;background:#F59E0B"></i><b style="left:50%"></b></span><span class="mono">7 / 6</span></span></td><td class="r mono">R$ 11,90</td><td><span class="pill p-media"><i></i>Perto do mínimo</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="a-forn" class="hide">
+      <div class="dt">
+        <table style="min-width:900px">
+          <colgroup><col><col style="width:180px"><col style="width:200px"><col style="width:150px"></colgroup>
+          <thead><tr><th>Fornecedor</th><th>Produtos cobertos</th><th>Estoque / Mínimo</th><th class="r">Último preço</th></tr></thead>
+          <tbody>
+            <tr class="rw ev" data-g="f1"><td><span class="chev open">▶</span> <span class="ttl">Atacadão</span></td><td><b>3</b> <span style="color:var(--muted)">em falta/atenção</span></td><td></td><td></td></tr>
+            <tr class="child" data-p="f1"><td class="nm">Açúcar Refinado 1kg</td><td>~2d de prazo</td><td class="mono">6 / 10</td><td class="r mono" style="color:var(--text)">R$ 3,80</td></tr>
+            <tr class="child" data-p="f1"><td class="nm">Óleo de Soja 900ml</td><td>~2d de prazo</td><td class="mono">11 / 10</td><td class="r mono" style="color:var(--text)">R$ 6,49</td></tr>
+            <tr class="child" data-p="f1"><td class="nm">Sabão em Pó 800g</td><td>sem prazo registrado</td><td class="mono">7 / 6</td><td class="r mono" style="color:var(--text)">R$ 11,90</td></tr>
+            <tr class="rw od" data-g="f2"><td><span class="chev">▶</span> <span class="ttl">Laticínios Serra Azul</span></td><td><b>1</b> <span style="color:var(--muted)">em falta/atenção</span></td><td></td><td></td></tr>
+            <tr class="rw ev"><td><span class="ttl" style="color:var(--muted)">Sem fornecedor conhecido</span></td><td><b>1</b> <span style="color:var(--muted)">produto</span></td><td class="mono">Papel Toalha · 5 / 5</td><td class="r"><span class="dash">—</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="anno"><b>Requisições · padrão quadrado</b> cards quadrados · teste Selecionar, os ✓ e a aba Análise <a href="mockup-requisicoes-quadrado-light.html">ver light →</a></div>
+
+<script>
+  document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t));
+    document.getElementById('v-req').classList.toggle('hide', t.dataset.view !== 'req');
+    document.getElementById('v-ana').classList.toggle('hide', t.dataset.view !== 'ana');
+  });
+  document.querySelectorAll('tr.rw[data-g]').forEach(r => r.onclick = (e) => {
+    if (e.target.closest('.ab')) return;
+    const tbl = r.closest('table');
+    if (tbl.classList.contains('selmode')) { r.classList.toggle('sel'); r.querySelector('.ck').classList.toggle('on', r.classList.contains('sel')); upd(); return; }
+    const kids = document.querySelectorAll(`tr.child[data-p="${r.dataset.g}"]`);
+    if (!kids.length) return;
+    const open = kids[0].classList.contains('hide');
+    kids.forEach(k => k.classList.toggle('hide', !open));
+    const ch = r.querySelector('.chev'); if (ch) ch.classList.toggle('open', open);
+  });
+  document.querySelectorAll('.ck.g').forEach(c => c.onclick = e => { e.stopPropagation(); c.classList.toggle('on'); });
+  const tbl = document.getElementById('cards'), selbtn = document.getElementById('selbtn'), selbar = document.getElementById('selbar');
+  function upd() { const n = tbl.querySelectorAll('.cd.sel').length; document.getElementById('selcount').textContent = n + ' selecionada' + (n !== 1 ? 's' : ''); document.getElementById('ckall').classList.toggle('on', n === tbl.querySelectorAll('.cd').length); }
+  tbl.querySelectorAll('.cd').forEach(c => c.onclick = e => {
+    if (!tbl.classList.contains('selmode') || e.target.closest('.ab') || e.target.closest('.ck.g')) return;
+    c.classList.toggle('sel'); c.querySelector('.sk').classList.toggle('on', c.classList.contains('sel')); upd();
+  });
+  selbtn.onclick = () => {
+    const on = !tbl.classList.contains('selmode');
+    tbl.classList.toggle('selmode', on); selbar.classList.toggle('show', on); selbtn.classList.toggle('on', on);
+    selbtn.textContent = on ? '✕ Cancelar' : '☐ Selecionar';
+    if (!on) tbl.querySelectorAll('.cd.sel').forEach(c => { c.classList.remove('sel'); c.querySelector('.sk').classList.remove('on'); });
+    upd();
+  };
+  document.getElementById('ckall').onclick = () => {
+    const cs = tbl.querySelectorAll('.cd'); const all = tbl.querySelectorAll('.cd.sel').length === cs.length;
+    cs.forEach(c => { c.classList.toggle('sel', !all); c.querySelector('.sk').classList.toggle('on', !all); }); upd();
+  };
+  document.querySelectorAll('.fseg').forEach(s => s.querySelectorAll('button').forEach(b => b.onclick = () => {
+    s.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    if (s.id === 'gseg') { const forn = b.textContent.includes('fornecedor'); document.getElementById('a-prod').classList.toggle('hide', forn); document.getElementById('a-forn').classList.toggle('hide', !forn); }
+  }));
+</script>
+</body>
+</html>
