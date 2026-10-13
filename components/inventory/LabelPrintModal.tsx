@@ -91,12 +91,15 @@ export const PRODUTO_HALF_H = PRODUTO_LABEL_SIZE / 2; // 20mm — altura de cada
 
 // Etiqueta de Produto 40×20 — rolo próprio na Elgin L42 Pro, com 2 etiquetas
 // lado a lado por linha. Usa o layout da Metade (PRODUTO_HALF_SPEC); cada
-// disparo/página é uma linha: 40 + vão + 40mm de largura por 20mm de altura.
-// No driver da Elgin, o papel "Etiqueta 40x20" precisa ter ROLO_40X20_W × 20mm.
+// disparo/página é uma linha do papel de fundo inteiro: margem + 40 + vão +
+// 40 + margem por 20mm de altura. No driver da Elgin, o papel "Etiqueta 40x20"
+// precisa ter ROLO_40X20_W × 20mm.
+export const ROLO_40X20_MARGIN_MM = 2; // papel de fundo livre antes da 1ª e depois da 2ª coluna
 export const ROLO_40X20_GAP_MM = 3; // vão entre as duas colunas do rolo
-export const ROLO_40X20_W = PRODUTO_LABEL_SIZE * 2 + ROLO_40X20_GAP_MM; // 83mm
+export const ROLO_40X20_W = ROLO_40X20_MARGIN_MM * 2 + PRODUTO_LABEL_SIZE * 2 + ROLO_40X20_GAP_MM; // 87mm
 export const ROLO_40X20_H = PRODUTO_HALF_H; // 20mm
-export const ROLO_40X20_COL2_X = PRODUTO_LABEL_SIZE + ROLO_40X20_GAP_MM; // onde começa a 2ª coluna
+export const ROLO_40X20_COL1_X = ROLO_40X20_MARGIN_MM; // onde começa a 1ª coluna
+export const ROLO_40X20_COL2_X = ROLO_40X20_MARGIN_MM + PRODUTO_LABEL_SIZE + ROLO_40X20_GAP_MM; // onde começa a 2ª coluna
 
 // A Inteira, a Metade e o Código usam layouts fixos próprios — ver
 // PRODUTO_FULL_SPEC, PRODUTO_HALF_SPEC e PRODUTO_CODIGO_SPEC.
@@ -631,7 +634,7 @@ export function ProdutoPreviewRolo({ items, extraFields }: { items: (any | undef
   const pct = (mm: number, total: number) => `${(mm / total) * 100}%`;
   return (
     <div className="relative w-full overflow-hidden bg-[#EDE6CF] dark:bg-[#2A2A24] border border-black/10 dark:border-white/10" style={{ aspectRatio: `${ROLO_40X20_W} / ${ROLO_40X20_H}` }}>
-      {[0, ROLO_40X20_COL2_X].map((x, i) => (
+      {[ROLO_40X20_COL1_X, ROLO_40X20_COL2_X].map((x, i) => (
         <div
           key={i}
           className={cn('absolute top-0 h-full rounded-[3px] bg-white', items[i] ? 'shadow-[0_1px_2px_rgba(0,0,0,0.15)]' : 'opacity-60 border border-dashed border-black/20')}
@@ -644,7 +647,7 @@ export function ProdutoPreviewRolo({ items, extraFields }: { items: (any | undef
           product={product}
           extraFields={extraFields[i] ?? []}
           offsetYMm={0}
-          offsetXMm={i === 0 ? 0 : ROLO_40X20_COL2_X}
+          offsetXMm={i === 0 ? ROLO_40X20_COL1_X : ROLO_40X20_COL2_X}
           frameW={ROLO_40X20_W}
           frameH={ROLO_40X20_H}
         />
@@ -1344,7 +1347,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
       const left = units[i];
       const right = units[i + 1];
       pages.push(
-        `<div class="rolo-row">${buildProdutoHalfHtml(left.product, left.fields, 0, 0)}${right ? buildProdutoHalfHtml(right.product, right.fields, 0, ROLO_40X20_COL2_X) : ''}</div>`
+        `<div class="rolo-row">${buildProdutoHalfHtml(left.product, left.fields, 0, ROLO_40X20_COL1_X)}${right ? buildProdutoHalfHtml(right.product, right.fields, 0, ROLO_40X20_COL2_X) : ''}</div>`
       );
     }
 
