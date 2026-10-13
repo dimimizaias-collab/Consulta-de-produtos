@@ -3742,20 +3742,10 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                           )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-right font-mono text-on-surface">
-                          {fmt(t.valor_final)}
-                          {groupTotal !== null && (
-                            <span className="block text-[9.5px] font-medium text-on-surface/35 mt-0.5">
-                              de {fmt(groupTotal)}
-                            </span>
-                          )}
+                          {fmt(t.valor_final)}
                         </td>
                         <td className={cn('px-4 py-3 whitespace-nowrap text-right font-mono', restante > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400')}>
-                          {fmt(restante)}
-                          {groupTotal !== null && (
-                            <span className="block text-[9.5px] font-medium text-on-surface/35 mt-0.5">
-                              de {fmt(groupTotal)}
-                            </span>
-                          )}
+                          {fmt(restante)}
                         </td>
                         <td className="px-4 py-3">
                           <div
@@ -3964,28 +3954,13 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                           )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-right font-mono text-on-surface">
-                          {fmt(t.valor_final)}
-                          {getParcelaGroupTotal(t) !== null && (
-                            <span className="block text-[9.5px] font-medium text-on-surface/35 mt-0.5">
-                              de {fmt(getParcelaGroupTotal(t)!)}
-                            </span>
-                          )}
+                          {fmt(t.valor_final)}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-right font-mono text-emerald-600 dark:text-emerald-400">
-                          {fmt(totalPagoDisplay)}
-                          {groupTotal !== null && (
-                            <span className="block text-[9.5px] font-medium text-on-surface/35 mt-0.5">
-                              de {fmt(groupTotal)}
-                            </span>
-                          )}
+                          {fmt(totalPagoDisplay)}
                         </td>
                         <td className={cn('px-4 py-3 whitespace-nowrap text-right font-mono', restante > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400')}>
-                          {fmt(restante)}
-                          {groupTotal !== null && (
-                            <span className="block text-[9.5px] font-medium text-on-surface/35 mt-0.5">
-                              de {fmt(groupTotal)}
-                            </span>
-                          )}
+                          {fmt(restante)}
                         </td>
                         <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                           <button
