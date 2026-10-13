@@ -1,0 +1,68 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Favorecidos — light</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:28px;background:#FDFAF0;font-family:'DM Sans',sans-serif;color:#1A1A0E}
+.note{font-size:12px;color:rgba(26,26,10,0.50);margin:0 0 18px}
+.bar{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.search{flex:1;position:relative}
+.search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.4}
+.search input{width:100%;height:36px;padding:0 10px 0 32px;background:#FFFFFF;border:1px solid #E0D8BF;color:#1A1A0E;font:600 13px 'DM Sans';outline:none}
+.search input:focus{border-color:#D81E1E;box-shadow:0 0 0 2px rgba(216,30,30,.12)}
+.search input::placeholder{color:rgba(26,26,10,0.30);font-weight:500}
+.sq{width:36px;height:36px;display:grid;place-items:center;border:1px solid #E0D8BF;background:#FFFFFF;color:rgba(26,26,10,0.65);position:relative;cursor:pointer}
+.sq.red{background:#D81E1E;border-color:#D81E1E;color:#fff}
+.sq.amb{background:rgba(245,158,11,0.10);border-color:rgba(245,158,11,0.40);color:#92400E}
+.badge{position:absolute;top:-6px;right:-6px;min-width:17px;height:17px;padding:0 4px;background:#D81E1E;color:#fff;font:900 9px 'DM Sans';display:grid;place-items:center}
+table{width:100%;border-collapse:collapse;font-size:12.5px;border:1px solid #E0D8BF}
+th{background:#FFE500;border-bottom:1.5px solid #D4C000;color:rgba(26,26,10,.55);font-size:9.5px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;text-align:left;padding:9px 14px;white-space:nowrap}
+th .cnt{margin-left:6px;color:rgba(26,26,10,.45);font-family:'DM Mono',monospace;letter-spacing:0}
+td{padding:9px 14px;border-bottom:1px solid #ECE5CF;vertical-align:middle}
+tbody tr:nth-child(odd) td{background:#FFFFFF} tbody tr:nth-child(even) td{background:#FAF7EE}
+tbody tr:hover td{background:#FFF8D0}
+.nome{font-weight:800}
+mark{background:rgba(255,229,0,.55);color:inherit;padding:0 1px}
+.why{display:block;margin-top:3px;font-size:10.5px;font-weight:600;color:rgba(26,26,10,0.50)}
+.why b{font-weight:800;color:#D81E1E;text-transform:uppercase;font-size:9px;letter-spacing:.06em;margin-right:4px}
+.mono{font-family:'DM Mono',monospace;font-size:11.5px;color:rgba(26,26,10,0.65)}
+.none{display:inline-flex;padding:2px 6px;border:1px dashed #E0D8BF;font-size:10px;font-weight:700;color:rgba(26,26,10,0.30);white-space:nowrap}
+.forn{display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border:1px solid currentColor;color:#0A7A55;background:rgba(10,122,85,.07);font-size:10px;font-weight:800;white-space:nowrap}
+.ap{display:inline-flex;padding:2px 6px;background:#1A1A0E;color:#FFE500;font-size:10px;font-weight:800;margin:1px 3px 1px 0}
+.ap.hit{outline:2px solid #D81E1E;outline-offset:1px}
+.acts{display:flex;gap:4px;justify-content:flex-end;opacity:.0;transition:opacity .13s}
+tr:hover .acts{opacity:1}
+.ib{width:28px;height:28px;display:grid;place-items:center;border:1px solid #E0D8BF;background:#FFFFFF;color:rgba(26,26,10,0.65);cursor:pointer}
+.ib:hover{color:#D81E1E;border-color:rgba(216,30,30,.35);background:rgba(216,30,30,.06)}
+.lbl{margin:22px 0 8px;font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:rgba(26,26,10,0.50)}
+.empty{border:1px solid #E0D8BF;background:#FFFFFF;padding:28px;text-align:center;color:rgba(26,26,10,0.30);font-weight:700;font-size:13px}
+</style></head><body>
+<p class="note">Aba Favorecidos (light) — cards arredondados viram tabela quadrada no padrão do Controle Financeiro. Ações (editar/excluir) aparecem ao passar o mouse na linha.</p>
+<div class="bar">
+  <div class="search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input placeholder="Nome, apelido, extrato ou CNPJ..." value="luz"></div>
+  <div class="sq amb" title="Movimentações sem favorecido vinculado"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 17H7A5 5 0 0 1 7 7"/><path d="M15 7h2a5 5 0 0 1 4 8"/><path d="m2 2 20 20"/></svg><span class="badge">7</span></div>
+  <div class="sq red" title="Novo favorecido"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 5v14M5 12h14"/></svg></div>
+</div>
+<table>
+<thead><tr><th>Favorecido<span class="cnt">3 de 89</span></th><th>Nome no extrato</th><th>Fornecedor vinculado</th><th>Apelidos</th><th></th></tr></thead>
+<tbody>
+<tr><td><span class="nome">CEMIG DISTRIBUICAO S.A.</span></td><td class="mono">CEMIG D</td><td><span class="none">sem vínculo</span></td><td><span class="ap hit">luz</span><span class="ap">energia</span></td>
+<td><div class="acts"><span class="ib">✎</span><span class="ib">🗑</span></div></td></tr>
+<tr><td><span class="nome">COPASA MG</span></td><td class="mono">COPASA</td><td><span class="none">sem vínculo</span></td><td><span class="ap">água</span><span class="ap hit">água e luz</span></td>
+<td><div class="acts"><span class="ib">✎</span><span class="ib">🗑</span></div></td></tr>
+<tr><td><span class="nome">NITRONPLAST</span><span class="why"><b>Extrato</b>NITRON PLAST <mark>LUZ</mark>IANIA</span></td><td class="mono">NITRON PLAST LUZIANIA</td><td><span class="forn">✓ Nitronplast Ind. Plásticos</span></td><td><span class="none">—</span></td>
+<td><div class="acts"><span class="ib">✎</span><span class="ib">🗑</span></div></td></tr>
+</tbody></table>
+
+<div class="lbl">Sem busca — lista completa</div>
+<table>
+<thead><tr><th>Favorecido<span class="cnt">89</span></th><th>Nome no extrato</th><th>Fornecedor vinculado</th><th>Apelidos</th><th></th></tr></thead>
+<tbody>
+<tr><td><span class="nome">AÇÃO AUTOMAÇÃO</span></td><td class="mono">ACAO COMERCIO DE EQUIPAMENTOS</td><td><span class="forn">✓ Ação Automação</span></td><td><span class="none">—</span></td><td><div class="acts"><span class="ib">✎</span><span class="ib">🗑</span></div></td></tr>
+<tr><td><span class="nome">ALFONSO REY IMOVEIS LTDA</span></td><td class="mono">ALFONSO REY IMOVEIS</td><td><span class="none">sem vínculo</span></td><td><span class="ap">aluguel</span></td><td><div class="acts"><span class="ib">✎</span><span class="ib">🗑</span></div></td></tr>
+<tr><td><span class="nome">AMAZONIA</span></td><td><span class="none">sem extrato</span></td><td><span class="forn">✓ Amazonia A C Eireli</span></td><td><span class="none">—</span></td><td><div class="acts"><span class="ib">✎</span><span class="ib">🗑</span></div></td></tr>
+<tr><td><span class="nome">ANDRE SACOS</span></td><td class="mono">ANDRE SACOS</td><td><span class="forn">✓ André Sacos</span></td><td><span class="ap">sacolas</span><span class="ap">embalagem</span></td><td><div class="acts"><span class="ib">✎</span><span class="ib">🗑</span></div></td></tr>
+</tbody></table>
+
+<div class="lbl">Busca sem resultado</div>
+<div class="empty">Nenhum favorecido encontrado</div>
+</body></html>

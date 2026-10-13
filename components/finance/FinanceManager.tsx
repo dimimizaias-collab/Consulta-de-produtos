@@ -232,6 +232,23 @@ interface FinanceManagerProps {
   onInitialFocusHandled?: () => void;
 }
 
+// Abas Favorecidos e Contas — tabela quadrada no mesmo padrão da tabela principal.
+const dadosSearchCls = 'w-full h-9 pl-8 pr-2.5 bg-white dark:bg-[#1E1E18] text-[13px] font-semibold text-on-surface border border-[#E0D8BF] dark:border-white/[0.10] outline-none caret-[#D81E1E] hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] placeholder:text-on-surface/30 placeholder:font-medium transition-[border-color,box-shadow]';
+const dadosAddBtnCls = 'w-9 h-9 shrink-0 flex items-center justify-center bg-[#D81E1E] hover:bg-[#B91818] text-white active:scale-[0.93] transition-all duration-[130ms]';
+const dadosEmptyCls = 'flex flex-col items-center py-12 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] text-on-surface/30';
+const dadosTableWrapCls = 'bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] overflow-x-auto [&_tbody_td]:h-10 [&_tbody_td]:px-2.5 [&_tbody_td]:py-0 [&_tbody_td]:text-[12px] [&_tbody_td]:border-r [&_tbody_td]:border-b [&_tbody_td]:border-[#A8A290] dark:[&_tbody_td]:border-white/20 [&_tbody_td:last-child]:border-r-0';
+const dadosThCls = 'h-8 px-2.5 text-left whitespace-nowrap shadow-[inset_-1px_0_0_#B8A31F,inset_0_-1.5px_0_#8F7E10] last:shadow-[inset_0_-1.5px_0_#8F7E10]';
+const dadosThLabelCls = 'text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.55)] dark:text-[rgba(26,26,10,0.58)]';
+const dadosThCountCls = "ml-1.5 font-['DM_Mono',monospace] text-[10px] font-medium text-[rgba(26,26,10,0.45)]";
+const dadosRowCls = (rowIdx: number) => cn(
+  rowIdx % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]',
+  'hover:bg-[#FFF8D0] dark:hover:bg-white/[0.04]',
+);
+const dadosNoneChipCls = 'inline-flex px-1.5 py-0.5 border border-dashed border-[#E0D8BF] dark:border-white/[0.14] text-[10px] font-bold text-on-surface/30 whitespace-nowrap';
+const dadosActsCls = 'flex gap-1 justify-end opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-[130ms]';
+const dadosIconBtnCls = 'w-7 h-7 flex items-center justify-center border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-on-surface/50 hover:text-[#D81E1E] hover:border-[#D81E1E]/35 hover:bg-[#D81E1E]/[0.06] active:scale-[0.93] transition-all duration-[130ms]';
+
+
 export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: FinanceManagerProps = {}) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
@@ -2712,105 +2729,126 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     return (
       <div className="space-y-3">
         {renderFinanceHeader()}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Users size={13} className="text-primary shrink-0" />
-            <span className="text-[11px] font-black uppercase tracking-[0.10em] text-on-surface/42 whitespace-nowrap">Favorecidos Cadastrados</span>
-            <span className="flex-1 h-px bg-on-surface/10" />
-            <span className="bg-primary/10 text-primary text-[10px] font-black px-2 py-0.5 rounded-full">{favorecidos.length}</span>
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface/40 pointer-events-none" />
+            <input
+              value={dadosFavSearch}
+              onChange={e => setDadosFavSearch(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Escape' && dadosFavSearch) setDadosFavSearch(''); }}
+              placeholder="Nome, apelido, extrato ou CNPJ..."
+              className={cn(dadosSearchCls, dadosFavSearch && 'pr-8')}
+              autoComplete="off"
+            />
+            {dadosFavSearch && (
+              <button onClick={() => setDadosFavSearch('')} title="Limpar busca" className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-on-surface/40 hover:text-[#D81E1E] transition-colors">
+                <X size={13} />
+              </button>
+            )}
           </div>
-
-          <div className="flex items-center gap-2.5 mb-4">
-            <div className="relative flex-1">
-              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface/40" />
-              <input
-                value={dadosFavSearch}
-                onChange={e => setDadosFavSearch(e.target.value)}
-                placeholder="Nome, apelido, extrato ou CNPJ..."
-                className="w-full pl-10 pr-4 py-3 bg-surface rounded-[14px] text-sm text-on-surface placeholder:text-on-surface/30 border-[1.5px] border-on-surface/[0.10] focus:outline-none focus:border-primary/50"
-              />
-            </div>
-            <button
-              onClick={openNewFavorecido}
-              title="Novo favorecido"
-              className="w-[42px] h-[42px] rounded-[14px] bg-primary text-on-primary flex items-center justify-center shadow-[0_8px_18px_rgba(216,30,30,0.28)] active:scale-[0.93] transition-transform shrink-0"
-            >
-              <Plus size={18} />
-            </button>
-            <button
-              onClick={() => setShowFavPendingModal(true)}
-              title="Movimentações sem favorecido vinculado"
-              className="relative w-[42px] h-[42px] rounded-[14px] bg-amber-500/10 border-[1.5px] border-amber-500/30 text-amber-700 dark:text-amber-400 flex items-center justify-center active:scale-[0.93] transition-transform shrink-0 hover:bg-amber-500/[0.18]"
-            >
-              <Link2Off size={18} />
-              {favUnlinkedGroups.length > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 min-w-[17px] h-[17px] px-1 rounded-full bg-primary text-on-primary text-[9px] font-black flex items-center justify-center ring-2 ring-background">
-                  {favUnlinkedGroups.length}
-                </span>
-              )}
-            </button>
-          </div>
-
-          {favorecidos.length === 0 ? (
-            <div className="flex flex-col items-center py-10 text-on-surface/25">
-              <Users size={32} className="mb-2" />
-              <p className="text-sm font-bold">Nenhum favorecido cadastrado</p>
-            </div>
-          ) : dadosFavMatches.length === 0 ? (
-            <div className="flex flex-col items-center py-10 text-on-surface/25">
-              <Search size={28} className="mb-2" />
-              <p className="text-sm font-bold">Nenhum favorecido encontrado</p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2.5">
-              {dadosFavMatches.map(({ fav: f, ...m }) => (
-                <div
-                  key={f.id}
-                  className="bg-surface border border-on-surface/[0.09] rounded-2xl px-4 py-3.5 shadow-[0_2px_10px_rgba(26,26,10,0.05)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.25)] flex items-center gap-3.5 transition-[box-shadow,border-color] hover:shadow-[0_4px_16px_rgba(26,26,10,0.09)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.4)] hover:border-primary/20"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-primary/[0.08] dark:bg-primary/[0.15] text-primary flex items-center justify-center shrink-0">
-                    <Landmark size={18} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <Highlight text={f.nome_fiscal} range={m.field === 'nome' ? m.range : null} className="block text-[14.5px] font-extrabold text-on-surface truncate" />
-                    {m.field !== 'nome' && m.field !== 'apelido' && <FavMatchWhy match={{ fav: f, ...m }} className="mt-1" />}
-                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                      {f.nome_banco ? (
-                        <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold px-2.5 py-[3px] rounded-full bg-on-surface/[0.045] dark:bg-white/[0.06] text-on-surface/50 font-['DM_Mono',monospace]">
-                          Extrato: {f.nome_banco}
-                        </span>
-                      ) : (
-                        <span className="text-[11px] italic font-semibold text-on-surface/28">sem mapeamento de extrato</span>
-                      )}
-                      {f.supplier_id && (
-                        <span className="inline-flex items-center gap-1 text-[10.5px] font-bold px-2.5 py-[3px] rounded-full bg-primary/10 dark:bg-primary/15 text-primary">
-                          <Check size={10} strokeWidth={3} />
-                          {suppliers.find(s => s.id === f.supplier_id)?.name ?? 'Fornecedor vinculado'}
-                        </span>
-                      )}
-                      {(f.apelidos ?? []).map(ap => (
-                        <span key={ap} className={cn(
-                          'inline-flex items-center text-[10.5px] font-extrabold px-2.5 py-[3px] rounded-full bg-[#1A1A0E] text-[#FFE500] dark:bg-[#FFE500] dark:text-[#1A1A0E]',
-                          m.field === 'apelido' && m.value === ap && 'ring-2 ring-[#D81E1E] ring-offset-1 ring-offset-surface',
-                        )}>
-                          {ap}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex gap-1 shrink-0">
-                    <button onClick={() => openEditFavorecido(f)} title="Editar" className="w-8 h-8 rounded-[10px] flex items-center justify-center text-on-surface/35 hover:bg-primary/10 hover:text-primary transition-colors">
-                      <Edit2 size={14} />
-                    </button>
-                    <button onClick={() => handleDeleteFavorecido(f.id)} title="Excluir" className="w-8 h-8 rounded-[10px] flex items-center justify-center text-on-surface/35 hover:bg-rose-500/10 hover:text-rose-500 transition-colors">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <button
+            onClick={() => setShowFavPendingModal(true)}
+            title="Movimentações sem favorecido vinculado"
+            className="relative w-9 h-9 shrink-0 flex items-center justify-center bg-amber-500/10 border border-amber-500/40 dark:border-amber-500/35 text-amber-800 dark:text-amber-300 hover:bg-amber-500/[0.18] active:scale-[0.93] transition-all duration-[130ms]"
+          >
+            <Link2Off size={16} />
+            {favUnlinkedGroups.length > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[17px] h-[17px] px-1 bg-[#D81E1E] text-white text-[9px] font-black flex items-center justify-center">
+                {favUnlinkedGroups.length}
+              </span>
+            )}
+          </button>
+          <button onClick={openNewFavorecido} title="Novo favorecido" className={dadosAddBtnCls}>
+            <Plus size={16} strokeWidth={2.6} />
+          </button>
         </div>
+
+        {favorecidos.length === 0 ? (
+          <div className={dadosEmptyCls}>
+            <Users size={28} className="mb-2" />
+            <p className="text-[13px] font-bold">Nenhum favorecido cadastrado</p>
+          </div>
+        ) : dadosFavMatches.length === 0 ? (
+          <div className={dadosEmptyCls}>
+            <Search size={24} className="mb-2" />
+            <p className="text-[13px] font-bold">Nenhum favorecido encontrado</p>
+          </div>
+        ) : (
+          <div className={dadosTableWrapCls}>
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-[#FFEC4D]">
+                  <th className={dadosThCls}>
+                    <span className={dadosThLabelCls}>Favorecido</span>
+                    <span className={dadosThCountCls}>
+                      {dadosFavSearch.trim() ? `${dadosFavMatches.length} de ${favorecidos.length}` : favorecidos.length}
+                    </span>
+                  </th>
+                  <th className={dadosThCls}><span className={dadosThLabelCls}>Nome no extrato</span></th>
+                  <th className={dadosThCls}><span className={dadosThLabelCls}>Fornecedor vinculado</span></th>
+                  <th className={dadosThCls}><span className={dadosThLabelCls}>Apelidos</span></th>
+                  <th className={cn(dadosThCls, 'w-[76px]')} />
+                </tr>
+              </thead>
+              <tbody>
+                {dadosFavMatches.map(({ fav: f, ...m }, rowIdx) => {
+                  const sup = f.supplier_id ? suppliers.find(s => s.id === f.supplier_id) : undefined;
+                  return (
+                    <tr key={f.id} className={cn('group transition-colors', dadosRowCls(rowIdx))}>
+                      <td className="max-w-[320px]">
+                        <Highlight text={f.nome_fiscal} range={m.field === 'nome' ? m.range : null} className="block font-extrabold text-on-surface truncate" />
+                        {m.field !== 'nome' && m.field !== 'apelido' && <FavMatchWhy match={{ fav: f, ...m }} className="mt-0.5" />}
+                      </td>
+                      <td className="max-w-[260px]">
+                        {f.nome_banco ? (
+                          <span className="block truncate font-['DM_Mono',monospace] text-[11.5px] text-on-surface/65" title={f.nome_banco}>{f.nome_banco}</span>
+                        ) : (
+                          <span className={dadosNoneChipCls}>sem extrato</span>
+                        )}
+                      </td>
+                      <td className="max-w-[240px]">
+                        {f.supplier_id ? (
+                          <span className="inline-flex items-center gap-1 max-w-full px-1.5 py-0.5 border border-current bg-[#0A7A55]/[0.07] dark:bg-[#34D399]/[0.07] text-[#0A7A55] dark:text-[#34D399] text-[10px] font-extrabold" title={sup?.name}>
+                            <Check size={10} strokeWidth={3} className="shrink-0" />
+                            <span className="truncate">{sup?.name ?? 'Fornecedor vinculado'}</span>
+                          </span>
+                        ) : (
+                          <span className={dadosNoneChipCls}>sem vínculo</span>
+                        )}
+                      </td>
+                      <td>
+                        {(f.apelidos ?? []).length > 0 ? (
+                          <span className="flex flex-wrap gap-1 py-1">
+                            {(f.apelidos ?? []).map(ap => (
+                              <span key={ap} className={cn(
+                                'inline-flex px-1.5 py-0.5 text-[10px] font-extrabold bg-[#1A1A0E] text-[#FFE500] dark:bg-[#FFE500] dark:text-[#1A1A0E]',
+                                m.field === 'apelido' && m.value === ap && 'outline outline-2 outline-offset-1 outline-[#D81E1E]',
+                              )}>
+                                {ap}
+                              </span>
+                            ))}
+                          </span>
+                        ) : (
+                          <span className="text-on-surface/25">—</span>
+                        )}
+                      </td>
+                      <td>
+                        <div className={dadosActsCls}>
+                          <button onClick={() => openEditFavorecido(f)} title="Editar" className={dadosIconBtnCls}>
+                            <Edit2 size={13} />
+                          </button>
+                          <button onClick={() => handleDeleteFavorecido(f.id)} title="Excluir" className={dadosIconBtnCls}>
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
         {renderFavorecidoModals()}
       </div>
     );
@@ -2821,82 +2859,100 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     return (
       <div className="space-y-3">
         {renderFinanceHeader()}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Building2 size={13} className="text-primary shrink-0" />
-            <span className="text-[11px] font-black uppercase tracking-[0.10em] text-on-surface/42 whitespace-nowrap">Contas Cadastradas</span>
-            <span className="flex-1 h-px bg-on-surface/10" />
-            <span className="bg-primary/10 text-primary text-[10px] font-black px-2 py-0.5 rounded-full">{accounts.length}</span>
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface/40 pointer-events-none" />
+            <input
+              value={dadosAccSearch}
+              onChange={e => setDadosAccSearch(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Escape' && dadosAccSearch) setDadosAccSearch(''); }}
+              placeholder="Buscar conta..."
+              className={cn(dadosSearchCls, dadosAccSearch && 'pr-8')}
+              autoComplete="off"
+            />
+            {dadosAccSearch && (
+              <button onClick={() => setDadosAccSearch('')} title="Limpar busca" className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-on-surface/40 hover:text-[#D81E1E] transition-colors">
+                <X size={13} />
+              </button>
+            )}
           </div>
-
-          <div className="flex items-center gap-2.5 mb-4">
-            <div className="relative flex-1">
-              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface/40" />
-              <input
-                value={dadosAccSearch}
-                onChange={e => setDadosAccSearch(e.target.value)}
-                placeholder="Buscar conta..."
-                className="w-full pl-10 pr-4 py-3 bg-surface rounded-[14px] text-sm text-on-surface placeholder:text-on-surface/30 border-[1.5px] border-on-surface/[0.10] focus:outline-none focus:border-primary/50"
-              />
-            </div>
-            <button
-              onClick={openAddAccount}
-              title="Nova conta"
-              className="w-[42px] h-[42px] rounded-[14px] bg-primary text-on-primary flex items-center justify-center shadow-[0_8px_18px_rgba(216,30,30,0.28)] active:scale-[0.93] transition-transform shrink-0"
-            >
-              <Plus size={18} />
-            </button>
-          </div>
-
-          {accounts.length === 0 ? (
-            <div className="flex flex-col items-center py-10 text-on-surface/25">
-              <Building2 size={32} className="mb-2" />
-              <p className="text-sm font-bold">Nenhuma conta cadastrada</p>
-            </div>
-          ) : accList.length === 0 ? (
-            <div className="flex flex-col items-center py-10 text-on-surface/25">
-              <Search size={28} className="mb-2" />
-              <p className="text-sm font-bold">Nenhuma conta encontrada</p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2.5">
-              {accList.map(acc => (
-                <div
-                  key={acc.id}
-                  className="bg-surface border border-on-surface/[0.09] rounded-2xl px-4 py-3.5 shadow-[0_2px_10px_rgba(26,26,10,0.05)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.25)] flex items-center gap-3.5 transition-[box-shadow,border-color] hover:shadow-[0_4px_16px_rgba(26,26,10,0.09)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.4)] hover:border-primary/20"
-                >
-                  {acc.imagem_url ? (
-                    <img src={acc.imagem_url} alt={acc.nome} className="w-10 h-10 rounded-xl object-cover shrink-0" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-xl bg-on-surface/[0.06] dark:bg-white/[0.07] flex items-center justify-center text-[13px] font-black text-on-surface/50 shrink-0">
-                      {acc.nome.slice(0, 2).toUpperCase()}
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[14.5px] font-extrabold text-on-surface truncate">{acc.nome}</p>
-                    <span className="inline-flex items-center gap-1 mt-1.5 text-[10.5px] font-semibold px-2.5 py-[3px] rounded-full bg-on-surface/[0.045] dark:bg-white/[0.06] text-on-surface/50 font-['DM_Mono',monospace]">
-                      {acc.banco}{acc.agencia && ` · Ag ${acc.agencia}`}{acc.numero_conta && ` · CC ${acc.numero_conta}`}
-                    </span>
-                  </div>
-                  <div className="text-right shrink-0 mr-1">
-                    <span className="block text-[8px] font-black uppercase tracking-widest text-on-surface/30">Saldo inicial</span>
-                    <span className={cn('font-[\'DM_Mono\',monospace] text-[13px] font-extrabold', (acc.saldo_inicial ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500')}>
-                      {fmt(acc.saldo_inicial ?? 0)}
-                    </span>
-                  </div>
-                  <div className="flex gap-1 shrink-0">
-                    <button onClick={() => openEditAccount(acc)} title="Editar" className="w-8 h-8 rounded-[10px] flex items-center justify-center text-on-surface/35 hover:bg-primary/10 hover:text-primary transition-colors">
-                      <Edit2 size={14} />
-                    </button>
-                    <button onClick={() => handleDeleteAccount(acc.id)} title="Excluir" className="w-8 h-8 rounded-[10px] flex items-center justify-center text-on-surface/35 hover:bg-rose-500/10 hover:text-rose-500 transition-colors">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <button onClick={openAddAccount} title="Nova conta" className={dadosAddBtnCls}>
+            <Plus size={16} strokeWidth={2.6} />
+          </button>
         </div>
+
+        {accounts.length === 0 ? (
+          <div className={dadosEmptyCls}>
+            <Building2 size={28} className="mb-2" />
+            <p className="text-[13px] font-bold">Nenhuma conta cadastrada</p>
+          </div>
+        ) : accList.length === 0 ? (
+          <div className={dadosEmptyCls}>
+            <Search size={24} className="mb-2" />
+            <p className="text-[13px] font-bold">Nenhuma conta encontrada</p>
+          </div>
+        ) : (
+          <div className={dadosTableWrapCls}>
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-[#FFEC4D]">
+                  <th className={dadosThCls}>
+                    <span className={dadosThLabelCls}>Conta</span>
+                    <span className={dadosThCountCls}>
+                      {dadosAccSearch.trim() ? `${accList.length} de ${accounts.length}` : accounts.length}
+                    </span>
+                  </th>
+                  <th className={dadosThCls}><span className={dadosThLabelCls}>Banco</span></th>
+                  <th className={dadosThCls}><span className={dadosThLabelCls}>Agência</span></th>
+                  <th className={dadosThCls}><span className={dadosThLabelCls}>Conta corrente</span></th>
+                  <th className={cn(dadosThCls, 'text-right')}><span className={dadosThLabelCls}>Saldo inicial</span></th>
+                  <th className={cn(dadosThCls, 'w-[76px]')} />
+                </tr>
+              </thead>
+              <tbody>
+                {accList.map((acc, rowIdx) => (
+                  <tr key={acc.id} className={cn('group transition-colors', dadosRowCls(rowIdx))}>
+                    <td className="max-w-[320px]">
+                      <span className="flex items-center gap-2 min-w-0">
+                        {acc.imagem_url ? (
+                          <img src={acc.imagem_url} alt="" className="w-6 h-6 object-cover shrink-0 border border-[#E0D8BF] dark:border-white/[0.10]" />
+                        ) : (
+                          <span className="w-6 h-6 shrink-0 flex items-center justify-center border border-[#E0D8BF] dark:border-white/[0.10] bg-[#FAF7EE] dark:bg-[#1E1E18] text-[9px] font-black text-on-surface/50">
+                            {acc.nome.slice(0, 2).toUpperCase()}
+                          </span>
+                        )}
+                        <span className="font-extrabold text-on-surface truncate">{acc.nome}</span>
+                      </span>
+                    </td>
+                    <td>
+                      {acc.banco
+                        ? <span className="inline-flex px-1.5 py-0.5 border border-[#E0D8BF] dark:border-white/[0.12] text-[10px] font-bold text-on-surface/70 whitespace-nowrap">{acc.banco}</span>
+                        : <span className="text-on-surface/25">—</span>}
+                    </td>
+                    <td className="font-['DM_Mono',monospace] text-[11.5px] text-on-surface/65 whitespace-nowrap">{acc.agencia || <span className="text-on-surface/25">—</span>}</td>
+                    <td className="font-['DM_Mono',monospace] text-[11.5px] text-on-surface/65 whitespace-nowrap">{acc.numero_conta || <span className="text-on-surface/25">—</span>}</td>
+                    <td className={cn(
+                      "text-right whitespace-nowrap font-['DM_Mono',monospace] font-bold",
+                      (acc.saldo_inicial ?? 0) >= 0 ? 'text-[#0A7A55] dark:text-[#34D399]' : 'text-[#B91818] dark:text-red-400',
+                    )}>
+                      {fmt(acc.saldo_inicial ?? 0)}
+                    </td>
+                    <td>
+                      <div className={dadosActsCls}>
+                        <button onClick={() => openEditAccount(acc)} title="Editar" className={dadosIconBtnCls}>
+                          <Edit2 size={13} />
+                        </button>
+                        <button onClick={() => handleDeleteAccount(acc.id)} title="Excluir" className={dadosIconBtnCls}>
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
         {renderAccountModal()}
       </div>
     );
