@@ -529,30 +529,56 @@ const PRODUTO_HALF_SPEC = {
   bcNum: { x: 13.07, y: 17.99, w: 13.86, h: 2.01 },
 };
 
-interface ProdutoHalfContent { descLines: string[]; refText: string; infoRows: { label: string; value: string; x: number; y: number; w: number }[]; code: string; bcNumMm: number }
-function produtoHalfContent(product: any, extraFields: { label: string; value: string }[]): ProdutoHalfContent {
+// Rolo 40×20 (flow): em vez do layout fixo da Metade, o conteúdo se acomoda
+// de cima pra baixo — descrição de 1 linha faz REF/informações subirem, o
+// código de barras ocupa o espaço que sobrar (entre ROLO_BC_MIN_H e
+// ROLO_BC_MAX_H) e o número dele termina ROLO_BOTTOM_SAFE_MM antes da borda.
+// No 1º teste impresso o número saía cortado na borda de baixo.
+const ROLO_BOTTOM_SAFE_MM = 1;
+const ROLO_BC_GAP_MM = 0.4;
+const ROLO_BC_MIN_H = 2.8;
+const ROLO_BC_MAX_H = 6;
+
+interface ProdutoHalfContent {
+  descLines: string[]; refText: string; infoRows: { label: string; value: string; x: number; y: number; w: number }[]; code: string; bcNumMm: number;
+  ref: ElPos; barcode: ElPos; bcNum: ElPos;
+}
+function produtoHalfContent(product: any, extraFields: { label: string; value: string }[], flow = false): ProdutoHalfContent {
   const s = PRODUTO_HALF_SPEC;
-  const maxDescLines = Math.max(1, Math.floor(s.descricao.h / (s.descricaoFontMm * 1.05)));
+  const lineH = s.descricaoFontMm * 1.05;
+  const maxDescLines = Math.max(1, Math.floor(s.descricao.h / lineH));
   const descLines = wrapToLines(produtoDescText(product), s.descricao.w, s.descricaoFontMm, NOME_FONT_WEIGHT, NOME_FONT_FAMILY, maxDescLines);
+  const lift = flow ? (maxDescLines - descLines.length) * lineH : 0;
   const i = s.info;
   const shared = extraFields.length > i.maxRows; // 4 campos: 3ª linha dividida
   const infoRows = extraFields.slice(0, i.maxRows + 1).map((f, k) => {
-    if (shared && k === i.maxRows) return { ...f, x: s.infoShared.lastX, y: s.infoShared.lastY, w: s.infoShared.lastW };
-    return { ...f, x: i.x, y: i.y + k * i.rowStep, w: shared && k === i.maxRows - 1 ? s.infoShared.penultW : i.w };
+    if (shared && k === i.maxRows) return { ...f, x: s.infoShared.lastX, y: s.infoShared.lastY - lift, w: s.infoShared.lastW };
+    return { ...f, x: i.x, y: i.y - lift + k * i.rowStep, w: shared && k === i.maxRows - 1 ? s.infoShared.penultW : i.w };
   });
+  const ref: ElPos = { ...s.ref, y: s.ref.y - lift };
+  let barcode: ElPos = s.barcode;
+  let bcNum: ElPos = s.bcNum;
+  if (flow) {
+    const contentBottom = Math.max(ref.y + ref.h, ...infoRows.map(r => r.y + i.rowH));
+    const numY = PRODUTO_HALF_H - ROLO_BOTTOM_SAFE_MM - s.bcNum.h;
+    const space = numY - (contentBottom + ROLO_BC_GAP_MM);
+    const bcH = Math.min(ROLO_BC_MAX_H, Math.max(ROLO_BC_MIN_H, space));
+    barcode = { ...s.barcode, y: numY - bcH, h: bcH };
+    bcNum = { ...s.bcNum, y: numY };
+  }
   const code = product.ean || product.sku || '';
   const bcNumMm = code ? fitFontSize(code, s.bcNum.w, s.bcNum.h * 0.9, 700, "'Courier New', monospace") : 0;
-  return { descLines, refText: `REF ${productRef(product)}`, infoRows, code, bcNumMm };
+  return { descLines, refText: `REF ${productRef(product)}`, infoRows, code, bcNumMm, ref, barcode, bcNum };
 }
 
 // frameW/frameH = tamanho (mm) da área da prévia onde a célula é desenhada —
 // folha 40x40 da Metade ou linha 83x20 do rolo 40×20.
-function ProdutoHalfPreviewCell({ product, extraFields, offsetYMm, offsetXMm = 0, frameW = PRODUTO_LABEL_SIZE, frameH = PRODUTO_LABEL_SIZE }: {
-  product: any; extraFields: { label: string; value: string }[]; offsetYMm: number; offsetXMm?: number; frameW?: number; frameH?: number;
+function ProdutoHalfPreviewCell({ product, extraFields, offsetYMm, offsetXMm = 0, frameW = PRODUTO_LABEL_SIZE, frameH = PRODUTO_LABEL_SIZE, flow = false }: {
+  product: any; extraFields: { label: string; value: string }[]; offsetYMm: number; offsetXMm?: number; frameW?: number; frameH?: number; flow?: boolean;
 }) {
   useArimoReady();
   const s = PRODUTO_HALF_SPEC;
-  const c = produtoHalfContent(product, extraFields);
+  const c = produtoHalfContent(product, extraFields, flow);
   const px = (mm: number) => mm * PREVIEW_PX_PER_MM;
   const box = (x: number, y: number, w: number, h: number, extra?: React.CSSProperties): React.CSSProperties => ({
     position: 'absolute',
@@ -567,7 +593,7 @@ function ProdutoHalfPreviewCell({ product, extraFields, offsetYMm, offsetXMm = 0
       <div style={box(s.descricao.x, s.descricao.y, s.descricao.w, s.descricao.h, { ...font, fontSize: px(s.descricaoFontMm), lineHeight: 1.05, color: '#141400', whiteSpace: 'pre-line', textAlign: 'left' })}>
         {c.descLines.join('\n')}
       </div>
-      <div style={box(s.ref.x, s.ref.y, s.ref.w, s.ref.h, { ...line, ...font, fontSize: px(s.refFontMm), lineHeight: `${px(s.ref.h)}px`, color: '#3c3c3c' })}>
+      <div style={box(c.ref.x, c.ref.y, c.ref.w, c.ref.h, { ...line, ...font, fontSize: px(s.refFontMm), lineHeight: `${px(c.ref.h)}px`, color: '#3c3c3c' })}>
         {c.refText}
       </div>
       {c.infoRows.map(r => (
@@ -575,9 +601,9 @@ function ProdutoHalfPreviewCell({ product, extraFields, offsetYMm, offsetXMm = 0
           <b style={{ fontWeight: 'inherit' }}>{r.label}:</b>&nbsp;{r.value}
         </div>
       ))}
-      <div style={box(s.barcode.x, s.barcode.y, s.barcode.w, s.barcode.h, { background: 'repeating-linear-gradient(90deg,#141400 0 2px, transparent 2px 4.4px)' })} />
+      <div style={box(c.barcode.x, c.barcode.y, c.barcode.w, c.barcode.h, { background: 'repeating-linear-gradient(90deg,#141400 0 2px, transparent 2px 4.4px)' })} />
       {c.code && (
-        <div style={box(s.bcNum.x, s.bcNum.y, s.bcNum.w, s.bcNum.h, { fontFamily: "'DM Mono', monospace", fontWeight: 700, color: '#3c3c3c', textAlign: 'center', fontSize: px(c.bcNumMm), lineHeight: `${px(s.bcNum.h)}px`, whiteSpace: 'nowrap' })}>
+        <div style={box(c.bcNum.x, c.bcNum.y, c.bcNum.w, c.bcNum.h, { fontFamily: "'DM Mono', monospace", fontWeight: 700, color: '#3c3c3c', textAlign: 'center', fontSize: px(c.bcNumMm), lineHeight: `${px(c.bcNum.h)}px`, whiteSpace: 'nowrap' })}>
           {c.code}
         </div>
       )}
@@ -588,9 +614,9 @@ function ProdutoHalfPreviewCell({ product, extraFields, offsetYMm, offsetXMm = 0
 // HTML de impressão de uma Metade (mesmas medidas da prévia); offsetY desloca
 // a 2ª metade 20mm pra baixo dentro da folha 40x40 impressa e offsetX leva a
 // etiqueta pra 2ª coluna do rolo 40×20.
-function buildProdutoHalfHtml(product: any, extraFields: { label: string; value: string }[], offsetY: number, offsetX = 0): string {
+function buildProdutoHalfHtml(product: any, extraFields: { label: string; value: string }[], offsetY: number, offsetX = 0, flow = false): string {
   const s = PRODUTO_HALF_SPEC;
-  const c = produtoHalfContent(product, extraFields);
+  const c = produtoHalfContent(product, extraFields, flow);
   const pos = (x: number, y: number, w: number, h: number) => `left:${(x + offsetX).toFixed(2)}mm; top:${(y + offsetY).toFixed(2)}mm; width:${w.toFixed(2)}mm; height:${h.toFixed(2)}mm;`;
   let bcDataUrl = '';
   if (c.code) {
@@ -601,10 +627,10 @@ function buildProdutoHalfHtml(product: any, extraFields: { label: string; value:
   ).join('');
   return `
     <div class="ph ph-desc" style="${pos(s.descricao.x, s.descricao.y, s.descricao.w, s.descricao.h)}">${escapeHtml(c.descLines.join('\n'))}</div>
-    <div class="ph ph-ref" style="${pos(s.ref.x, s.ref.y, s.ref.w, s.ref.h)} line-height:${s.ref.h}mm;">${escapeHtml(c.refText)}</div>
+    <div class="ph ph-ref" style="${pos(c.ref.x, c.ref.y, c.ref.w, c.ref.h)} line-height:${c.ref.h}mm;">${escapeHtml(c.refText)}</div>
     ${info}
-    ${bcDataUrl ? `<img class="pf-bc" src="${bcDataUrl}" style="${pos(s.barcode.x, s.barcode.y, s.barcode.w, s.barcode.h)}" />` : ''}
-    ${c.code ? `<div class="pf pf-bcnum" style="${pos(s.bcNum.x, s.bcNum.y, s.bcNum.w, s.bcNum.h)} line-height:${s.bcNum.h}mm; font-size:${c.bcNumMm.toFixed(2)}mm;">${escapeHtml(c.code)}</div>` : ''}
+    ${bcDataUrl ? `<img class="pf-bc" src="${bcDataUrl}" style="${pos(c.barcode.x, c.barcode.y, c.barcode.w, c.barcode.h)}" />` : ''}
+    ${c.code ? `<div class="pf pf-bcnum" style="${pos(c.bcNum.x, c.bcNum.y, c.bcNum.w, c.bcNum.h)} line-height:${c.bcNum.h}mm; font-size:${c.bcNumMm.toFixed(2)}mm;">${escapeHtml(c.code)}</div>` : ''}
   `;
 }
 const PRODUTO_HALF_PRINT_CSS = `
@@ -650,6 +676,7 @@ export function ProdutoPreviewRolo({ items, extraFields }: { items: (any | undef
           offsetXMm={i === 0 ? ROLO_40X20_COL1_X : ROLO_40X20_COL2_X}
           frameW={ROLO_40X20_W}
           frameH={ROLO_40X20_H}
+          flow
         />
       ))}
     </div>
@@ -1347,7 +1374,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
       const left = units[i];
       const right = units[i + 1];
       pages.push(
-        `<div class="rolo-row">${buildProdutoHalfHtml(left.product, left.fields, 0, ROLO_40X20_COL1_X)}${right ? buildProdutoHalfHtml(right.product, right.fields, 0, ROLO_40X20_COL2_X) : ''}</div>`
+        `<div class="rolo-row">${buildProdutoHalfHtml(left.product, left.fields, 0, ROLO_40X20_COL1_X, true)}${right ? buildProdutoHalfHtml(right.product, right.fields, 0, ROLO_40X20_COL2_X, true) : ''}</div>`
       );
     }
 
