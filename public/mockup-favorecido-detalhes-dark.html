@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="pt-BR" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Detalhes do favorecido</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FFFCEC; --text: #1A1A0E; --muted: rgba(26,26,10,0.45); --faint: rgba(26,26,10,0.30);
+    --hdr: #FBF35E; --hdr-border: #D9CF45; --chip: rgba(0,0,0,0.09); --chip-c: #1A1A0E;
+    --modal: #FDFAF0; --section: #F1EAD3; --card: #FFFFFF; --border: #E0D8BF;
+    --lock: rgba(0,0,0,0.035); --label: rgba(26,26,10,0.58);
+    --green: #0A7A55; --green-bg: rgba(10,122,85,0.06); --green-bd: rgba(10,122,85,0.35);
+    --tag-bg: #1A1A0E; --tag-c: #FFE500; --x-bd: rgba(0,0,0,0.14); --x-c: rgba(0,0,0,0.5);
+    --tabshadow: inset 0 6px 8px -5px rgba(26,26,10,0.35);
+  }
+  html.dark {
+    --bg: #161612; --text: #F2F0E3; --muted: rgba(242,240,227,0.45); --faint: rgba(242,240,227,0.28);
+    --hdr: #252520; --hdr-border: rgba(242,240,227,0.08); --chip: rgba(216,30,30,0.16); --chip-c: #D81E1E;
+    --modal: #1E1E18; --section: #181814; --card: #1E1E18; --border: rgba(242,240,227,0.10);
+    --lock: rgba(255,255,255,0.03); --label: rgba(242,240,227,0.55);
+    --green: #34D399; --green-bg: rgba(52,211,153,0.06); --green-bd: rgba(52,211,153,0.30);
+    --tag-bg: #FFE500; --tag-c: #1A1A0E; --x-bd: rgba(255,255,255,0.10); --x-c: rgba(255,255,255,0.4);
+    --tabshadow: inset 0 6px 8px -5px rgba(0,0,0,0.55);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+  button { font-family: inherit; }
+  .mono { font-family: 'DM Mono', monospace; font-size: 12.5px !important; font-weight: 500 !important; letter-spacing: .03em; }
+
+  .anno { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 100; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: center; padding: 8px 10px; border-radius: 14px; background: #1A1A0E; color: #F2F0E3; font-size: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.35); max-width: calc(100vw - 24px); }
+  .anno b { color: #FFE500; margin-right: 4px; }
+  .anno button { border: 1px solid rgba(242,240,227,.18); background: transparent; color: #F2F0E3; padding: 5px 10px; border-radius: 999px; cursor: pointer; font-weight: 700; font-size: 11px; }
+  .anno button.on { background: #FFE500; color: #1A1A0E; border-color: #FFE500; }
+  .anno a { color: rgba(242,240,227,.6); font-size: 11px; margin-left: 4px; }
+
+  .ov { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: grid; place-items: center; padding: 16px; }
+  .modal { width: min(720px, 100%); max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; background: var(--modal); border: 1px solid rgba(0,0,0,.12); box-shadow: 0 25px 50px -12px rgba(0,0,0,.4); animation: mopen .2s cubic-bezier(.23,1,.32,1); }
+  html.dark .modal { border-color: rgba(255,255,255,.08); }
+  @keyframes mopen { from { opacity: 0; transform: scale(.97); } }
+
+  .mh { height: 48px; padding: 0 12px 0 14px; display: flex; align-items: center; gap: 11px; background: var(--hdr); border-bottom: 1px solid var(--hdr-border); flex-shrink: 0; }
+  .mh .ic { width: 30px; height: 30px; display: grid; place-items: center; background: var(--chip); color: var(--chip-c); }
+  .mh .t { flex: 1; min-width: 0; }
+  .mh h2 { margin: 0; font-size: 15px; font-weight: 900; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mh p { margin: 0; font-size: 10.5px; font-weight: 700; color: var(--muted); }
+  .mh .x { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--x-bd); background: transparent; color: var(--x-c); cursor: pointer; transition: all .13s; }
+  .mh .x:hover { background: rgba(216,30,30,.09); color: #D81E1E; border-color: rgba(216,30,30,.25); }
+  .mh .x:active { transform: scale(.93); }
+
+  /* abas penduradas no título, iguais às do site */
+  .tabs { display: flex; flex-shrink: 0; }
+  .tab { height: 32px; min-width: 112px; padding: 0 14px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--hdr-border); border-top: 0; margin-left: -1px; background: var(--hdr); color: var(--text); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; box-shadow: var(--tabshadow); cursor: pointer; transition: transform .15s; }
+  .tab:first-child { margin-left: 0; border-left: 0; }
+  .tab:active { transform: scale(.97); }
+  .tab span { opacity: .55; } .tab:hover span { opacity: .85; }
+  .tab.on { box-shadow: var(--tabshadow), inset 0 -3px 0 #D81E1E; } .tab.on span { opacity: 1; }
+  .tab .n { opacity: 1 !important; font-size: 9px; font-weight: 900; padding: 1px 6px; border-radius: 999px; background: rgba(26,26,10,.12); }
+  html.dark .tab .n { background: rgba(255,255,255,.1); }
+
+  .mb { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .sec { background: var(--section); border: 1px solid var(--border); }
+  .sh { height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: #FFEC4D; border-bottom: 1.5px solid #8F7E10; }
+  .sh svg { color: #D81E1E; flex-shrink: 0; }
+  .sh b { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: rgba(26,26,10,.55); }
+  .sh .r { margin-left: auto; font-size: 10px; font-weight: 800; color: rgba(26,26,10,.55); display: flex; align-items: center; gap: 5px; }
+  .sh .r.ok { color: #0A7A55; }
+  .sh .r.ok i { width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+  .sb { padding: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .full { grid-column: 1 / -1; }
+  .lbl { display: flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: var(--label); padding-left: 1px; margin-bottom: 4px; }
+  .lbl em { margin-left: auto; font-style: normal; letter-spacing: 0; text-transform: none; font-weight: 700; }
+  .ro { height: 34px; padding: 0 10px; display: flex; align-items: center; background: var(--card); border: 1px solid var(--border); font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ro.lock { background: var(--lock); color: var(--muted); }
+  .ro.empty { color: var(--faint); font-style: italic; font-weight: 600; }
+  .doc { display: flex; }
+  .seg { display: flex; flex-shrink: 0; gap: 2px; padding: 2px; border: 1px solid var(--border); border-right: 0; background: rgba(26,26,10,.06); opacity: .7; }
+  html.dark .seg { background: rgba(242,240,227,.06); }
+  .seg span { width: 42px; display: grid; place-items: center; font-size: 9.5px; font-weight: 900; letter-spacing: .06em; color: var(--muted); }
+  .seg span.on { background: #D81E1E; color: #fff; }
+  .doc .ro { flex: 1; }
+  .tags { min-height: 34px; padding: 4px 6px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; background: var(--card); border: 1px solid var(--border); }
+  .tags span { height: 24px; display: inline-flex; align-items: center; padding: 0 8px; background: var(--tag-bg); color: var(--tag-c); font-size: 11.5px; font-weight: 800; }
+  .linked { height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid rgba(216,30,30,.35); background: rgba(216,30,30,.06); color: #D81E1E; font-size: 13px; font-weight: 800; }
+  .linked .d { margin-left: auto; font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; color: var(--muted); }
+  .empty { margin: 10px; padding: 18px 16px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; border: 1px dashed var(--border); color: var(--muted); font-size: 11.5px; font-weight: 700; }
+  html.dark .empty { border-color: rgba(242,240,227,.12); }
+  .empty svg { opacity: .55; }
+  .empty small { font-size: 10.5px; font-weight: 600; color: var(--faint); }
+
+  .acc { background: var(--card); border: 1px solid var(--border); }
+  .acc + .acc { margin-top: 8px; }
+  .acch { height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-bottom: 1px solid var(--border); background: var(--lock); }
+  .acch .num { width: 18px; height: 18px; display: grid; place-items: center; background: var(--tag-bg); color: var(--tag-c); font-size: 10px; font-weight: 900; }
+  .acch b { flex: 1; font-size: 11.5px; font-weight: 800; }
+  .acch .id { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+  .kv { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .kv > div { padding: 7px 10px; min-width: 0; }
+  .kv > div + div { border-left: 1px solid var(--border); }
+  .kv .pix { grid-column: 1 / -1; border-left: 0 !important; border-top: 1px solid var(--border); }
+  .kv small { display: block; font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-bottom: 2px; }
+  .kv span { display: block; font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hide { display: none !important; }
+</style>
+</head>
+<body>
+<div class="ov">
+  <div class="modal">
+    <div class="mh">
+      <div class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"/></svg></div>
+      <div class="t"><h2>ARCOM</h2><p>Detalhes do favorecido</p></div>
+      <button class="x" title="Fechar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="tabs">
+      <button class="tab on" data-t="cad"><span>Cadastro</span></button>
+      <button class="tab" data-t="con"><span>Contas</span><em class="n linkonly hide" style="font-style:normal">2</em></button>
+    </div>
+
+    <div class="mb" id="t-cad">
+      <div class="sec">
+        <div class="sh">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <b>Favorecido</b>
+        </div>
+        <div class="sb">
+          <div><div class="lbl">Nome fiscal</div><div class="ro">ARCOM</div></div>
+          <div><div class="lbl">Nome no extrato</div><div class="ro mono">ARCOM</div></div>
+          <div class="full"><div class="lbl">Apelidos <em>2</em></div><div class="tags"><span>arcom sa</span><span>distribuidora</span></div></div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sh">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/></svg>
+          <b>Identificação do fornecedor</b>
+          <span class="r nolink">sem vínculo</span>
+          <span class="r ok linkonly hide"><i></i>vinculado</span>
+        </div>
+        <div class="empty nolink">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/></svg>
+          Nenhum fornecedor vinculado a este favorecido
+          <small>Vincule em Editar favorecido para ver CNPJ e contas</small>
+        </div>
+        <div class="sb linkonly hide">
+          <div class="full"><div class="lbl">Fornecedor vinculado</div><div class="linked">ARCOM S/A <span class="d">18.122.442/0001-30</span></div></div>
+          <div class="full"><div class="lbl">Razão social</div><div class="ro lock">ARCOM COMERCIO IMPORTACAO E EXPORTACAO LTDA</div></div>
+          <div><div class="lbl">Identificação</div><div class="doc"><div class="seg"><span class="on">CNPJ</span><span>CPF</span></div><div class="ro lock mono">18.122.442/0001-30</div></div></div>
+          <div><div class="lbl">Nome fantasia</div><div class="ro lock">ARCOM</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mb hide" id="t-con">
+      <div class="sec">
+        <div class="sh">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+          <b>Contas desse fornecedor</b>
+          <span class="r nolink">—</span>
+          <span class="r linkonly hide">2 contas</span>
+        </div>
+        <div class="empty nolink">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 22h18M6 18v-7M10 18v-7M14 18v-7M18 18v-7M12 2l8 5H4z"/></svg>
+          Vincule um fornecedor para ver contas
+        </div>
+        <div class="linkonly hide" style="padding:10px">
+          <div class="acc">
+            <div class="acch"><span class="num">1</span><b>Matriz</b><span class="id">CNPJ · 18.122.442/0001-30</span></div>
+            <div class="kv">
+              <div><small>Instituição</small><span>Banco do Brasil</span></div>
+              <div><small>Agência</small><span class="mono">1234</span></div>
+              <div><small>Conta</small><span class="mono">567890</span></div>
+              <div class="pix"><small>Chave Pix</small><span class="mono">financeiro@arcom.com.br</span></div>
+            </div>
+          </div>
+          <div class="acc">
+            <div class="acch"><span class="num">2</span><b>Sócio — João</b><span class="id">CPF · 123.456.789-00</span></div>
+            <div class="kv">
+              <div><small>Instituição</small><span>Nubank</span></div>
+              <div><small>Agência</small><span class="mono">0001</span></div>
+              <div><small>Conta</small><span class="mono">998877</span></div>
+              <div class="pix"><small>Chave Pix</small><span style="color:var(--faint)">—</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="anno"><b>Detalhes do favorecido</b>
+  <button class="on" data-s="0">Sem fornecedor</button><button data-s="1">Com fornecedor</button>
+  <a href="mockup-favorecido-detalhes-light.html">ver light →</a></div>
+
+<script>
+  document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t));
+    document.getElementById('t-cad').classList.toggle('hide', t.dataset.t !== 'cad');
+    document.getElementById('t-con').classList.toggle('hide', t.dataset.t !== 'con');
+  });
+  document.querySelectorAll('.anno button').forEach(b => b.onclick = () => {
+    document.querySelectorAll('.anno button').forEach(x => x.classList.toggle('on', x === b));
+    const linked = b.dataset.s === '1';
+    document.querySelectorAll('.linkonly').forEach(e => e.classList.toggle('hide', !linked));
+    document.querySelectorAll('.nolink').forEach(e => e.classList.toggle('hide', linked));
+  });
+</script>
+</body>
+</html>
