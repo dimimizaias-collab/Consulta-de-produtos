@@ -6122,11 +6122,17 @@ export default function Page() {
   };
 
   const [suggestingCode, setSuggestingCode] = useState(false);
-  const suggestManufacturerCode = async (manufacturerId: string | null, apply: (code: string) => void) => {
-    if (!manufacturerId) return;
+  // SKU numérico: categoria(2) + subcategoria(2) + prefixo do fabricante(3) + sequência(2).
+  // A RPC cria a categoria/subcategoria se ainda não tiver código (ver add_sku_categoria_subcategoria.sql).
+  const suggestManufacturerCode = async (product: { manufacturerId?: string | null; category?: string; subcategory?: string }, apply: (code: string) => void) => {
+    if (!product.manufacturerId) return;
     setSuggestingCode(true);
     try {
-      const { data, error } = await supabase.rpc('get_next_manufacturer_code', { p_manufacturer_id: manufacturerId });
+      const { data, error } = await supabase.rpc('get_next_category_sku', {
+        p_category: product.category || '',
+        p_subcategory: product.subcategory || '',
+        p_manufacturer_id: product.manufacturerId,
+      });
       if (error) throw error;
       if (data) apply(data as string);
     } catch (err: any) {
@@ -6891,8 +6897,8 @@ export default function Page() {
                               <button
                                 type="button"
                                 disabled={!editingProduct.manufacturerId || suggestingCode}
-                                onClick={() => suggestManufacturerCode(editingProduct.manufacturerId, code => setEditingProduct((p: any) => ({...p, sku: code})))}
-                                title={editingProduct.manufacturerId ? 'Sugerir código a partir do fabricante' : 'Selecione um fabricante primeiro'}
+                                onClick={() => suggestManufacturerCode(editingProduct, code => setEditingProduct((p: any) => ({...p, sku: code})))}
+                                title={editingProduct.manufacturerId ? 'Gerar código (categoria + subcategoria + fabricante)' : 'Selecione um fabricante primeiro'}
                                 className="w-10 h-10 rounded-lg flex items-center justify-center transition-all shrink-0 border bg-primary/10 border-primary/20 text-primary hover:bg-primary/15 disabled:opacity-30 disabled:cursor-not-allowed"
                               >
                                 <Hash size={16} />
@@ -7413,8 +7419,8 @@ export default function Page() {
                         <button
                           type="button"
                           disabled={!editingProduct.manufacturerId || suggestingCode}
-                          onClick={() => suggestManufacturerCode(editingProduct.manufacturerId, code => setEditingProduct((p: any) => ({...p, sku: code})))}
-                          title={editingProduct.manufacturerId ? 'Sugerir código a partir do fabricante' : 'Selecione um fabricante primeiro'}
+                          onClick={() => suggestManufacturerCode(editingProduct, code => setEditingProduct((p: any) => ({...p, sku: code})))}
+                          title={editingProduct.manufacturerId ? 'Gerar código (categoria + subcategoria + fabricante)' : 'Selecione um fabricante primeiro'}
                           className={PM_SQ_BTN}
                         >
                           <Hash size={14} />
@@ -8516,8 +8522,8 @@ export default function Page() {
                           <button
                             type="button"
                             disabled={!newProduct.manufacturerId || suggestingCode}
-                            onClick={() => suggestManufacturerCode(newProduct.manufacturerId, code => setNewProduct(p => ({...p, sku: code})))}
-                            title={newProduct.manufacturerId ? 'Sugerir código a partir do fabricante' : 'Selecione um fabricante primeiro'}
+                            onClick={() => suggestManufacturerCode(newProduct, code => setNewProduct(p => ({...p, sku: code})))}
+                            title={newProduct.manufacturerId ? 'Gerar código (categoria + subcategoria + fabricante)' : 'Selecione um fabricante primeiro'}
                             className="w-10 h-10 rounded-lg flex items-center justify-center transition-all shrink-0 border bg-primary/10 border-primary/20 text-primary hover:bg-primary/15 disabled:opacity-30 disabled:cursor-not-allowed"
                           >
                             <Hash size={16} />
@@ -8785,8 +8791,8 @@ export default function Page() {
                         <button
                           type="button"
                           disabled={!newProduct.manufacturerId || suggestingCode}
-                          onClick={() => suggestManufacturerCode(newProduct.manufacturerId, code => setNewProduct(p => ({...p, sku: code})))}
-                          title={newProduct.manufacturerId ? 'Sugerir código a partir do fabricante' : 'Selecione um fabricante primeiro'}
+                          onClick={() => suggestManufacturerCode(newProduct, code => setNewProduct(p => ({...p, sku: code})))}
+                          title={newProduct.manufacturerId ? 'Gerar código (categoria + subcategoria + fabricante)' : 'Selecione um fabricante primeiro'}
                           className={PM_SQ_BTN}
                         >
                           <Hash size={14} />
