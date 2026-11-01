@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
+import { useCompanyScope, matchesCompanyId, matchesManifest } from '@/lib/company-scope';
 import { supabase } from '@/lib/supabase';
 import { AddSupplierModal, type EditingSupplier } from '@/components/suppliers/AddSupplierModal';
 import { SupplierDictionary } from '@/components/suppliers/SupplierDictionary';
@@ -270,7 +271,7 @@ export function LogisticsCenter({
   importing,
   onImportClick,
   onManualNoteClick,
-  reviewNotes,
+  reviewNotes: allReviewNotes,
   onViewReviewNote,
   onApproveNote,
   onLinkNote,
@@ -284,6 +285,12 @@ export function LogisticsCenter({
   colaboradorId,
   colaboradorNome,
 }: LogisticsCenterProps) {
+  // Visão por empresa (cabeçalho, só admin): notas sem empresa só aparecem em "Todas".
+  const { scope } = useCompanyScope();
+  const reviewNotes = useMemo(
+    () => allReviewNotes.filter(n => matchesCompanyId(scope, n.companyId)),
+    [allReviewNotes, scope],
+  );
   const [showAddSupplier, setShowAddSupplier]       = useState(false);
   const [pickerSuppliers, setPickerSuppliers]       = useState<EditingSupplier[]>([]);
   const [supplierSearch, setSupplierSearch]         = useState('');
@@ -406,18 +413,22 @@ export function LogisticsCenter({
       : f === 'enviado' ? m.status === 'pedido_enviado'
       : f === 'aprovado' ? m.status === 'aprovado'
       : m.pendingCount > 0;
+  const scopedDistManifests = useMemo(
+    () => distributionManifests.filter(m => matchesManifest(scope, m.originCompanyId, m.destinationCompanyId)),
+    [distributionManifests, scope],
+  );
   const distFilterCounts = useMemo(() => Object.fromEntries(
-    (['todos', 'registro', 'enviado', 'aprovado', 'pendencia'] as const).map(f => [f, distributionManifests.filter(m => distFilterMatch(m, f)).length]),
-  ) as Record<typeof distFilter, number>, [distributionManifests]); // eslint-disable-line react-hooks/exhaustive-deps
+    (['todos', 'registro', 'enviado', 'aprovado', 'pendencia'] as const).map(f => [f, scopedDistManifests.filter(m => distFilterMatch(m, f)).length]),
+  ) as Record<typeof distFilter, number>, [scopedDistManifests]); // eslint-disable-line react-hooks/exhaustive-deps
   const visibleDistManifests = useMemo(() => {
     const q = distSearch.trim().toLowerCase();
-    return distributionManifests.filter(m => distFilterMatch(m, distFilter) && (!q ||
+    return scopedDistManifests.filter(m => distFilterMatch(m, distFilter) && (!q ||
       m.manifestNumber.toLowerCase().includes(q) ||
       companyName(m.originCompanyId).toLowerCase().includes(q) ||
       companyName(m.destinationCompanyId).toLowerCase().includes(q) ||
       (distNoteNumber(m) || '').toLowerCase().includes(q)
     ));
-  }, [distributionManifests, distSearch, distFilter, companiesList, distNoteNumbers, reviewNotes]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [scopedDistManifests, distSearch, distFilter, companiesList, distNoteNumbers, reviewNotes]); // eslint-disable-line react-hooks/exhaustive-deps
   const [confirmDeleteDraftId, setConfirmDeleteDraftId] = useState<string | null>(null);
   const [confirmApproveId, setConfirmApproveId]      = useState<string | null>(null);
   const [linkingNote, setLinkingNote]                = useState<ReviewNote | null>(null);
@@ -477,7 +488,7 @@ export function LogisticsCenter({
   // Abre nota aprovada vinda de "Ir para nota" nas notificações
   useEffect(() => {
     if (!pendingOpenNoteId) return;
-    const note = reviewNotes.find(n => n.id === pendingOpenNoteId);
+    const note = allReviewNotes.find(n => n.id === pendingOpenNoteId);
     if (note) {
       setActiveSection('notas');
       onViewReviewNote(note);
@@ -759,7 +770,7 @@ export function LogisticsCenter({
     const daysInPrevMonth = new Date(year, month, 0).getDate();
     // Pontinhos do calendário: nota recebida (aba Notas) ou manifesto enviado na data (aba
     // Distribuição) — a mesma grade de calendário é reutilizada pelas duas seções.
-    const enviados = distributionManifests.filter(m => m.status !== 'registro' && m.shippingDate);
+    const enviados = scopedDistManifests.filter(m => m.status !== 'registro' && m.shippingDate);
     const notesByDay = activeSection === 'distribuicao'
       ? new Set(enviados.map(m => m.shippingDate!.slice(0, 10)))
       : new Set(sectionNotesRaw.map(noteDateIso).filter(Boolean) as string[]);
@@ -775,7 +786,7 @@ export function LogisticsCenter({
     let n = 1;
     while (cells.length < 42) cells.push({ day: n++, type: 'next', hasNote: false });
     return cells;
-  }, [calViewDate, sectionNotesRaw, activeSection, distributionManifests]);
+  }, [calViewDate, sectionNotesRaw, activeSection, scopedDistManifests]);
 
   const calMonthLabel = calViewDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
@@ -825,7 +836,7 @@ export function LogisticsCenter({
   // calendário usando shipping_date (data de negócio, não o sent_at técnico — ver Etapa 5
   // do plano) e só considera manifestos já enviados (Registro não movimentou nada ainda).
   const sentManifestsInPeriod = useMemo(() => {
-    return distributionManifests.filter(m => {
+    return scopedDistManifests.filter(m => {
       if (m.status === 'registro' || !m.shippingDate) return false;
       const d = m.shippingDate.slice(0, 10);
       if (calRangeStart && calRangeEnd) return d >= toIsoDay(calRangeStart) && d <= toIsoDay(calRangeEnd);
@@ -833,7 +844,7 @@ export function LogisticsCenter({
       const monthPrefix = `${calViewDate.getFullYear()}-${String(calViewDate.getMonth() + 1).padStart(2, '0')}`;
       return d.startsWith(monthPrefix);
     });
-  }, [distributionManifests, calRangeStart, calRangeEnd, calSelectedDate, calViewDate]);
+  }, [scopedDistManifests, calRangeStart, calRangeEnd, calSelectedDate, calViewDate]);
 
   const distCompanyStats = useMemo(() => {
     const stats: Record<string, { out: number; outQty: number; in: number; inQty: number }> = {};
@@ -863,7 +874,7 @@ export function LogisticsCenter({
         <div className="flex overflow-x-auto [scrollbar-width:none]">
           {([
             { key: 'notas', label: 'Notas', count: reviewNotes.length },
-            { key: 'distribuicao', label: 'Distribuição', count: distributionManifests.filter(m => m.status === 'registro').length },
+            { key: 'distribuicao', label: 'Distribuição', count: scopedDistManifests.filter(m => m.status === 'registro').length },
             { key: 'dicionario', label: 'Dicionário', count: 0 },
             { key: 'fornecedores', label: 'Fornecedores', count: 0 },
             { key: 'fabricantes', label: 'Fabricantes', count: 0 },
@@ -960,7 +971,7 @@ export function LogisticsCenter({
         <div className="flex gap-2 overflow-x-auto scrollbar-none pb-0.5">
           {([
             { key: 'notas'  as const, label: 'Notas',  count: reviewNotes.length },
-            { key: 'distribuicao' as const, label: 'Distribuição', count: distributionManifests.filter(m => m.status === 'registro').length },
+            { key: 'distribuicao' as const, label: 'Distribuição', count: scopedDistManifests.filter(m => m.status === 'registro').length },
             { key: 'dicionario' as const, label: 'Dicionário', count: 0 },
             { key: 'fornecedores' as const, label: 'Fornecedores', count: 0 },
             { key: 'fabricantes' as const, label: 'Fabricantes', count: 0 },
@@ -2309,10 +2320,10 @@ export function LogisticsCenter({
               </div>
               <div>
                 <h4 className="text-lg font-black text-on-surface leading-tight uppercase tracking-[0.1em]">
-                  {distributionManifests.length === 0 ? 'Sem Manifestos' : 'Nenhum manifesto encontrado'}
+                  {scopedDistManifests.length === 0 ? 'Sem Manifestos' : 'Nenhum manifesto encontrado'}
                 </h4>
                 <p className="text-sm text-on-surface/40 font-medium mt-1 leading-relaxed">
-                  {distributionManifests.length === 0 ? 'Manifestos de distribuição entre lojas aparecerão aqui.' : 'Ajuste a busca ou o filtro de situação.'}
+                  {scopedDistManifests.length === 0 ? 'Manifestos de distribuição entre lojas aparecerão aqui.' : 'Ajuste a busca ou o filtro de situação.'}
                 </p>
               </div>
             </div>
