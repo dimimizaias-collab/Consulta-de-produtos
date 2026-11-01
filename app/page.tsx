@@ -46,6 +46,7 @@ import { createPortal } from 'react-dom';
 import { squareTabCls } from '@/components/shared/squareTabs';
 import { cn, getDirectImageUrl } from '@/lib/utils';
 import { useViewMode } from '@/lib/view-mode';
+import { useCompanyScope } from '@/lib/company-scope';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { tableCellKeyDown } from '@/lib/tableKeyNav';
 import { XMLParser } from 'fast-xml-parser';
@@ -1197,6 +1198,56 @@ export default function Page() {
     if (companies.length === 0) return '';
     return companies.slice().sort((a: any, b: any) => (a.created_at || '').localeCompare(b.created_at || ''))[0]?.id || '';
   }, [companies]);
+
+  // Visão por empresa (cabeçalho, só admin): o catálogo é o mesmo para todas, mas Estoque & Preço
+  // vêm da loja selecionada. A empresa padrão já está em products.count/price; as demais vêm de
+  // product_company_stock (sem linha = 0). `scopedProducts` é SÓ para exibição — ações que gravam
+  // (editar, etc.) recebem o produto original de `products` para não espelhar a outra loja no padrão.
+  const { company: scopeCompany } = useCompanyScope();
+  const scopeStockCompanyId = scopeCompany && primaryCompanyId && scopeCompany.id !== primaryCompanyId ? scopeCompany.id : null;
+  const [scopeStockMap, setScopeStockMap] = useState<Map<string, { count: number; price: number }> | null>(null);
+
+  useEffect(() => {
+    if (!scopeStockCompanyId) { setScopeStockMap(null); return; }
+    // Recarrega ao trocar de empresa, ao fechar o modal de edição e ao voltar para o Estoque.
+    if (showEditModal) return;
+    let cancelled = false;
+    (async () => {
+      const PAGE = 1000;
+      const map = new Map<string, { count: number; price: number }>();
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('product_company_stock')
+          .select('product_id, count, price')
+          .eq('company_id', scopeStockCompanyId)
+          .order('product_id')
+          .range(from, from + PAGE - 1);
+        if (error || !data) break;
+        data.forEach((r: any) => map.set(r.product_id, { count: r.count || 0, price: parseFloat(r.price) || 0 }));
+        if (data.length < PAGE) break;
+      }
+      if (!cancelled) setScopeStockMap(map);
+    })();
+    return () => { cancelled = true; };
+  }, [scopeStockCompanyId, showEditModal, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A lista de empresas só carrega sob demanda — sem ela não dá pra saber qual é a padrão.
+  useEffect(() => {
+    if (scopeCompany && companies.length === 0) fetchCompanies();
+  }, [scopeCompany]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const scopedProducts = useMemo(() => {
+    if (!scopeCompany) return products;
+    if (scopeCompany.id === primaryCompanyId) return products;
+    if (!scopeStockCompanyId || !scopeStockMap) return products.map(p => ({ ...p, count: 0, price: 0, is_low: true, isLow: true }));
+    return products.map(p => {
+      const s = scopeStockMap.get(p.id);
+      const count = s?.count ?? 0;
+      return { ...p, count, price: s?.price ?? 0, is_low: count < 5, isLow: count < 5 };
+    });
+  }, [products, scopeCompany, primaryCompanyId, scopeStockCompanyId, scopeStockMap]);
+
+  const findOriginalProduct = (product: any) => products.find(p => p.id === product?.id) ?? product;
 
   // Unique values for dropdowns
   const uniqueLocations = useMemo(() => Array.from(new Set(products.map(p => p.location).filter(Boolean))).sort(), [products]);
@@ -6282,6 +6333,24 @@ export default function Page() {
   // Preço de Custo não é espelhado em products (é exclusivo de product_company_stock), então
   // precisa de uma busca própria em vez do atalho síncrono usado para count/price.
   useEffect(() => {
+    // Com outra loja selecionada no cabeçalho, o modal já abre nela (valores de product_company_stock).
+    if (showEditModal && editingProduct && primaryCompanyId && !editProductCompanyId && scopeStockCompanyId) {
+      const companyId = scopeStockCompanyId;
+      setEditProductCompanyId(companyId);
+      (async () => {
+        const { data } = await supabase.from('product_company_stock')
+          .select('count, price, cost_price')
+          .eq('product_id', editingProduct.id)
+          .eq('company_id', companyId)
+          .maybeSingle();
+        const next = { count: data?.count || 0, price: parseFloat(data?.price as any) || 0, costPrice: parseFloat((data as any)?.cost_price) || 0 };
+        setEditProductStockCache(prev => ({ ...prev, [companyId]: next }));
+        setEditingProduct((p: any) => p ? { ...p, count: next.count, price: next.price, costPrice: next.costPrice } : p);
+        setEditProductPriceDisplay(next.price > 0 ? next.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
+        setEditProductCostPriceDisplay(next.costPrice > 0 ? next.costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
+      })();
+      return;
+    }
     if (showEditModal && editingProduct && primaryCompanyId && !editProductCompanyId) {
       setEditProductCompanyId(primaryCompanyId);
       setEditProductStockCache(prev => ({
@@ -6305,7 +6374,7 @@ export default function Page() {
         setEditProductCostPriceDisplay(costPrice > 0 ? costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
       })();
     }
-  }, [showEditModal, editingProduct, primaryCompanyId, editProductCompanyId]);
+  }, [showEditModal, editingProduct, primaryCompanyId, editProductCompanyId, scopeStockCompanyId]);
 
   // Troca de Empresa na seção Estoque & Preço: salva a empresa anterior (se o produto já existe
   // e havia edição pendente) e carrega/cacheia os valores da empresa recém-selecionada.
@@ -6503,7 +6572,7 @@ export default function Page() {
           )}>
             {activeTab === 'Inventory' ? (
                 <InventoryManager 
-                  products={products}
+                  products={scopedProducts}
                   loading={loading}
                   isConfigured={isConfigured}
                   importing={importing}
@@ -6516,9 +6585,9 @@ export default function Page() {
                     setShowAddModal(true);
                   }}
                   onOpenProductList={() => setShowProductBulkTable(true)}
-                  onEdit={openEditModal}
+                  onEdit={(product) => openEditModal(findOriginalProduct(product))}
                   motherChildProductIds={motherChildProductIds}
-                  onViewMotherPackages={(product) => openEditModal(product, 'mae')}
+                  onViewMotherPackages={(product) => openEditModal(findOriginalProduct(product), 'mae')}
                   onSendToPrintQueue={(product) => setProductToSendPrintQueue(product)}
                   onStockUpdate={handleStockUpdate}
                   onOpenMobileBulkTable={() => setShowMobileTypeModal(true)}
