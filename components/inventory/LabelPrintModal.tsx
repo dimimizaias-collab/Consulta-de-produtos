@@ -58,6 +58,24 @@ export const HALF_LAYOUT: CellLayout = {
   data:    { x: 14.2, y: 20,   w: 27.5, h: 2  },
 };
 
+// Etiqueta de Gôndola 70×30 — rolo próprio na Elgin L42 Pro, uma etiqueta
+// por disparo (sem Metade). Mesmos elementos da Gôndola 105×28, redistribuídos
+// pro formato menor: nome no topo, REF, código de barras à esquerda e R$/preço
+// à direita, com a data de impressão embaixo do preço. No driver da Elgin, o
+// papel "Etiqueta Gondola 70x30" precisa ter 70 × 30mm.
+export const GONDOLA70_W = 70; // mm
+export const GONDOLA70_H = 30; // mm
+export const GONDOLA70_LAYOUT: CellLayout = {
+  nome:    { x: 2.5,  y: 3,    w: 65,   h: 4.2  },
+  ref:     { x: 2.5,  y: 8.2,  w: 24,   h: 2.4  },
+  barcode: { x: 2.5,  y: 12.2, w: 32,   h: 14.8 },
+  rs:      { x: 37,   y: 10.6, w: 4.5,  h: 4    },
+  preco:   { x: 41.5, y: 10.6, w: 26,   h: 12.4 },
+  data:    { x: 36.5, y: 25,   w: 31,   h: 2.4  },
+};
+// Layouts em que o nome de 2 linhas sobe (em vez de empurrar o resto pra baixo).
+const NOME_GROWS_UP = (layout: CellLayout) => layout === FULL_LAYOUT || layout === GONDOLA70_LAYOUT;
+
 // Descrição da etiqueta de Gôndola: sempre em MAIÚSCULO, Arimo negrito. O
 // arquivo da fonte vai junto no app (public/fonts) pra impressão não depender
 // da fonte instalada no computador; @font-face está em globals.css e na janela
@@ -315,7 +333,7 @@ function fitNomeLayout(text: string, layout: CellLayout, weight: number | string
     return { fontSizeMm: singleMaxH * scale, yMm: layout.nome.y - raise, hMm: singleMaxH, twoLines: false, extraH: 0 };
   }
 
-  if (layout === FULL_LAYOUT) {
+  if (NOME_GROWS_UP(layout)) {
     const maxAvailableH = Math.max(singleMaxH, bottom - FULL_NOME_TOP_SAFETY_MM);
     const standardSize = maxAvailableH / (2 * 1.05);
     const blockH = standardSize * 1.05 * 2;
@@ -340,14 +358,14 @@ export const SAMPLE_HALF_B = { name: 'Água Mineral s/Gás 500ml', sku: '0312', 
 export const SAMPLE_TRIPLE_C = { name: 'Suco de Uva Integral 1L', sku: '0891', ean: '7891234598765', price: 8.9 };
 export const SAMPLE_TRIPLE_D = { name: 'Biscoito Recheado Chocolate 140g', sku: '0623', ean: '7891234587654', price: 3.29 };
 
-function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout: CellLayout; offsetXMm: number }) {
+function LabelPreviewCell({ product, layout, offsetXMm, frameW = ELGIN_LABEL_W, frameH = ELGIN_LABEL_H }: { product: any; layout: CellLayout; offsetXMm: number; frameW?: number; frameH?: number }) {
   useArimoReady();
   const box = (p: ElPos, extra?: React.CSSProperties): React.CSSProperties => ({
     position: 'absolute',
-    left: `${((p.x + offsetXMm) / ELGIN_LABEL_W) * 100}%`,
-    top: `${(p.y / ELGIN_LABEL_H) * 100}%`,
-    width: `${(p.w / ELGIN_LABEL_W) * 100}%`,
-    height: `${(p.h / ELGIN_LABEL_H) * 100}%`,
+    left: `${((p.x + offsetXMm) / frameW) * 100}%`,
+    top: `${(p.y / frameH) * 100}%`,
+    width: `${(p.w / frameW) * 100}%`,
+    height: `${(p.h / frameH) * 100}%`,
     ...extra,
   });
   const code = product.ean || product.sku || '';
@@ -399,7 +417,14 @@ function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout
   );
 }
 
-export function LabelPreview({ variant, items }: { variant: 'full' | 'half'; items: any[] }) {
+export function LabelPreview({ variant, items }: { variant: 'full' | 'half' | 'g70'; items: any[] }) {
+  if (variant === 'g70') {
+    return (
+      <div className="relative w-full rounded-xl overflow-hidden bg-[#FFE500] shadow-inner" style={{ aspectRatio: `${GONDOLA70_W} / ${GONDOLA70_H}` }}>
+        <LabelPreviewCell product={items[0]} layout={GONDOLA70_LAYOUT} offsetXMm={0} frameW={GONDOLA70_W} frameH={GONDOLA70_H} />
+      </div>
+    );
+  }
   return (
     <div className="relative w-full rounded-xl overflow-hidden bg-[#FFE500] shadow-inner" style={{ aspectRatio: `${ELGIN_LABEL_W} / ${ELGIN_LABEL_H}` }}>
       {variant === 'full' ? (
@@ -785,8 +810,15 @@ export function IconTriple({ size = 12 }: { size?: number }) {
 
 // 'produto40x20' = Etiqueta de Produto em rolo 40×20 de 2 colunas na Elgin —
 // sem Inteira/Metade/Código: toda unidade é uma etiqueta 40×20.
-export type LabelTemplate = 'gondola' | 'produto' | 'produto40x20';
-export const templateHasSizes = (t: LabelTemplate) => t !== 'produto40x20';
+// 'gondola70x30' = Etiqueta de Gôndola em rolo 70×30 na Elgin — uma etiqueta
+// por disparo, sem Metade.
+export type LabelTemplate = 'gondola' | 'gondola70x30' | 'produto' | 'produto40x20';
+export const templateHasSizes = (t: LabelTemplate) => t !== 'produto40x20' && t !== 'gondola70x30';
+// Selo exibido no lugar do seletor Inteira/Metade nos modelos de tamanho único.
+export const TEMPLATE_FIXED_SIZE: Partial<Record<LabelTemplate, string>> = {
+  gondola70x30: '70×30',
+  produto40x20: '40×20',
+};
 // Informações adicionais (Fabricante/CNPJ/...) existem nas etiquetas de produto.
 export const templateHasInfo = (t: LabelTemplate, size: LabelSize) =>
   t === 'produto40x20' || (t === 'produto' && size !== 'triple');
@@ -867,6 +899,7 @@ function escapeHtml(value: string): string {
 
 export const TEMPLATE_LABELS: Record<LabelTemplate, string> = {
   gondola: 'Etiqueta de Gôndola',
+  gondola70x30: 'Etiqueta de Gôndola 70×30',
   produto: 'Etiqueta de Produto',
   produto40x20: 'Etiqueta de Produto 40×20',
 };
@@ -874,6 +907,7 @@ export const TEMPLATE_LABELS: Record<LabelTemplate, string> = {
 // Ordem e selo de cada modelo no seletor (compartilhado com a Fila de Impressão).
 export const TEMPLATE_OPTIONS: { id: LabelTemplate; badge?: string }[] = [
   { id: 'gondola' },
+  { id: 'gondola70x30', badge: 'Elgin · 70×30mm' },
   { id: 'produto', badge: 'Adesiva 40×40mm' },
   { id: 'produto40x20', badge: 'Elgin · 2 colunas' },
 ];
@@ -914,6 +948,13 @@ export function TemplateHints({ template }: { template: LabelTemplate }) {
           Código imprime 4 códigos de barras por etiqueta, sem descrição
         </p>
       </div>
+    );
+  }
+  if (template === 'gondola70x30') {
+    return (
+      <p className="text-[10px] font-semibold text-on-surface/40 leading-snug">
+        Etiqueta de gôndola no rolo de 70×30mm (Elgin). Uma etiqueta por disparo, sem Metade.
+      </p>
     );
   }
   if (template === 'produto40x20') {
@@ -1220,7 +1261,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
   };
 
   const printElgin = async () => {
-    if (template !== 'gondola' || totalLabels === 0) return;
+    if ((template !== 'gondola' && template !== 'gondola70x30') || totalLabels === 0) return;
     onPrinted?.();
 
     // Abre a janela antes de qualquer await (senão o navegador bloqueia o popup)
@@ -1229,15 +1270,21 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     if (!win) return;
     await ensureArimoLoaded();
 
+    // Gôndola 70×30: tudo sai como etiqueta inteira no papel 70×30mm.
+    const is70 = template === 'gondola70x30';
+    const pageW = is70 ? GONDOLA70_W : ELGIN_LABEL_W;
+    const pageH = is70 ? GONDOLA70_H : ELGIN_LABEL_H;
+    const fullLayout = is70 ? GONDOLA70_LAYOUT : FULL_LAYOUT;
+
     const fullUnits: any[] = [];
     const halfUnits: any[] = [];
     queueList.forEach(([, entry]) => {
       const product = effectiveLabelProduct(entry);
-      for (let i = 0; i < entry.qty; i++) (entry.size === 'half' ? halfUnits : fullUnits).push(product);
+      for (let i = 0; i < entry.qty; i++) (entry.size === 'half' && !is70 ? halfUnits : fullUnits).push(product);
     });
 
     const pages: string[] = fullUnits.map(product =>
-      `<div class="elgin-label">${buildCellHtml(product, FULL_LAYOUT, 0)}</div>`
+      `<div class="elgin-label">${buildCellHtml(product, fullLayout, 0)}</div>`
     );
     for (let i = 0; i < halfUnits.length; i += 2) {
       const left = halfUnits[i];
@@ -1249,14 +1296,14 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
 
     const labelsHtml = pages.join('');
     win.document.write(`
-      <html><head><title>Etiquetas Elgin L42 Pro</title>
+      <html><head><title>Etiquetas${is70 ? ' Gôndola 70x30' : ''} Elgin L42 Pro</title>
       <style>
         @font-face { font-family: 'Arimo'; font-weight: 400 700; src: url('${window.location.origin}${ARIMO_FONT_URL}') format('truetype'); }
-        @page { size: ${ELGIN_LABEL_W}mm ${ELGIN_LABEL_H}mm; margin: 0; }
+        @page { size: ${pageW}mm ${pageH}mm; margin: 0; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: Arial, Helvetica, sans-serif; }
         .elgin-label {
-          position: relative; width: ${ELGIN_LABEL_W}mm; height: ${ELGIN_LABEL_H}mm;
+          position: relative; width: ${pageW}mm; height: ${pageH}mm;
           page-break-after: always; overflow: hidden;
         }
         .elgin-label:last-child { page-break-after: auto; }
@@ -1525,7 +1572,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                                 </div>
                                 <div className="flex items-center gap-2 flex-shrink-0">
                                   {!templateHasSizes(template) ? (
-                                    <span className={fixedSizeChipCls}>40×20</span>
+                                    <span className={fixedSizeChipCls}>{TEMPLATE_FIXED_SIZE[template]}</span>
                                   ) : (
                                   <div className={segCls}>
                                     <button type="button" onClick={() => setDraftSize(product.id, 'full')} className={segBtnCls(draft.size === 'full')}>
@@ -1637,6 +1684,14 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                             <p className="text-center font-mono text-[10px] font-medium text-on-surface/40 mt-1.5">2 × {(ELGIN_LABEL_W / 2).toFixed(1)} × {ELGIN_LABEL_H}mm</p>
                           </div>
                         </div>
+                      ) : template === 'gondola70x30' ? (
+                        <div className="max-w-[340px]">
+                          <span className={labelCls}>Etiqueta</span>
+                          <LabelPreview variant="g70" items={[previewRoloItems[0]]} />
+                          <p className="text-center font-mono text-[10px] font-medium text-on-surface/40 mt-1.5">
+                            {GONDOLA70_W} × {GONDOLA70_H}mm · {totalLabels} disparo{totalLabels !== 1 ? 's' : ''}
+                          </p>
+                        </div>
                       ) : template === 'produto40x20' ? (
                         <div>
                           <span className={labelCls}>1ª linha do rolo</span>
@@ -1699,7 +1754,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                                 )}
                               </span>
                               {!templateHasSizes(template) ? (
-                                <span className={fixedSizeChipCls}>40×20</span>
+                                <span className={fixedSizeChipCls}>{TEMPLATE_FIXED_SIZE[template]}</span>
                               ) : (
                               <div className={segCls}>
                                 <button type="button" onClick={() => updateQueueSize(id, 'full')} className={segBtnCls(entry.size === 'full')}>
@@ -1852,7 +1907,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
               )}
               <button
                 type="button"
-                onClick={() => (template === 'gondola' ? printElgin() : template === 'produto40x20' ? printRolo40x20() : printProduto())}
+                onClick={() => (template === 'gondola' || template === 'gondola70x30' ? printElgin() : template === 'produto40x20' ? printRolo40x20() : printProduto())}
                 disabled={totalLabels === 0}
                 className={btnPrimaryCls}
               >

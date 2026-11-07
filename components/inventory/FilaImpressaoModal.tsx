@@ -10,7 +10,7 @@ import {
   ROLO_40X20_W, ROLO_40X20_H,
   LabelPreview, ProdutoPreviewFull, ProdutoPreviewHalf, ProdutoPreviewTriple, ProdutoPreviewRolo,
   IconWholeSquare, IconHalfHorizontal, IconTriple,
-  TEMPLATE_LABELS, TemplateMenuOptions, TemplateHints, templateHasSizes, fixedSizeChipCls,
+  TEMPLATE_LABELS, TemplateMenuOptions, TemplateHints, templateHasSizes, fixedSizeChipCls, TEMPLATE_FIXED_SIZE, GONDOLA70_W, GONDOLA70_H,
   SAMPLE_FULL, SAMPLE_HALF_A, SAMPLE_HALF_B, SAMPLE_TRIPLE_C, SAMPLE_TRIPLE_D,
   blockWheelChange, effectiveLabelProduct,
   type LabelTemplate, type LabelSize, type QueueEntry, type LabelOverrides,
@@ -303,7 +303,7 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                                 </div>
                                 <div className="flex items-center gap-2 flex-shrink-0">
                                   {!templateHasSizes(template) ? (
-                                    <span className={fixedSizeChipCls}>40×20</span>
+                                    <span className={fixedSizeChipCls}>{TEMPLATE_FIXED_SIZE[template]}</span>
                                   ) : (
                                   <div className={segCls}>
                                     <button type="button" onClick={() => setDraftSize(product.id, 'full')} className={segBtnCls(draft.size === 'full')}>
@@ -415,6 +415,12 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                             <p className="text-center font-mono text-[10px] font-medium text-on-surface/40 mt-1.5">2 × {(ELGIN_LABEL_W / 2).toFixed(1)} × {ELGIN_LABEL_H}mm</p>
                           </div>
                         </div>
+                      ) : template === 'gondola70x30' ? (
+                        <div className="max-w-[340px]">
+                          <span className={labelCls}>Etiqueta</span>
+                          <LabelPreview variant="g70" items={[previewRoloItems[0]]} />
+                          <p className="text-center font-mono text-[10px] font-medium text-on-surface/40 mt-1.5">{GONDOLA70_W} × {GONDOLA70_H}mm</p>
+                        </div>
                       ) : template === 'produto40x20' ? (
                         <div>
                           <span className={labelCls}>1ª linha do rolo</span>
@@ -471,7 +477,7 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                                 )}
                               </span>
                               {!templateHasSizes(template) ? (
-                                <span className={fixedSizeChipCls}>40×20</span>
+                                <span className={fixedSizeChipCls}>{TEMPLATE_FIXED_SIZE[template]}</span>
                               ) : (
                               <div className={segCls}>
                                 <button type="button" onClick={() => updateQueueSize(id, 'full')} className={segBtnCls(entry.size === 'full')}>
