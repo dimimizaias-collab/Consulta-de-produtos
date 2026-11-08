@@ -26,7 +26,8 @@ export const ELGIN_LABEL_H = 28;  // mm — etiqueta de gôndola real medida (n�
 export const HALF_OFFSET_X = ELGIN_LABEL_W / 2; // 52.5mm — onde começa a 2ª metade
 
 export interface ElPos { x: number; y: number; w: number; h: number }
-export interface CellLayout { nome: ElPos; ref: ElPos; barcode: ElPos; rs: ElPos; preco: ElPos; data: ElPos }
+// bcNumRatio = fração da altura do código de barras usada pelo número (padrão 0,3).
+export interface CellLayout { nome: ElPos; ref: ElPos; barcode: ElPos; rs: ElPos; preco: ElPos; data: ElPos; bcNumRatio?: number }
 
 // Posições em mm, origem no canto superior esquerdo de cada etiqueta/metade.
 // Extraídas por análise de pixel de um par de imagens de referência fornecidas
@@ -65,16 +66,21 @@ export const HALF_LAYOUT: CellLayout = {
 // papel "Etiqueta Gondola 70x30" precisa ter 70 × 30mm.
 export const GONDOLA70_W = 70; // mm
 export const GONDOLA70_H = 30; // mm
+// 1º teste impresso (nov/2026): nome de 2 linhas subia até a borda e a 1ª
+// linha saía cortada, preço e número do código de barras grandes demais e o
+// conteúdo terminando colado na borda de baixo. Agora: nome com fonte fixa
+// (não cresce até a borda), preço/código menores e tudo dentro de 2,5–25mm.
 export const GONDOLA70_LAYOUT: CellLayout = {
-  nome:    { x: 2.5,  y: 3,    w: 65,   h: 4.2  },
-  ref:     { x: 2.5,  y: 8.2,  w: 24,   h: 2.4  },
-  barcode: { x: 2.5,  y: 12.2, w: 32,   h: 14.8 },
-  rs:      { x: 37,   y: 10.6, w: 4.5,  h: 4    },
-  preco:   { x: 41.5, y: 10.6, w: 26,   h: 12.4 },
-  data:    { x: 36.5, y: 25,   w: 31,   h: 2.4  },
+  nome:    { x: 2.5,  y: 2.5,  w: 65,   h: 6.4  }, // até 2 linhas de GONDOLA70_NOME_FONT_MM
+  ref:     { x: 2.5,  y: 9.3,  w: 20,   h: 1.9  },
+  barcode: { x: 2.5,  y: 12,   w: 30,   h: 12.5 },
+  rs:      { x: 38,   y: 12.6, w: 3.6,  h: 2.6  },
+  preco:   { x: 42,   y: 12.6, w: 25.5, h: 7    },
+  data:    { x: 37,   y: 22.4, w: 30.5, h: 2.1  },
+  bcNumRatio: 0.2,
 };
-// Layouts em que o nome de 2 linhas sobe (em vez de empurrar o resto pra baixo).
-const NOME_GROWS_UP = (layout: CellLayout) => layout === FULL_LAYOUT || layout === GONDOLA70_LAYOUT;
+const GONDOLA70_NOME_FONT_MM = 3; // ~8,5pt
+
 
 // Descrição da etiqueta de Gôndola: sempre em MAIÚSCULO, Arimo negrito. O
 // arquivo da fonte vai junto no app (public/fonts) pra impressão não depender
@@ -333,7 +339,15 @@ function fitNomeLayout(text: string, layout: CellLayout, weight: number | string
     return { fontSizeMm: singleMaxH * scale, yMm: layout.nome.y - raise, hMm: singleMaxH, twoLines: false, extraH: 0 };
   }
 
-  if (NOME_GROWS_UP(layout)) {
+  // Gôndola 70×30: fonte fixa; o que não cabe numa linha quebra em 2 (com "…"
+  // se ainda sobrar), sempre a partir do topo da caixa.
+  if (layout === GONDOLA70_LAYOUT) {
+    const f = GONDOLA70_NOME_FONT_MM;
+    const oneLine = measureTextWidth(text, f, weight, family) <= w * FIT_SAFETY;
+    return { fontSizeMm: f, yMm: layout.nome.y, hMm: f * 1.05 * (oneLine ? 1 : 2), twoLines: !oneLine, extraH: 0 };
+  }
+
+  if (layout === FULL_LAYOUT) {
     const maxAvailableH = Math.max(singleMaxH, bottom - FULL_NOME_TOP_SAFETY_MM);
     const standardSize = maxAvailableH / (2 * 1.05);
     const blockH = standardSize * 1.05 * 2;
@@ -380,7 +394,7 @@ function LabelPreviewCell({ product, layout, offsetXMm, frameW = ELGIN_LABEL_W, 
   const refSize = fitFontSize(refText, shifted.ref.w * PREVIEW_PX_PER_MM, shifted.ref.h * PREVIEW_PX_PER_MM, 900, "'DM Mono', monospace");
   const rsSize = fitFontSize('R$', shifted.rs.w * PREVIEW_PX_PER_MM, shifted.rs.h * PREVIEW_PX_PER_MM, 800, 'DM Sans, sans-serif');
   const precoSize = fitFontSize(priceText, shifted.preco.w * PREVIEW_PX_PER_MM, shifted.preco.h * PREVIEW_PX_PER_MM, 800, 'DM Sans, sans-serif');
-  const bcNumSize = code ? fitFontSize(code, shifted.barcode.w * PREVIEW_PX_PER_MM, shifted.barcode.h * 0.3 * PREVIEW_PX_PER_MM, 700, "'DM Mono', monospace") : 0;
+  const bcNumSize = code ? fitFontSize(code, shifted.barcode.w * PREVIEW_PX_PER_MM, shifted.barcode.h * (layout.bcNumRatio ?? 0.3) * PREVIEW_PX_PER_MM, 700, "'DM Mono', monospace") : 0;
   const dataSize = fitFontSize(dataText, shifted.data.w * PREVIEW_PX_PER_MM, shifted.data.h * PREVIEW_PX_PER_MM, 400, 'DM Sans, sans-serif');
 
   return (
@@ -1244,7 +1258,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     const refSize = fitFontSize(refText, shifted.ref.w, shifted.ref.h, 900, "'Courier New', monospace");
     const rsSize = fitFontSize('R$', shifted.rs.w, shifted.rs.h, 800, 'Arial, Helvetica, sans-serif');
     const precoSize = fitFontSize(priceText, shifted.preco.w, shifted.preco.h, 800, 'Arial, Helvetica, sans-serif');
-    const bcNumSize = code ? fitFontSize(code, shifted.barcode.w, shifted.barcode.h * 0.3, 700, "'Courier New', monospace") : 0;
+    const bcNumSize = code ? fitFontSize(code, shifted.barcode.w, shifted.barcode.h * (layout.bcNumRatio ?? 0.3), 700, "'Courier New', monospace") : 0;
     const dataSize = fitFontSize(dataText, shifted.data.w, shifted.data.h, 400, 'Arial, Helvetica, sans-serif');
 
     return `
