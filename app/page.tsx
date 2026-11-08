@@ -15,6 +15,7 @@ import { ProductAlterationModal } from '@/components/requests/ProductAlterationM
 import { LogisticsCenter, ReviewNote, getNoteStatus, STATUS_META, StatusIcon, noteHasUnpricedLinkedItems, type NoteStatus } from '@/components/requests/LogisticsCenter';
 import { ReceivedDateField } from '@/components/requests/ReceivedDateField';
 import { QuickEditItemModal, observationReasonLabel } from '@/components/requests/QuickEditItemModal';
+import { LabelPrintModal, type QueueEntry } from '@/components/inventory/LabelPrintModal';
 // Pedidos de Compra — DESATIVADO da navegação (ver components/Sidebar.tsx). Import e componente mantidos para reativação futura.
 import { PurchaseOrderManager } from '@/components/orders/PurchaseOrderManager';
 import { SettingsPage } from '@/components/settings/SettingsPage';
@@ -894,6 +895,8 @@ export default function Page() {
   // Aberto pelo ícone de observação da tabela → o Cadastro Rápido já abre com o painel aberto.
   const [quickEditOpenObs, setQuickEditOpenObs] = useState(false);
   const quickEditBaseRef = useRef<{ idx: number; origQty: number; notePrice: number; mult: number } | null>(null);
+  // Etiqueta aberta pelo Cadastro Rápido — fila com o produto do item e o preço de venda da nota.
+  const [noteLabelPreload, setNoteLabelPreload] = useState<{ queue: QueueEntry[]; priceCompanyId?: string } | null>(null);
   const viewingReviewNoteId = viewingReviewNote?.id;
   useEffect(() => { setQuickEditIdx(null); quickEditBaseRef.current = null; }, [viewingReviewNoteId]);
   const [distribModalDraft, setDistribModalDraft] = useState<Record<string, string>>({});
@@ -13577,7 +13580,7 @@ export default function Page() {
                 ].filter(Boolean).join(' · ') || viewingReviewNote.fileName || 'Nota';
                 return (
                   <QuickEditItemModal
-                    suspended={linkingItemIdx !== null || multiLinkItemIdx !== null || distribModalIdx !== null || quickCreateConfirmIdx !== null || showEditModal}
+                    suspended={linkingItemIdx !== null || multiLinkItemIdx !== null || distribModalIdx !== null || quickCreateConfirmIdx !== null || showEditModal || !!noteLabelPreload}
                     index={idx}
                     total={viewingReviewNote.items.length}
                     subtitle={subtitle}
@@ -13645,11 +13648,36 @@ export default function Page() {
                       : openQuickCreateOrLink(idx, item)}
                     onSelectProduct={p => handleQuickEditSelectProduct(idx, p)}
                     onEditProduct={() => { if (linked) openEditModal(linked); }}
+                    onPrintLabel={() => {
+                      // Produto vinculado → cadastro dele; sem vínculo → dados do item na nota.
+                      // O preço de venda digitado na nota vale por cima do preço da empresa.
+                      const base = linked
+                        ? { ...linked, ean: linked.ean || itemEan || null }
+                        : {
+                            id: `00000000-0000-4000-8000-${String(idx).padStart(12, '0')}`,
+                            name: item.original_description || item.name || 'Produto',
+                            sku: item.supplier_code || null,
+                            ean: itemEan || null,
+                            price: sellPrice,
+                          };
+                      setNoteLabelPreload({
+                        queue: [{ product: base, qty: 1, size: 'full', overrides: sellPrice > 0 ? { price: sellPrice } : undefined }],
+                        priceCompanyId: viewingPriceCompanyId || viewingReviewNote.companyId || undefined,
+                      });
+                    }}
                     onNavigate={handleQuickEditNavigate}
                     onClose={closeQuickEdit}
                   />
                 );
               })()}
+
+              <LabelPrintModal
+                isOpen={!!noteLabelPreload}
+                onClose={() => setNoteLabelPreload(null)}
+                products={products}
+                initialQueue={noteLabelPreload?.queue}
+                initialPriceCompanyId={noteLabelPreload?.priceCompanyId}
+              />
 
               {distribModalIdx !== null && viewingReviewNote && (() => {
                 const idx = distribModalIdx;

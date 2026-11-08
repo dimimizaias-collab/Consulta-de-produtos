@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion } from 'motion/react';
 import {
   X, Zap, Lock, ArrowRight, ArrowLeft, Copy, Check, Search, Plus, CheckCircle2, Layers, Truck, Pencil, Loader2,
-  CircleHelp, ChevronDown, Trash2, Undo2,
+  CircleHelp, ChevronDown, Trash2, Undo2, Printer,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -92,6 +92,8 @@ interface QuickEditItemModalProps {
   onZapClick: () => void;
   onSelectProduct: (p: QuickEditProduct) => void;
   onEditProduct: () => void;
+  /** Abre o módulo de etiquetas com este item (produto vinculado ou dados da nota). */
+  onPrintLabel: () => void;
   onNavigate: (delta: number) => void;
   onClose: () => void;
 }
@@ -1018,6 +1020,16 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
             </span>
             Produto Anterior
           </motion.button>
+
+          <button
+            type="button"
+            onClick={props.onPrintLabel}
+            title={linkedProduct ? 'Imprimir etiqueta do produto vinculado com o preço de venda da nota' : 'Imprimir etiqueta com os dados do item na nota'}
+            className="shrink-0 inline-flex items-center gap-2 h-9 px-3 border text-[12.5px] font-extrabold transition-colors active:scale-[0.97] border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] hover:bg-[#FFE500] hover:border-[#D4C000] dark:hover:bg-[#FFE500] dark:hover:text-[#1A1A0E] text-[#1A1A0E] dark:text-[#F2F0E3]"
+          >
+            <Printer size={14} strokeWidth={2.4} />
+            <span className="hidden sm:inline">Etiqueta</span>
+          </button>
 
           {/* Status ocupa o espaço entre os botões (flex-1) em vez de absolute — assim não
               passa por baixo do Total do item quando a mensagem de edição é longa. */}
