@@ -2807,13 +2807,32 @@ export default function Page() {
       setNewProductCompanyId('');
       setNewProductStockByCompany({});
 
-      // Fecha o modal após um pequeno delay
-      setTimeout(() => {
-        setShowAddModal(false);
-        setAddStatus('idle');
-        fetchProducts();
-        setNotification(null);
-      }, 1500);
+      // Em vez de só fechar, já abre o Editar Produto do item recém-criado — o usuário
+      // continua de onde parou sem ter que procurar o produto na lista.
+      setShowAddModal(false);
+      setAddStatus('idle');
+      fetchProducts();
+      const created = data?.[0];
+      if (created) {
+        const createdExtraEans = extraEanRows.map(r => ({ ean: r.ean, description: r.description }));
+        openEditModal({
+          ...created,
+          ean: created.ean || '',
+          extraEans: createdExtraEans,
+          motherEans: [],
+          allEans: [created.ean, ...createdExtraEans.map(e => e.ean)].filter((e): e is string => !!e && e.trim() !== ''),
+          category: created.category || 'Geral',
+          subcategory: created.subcategory || 'Geral',
+          brand: created.brand || 'Geral',
+          isFeatured: created.is_featured,
+          isSide: created.is_side,
+          isLow: created.is_low,
+          internalCode: created.internal_code,
+          createdAt: created.created_at,
+          updatedAt: created.updated_at,
+        });
+      }
+      setTimeout(() => setNotification(null), 2500);
 
     } catch (err: any) {
       console.log('Erro capturado:', err);
