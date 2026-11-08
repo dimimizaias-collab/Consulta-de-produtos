@@ -16,6 +16,7 @@ import { LabelEditModal } from './LabelEditModal';
 import { LabelInfoModal, resolveLabelInfo, hasLabelInfo, LABEL_INFO_FIELDS, type LabelInfoConfig, type ProductCadastroPatch } from './LabelInfoModal';
 import type { Manufacturer } from '@/components/manufacturers/AddManufacturerModal';
 import { supabase } from '@/lib/supabase';
+import { useCompanyScope } from '@/lib/company-scope';
 
 export const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
 
@@ -80,6 +81,9 @@ export const GONDOLA70_LAYOUT: CellLayout = {
   bcNumRatio: 0.2,
 };
 const GONDOLA70_NOME_FONT_MM = 3; // ~8,5pt
+// 2º teste impresso: tudo saía ~2mm à esquerda (≈1mm de margem à esquerda e
+// ≈4,7mm à direita). Desloca só a impressão; a prévia segue o layout.
+export const GONDOLA70_PRINT_OFFSET_X_MM = 2;
 
 
 // Descrição da etiqueta de Gôndola: sempre em MAIÚSCULO, Arimo negrito. O
@@ -881,6 +885,7 @@ interface LabelPrintModalProps {
   // Impressão enviada remotamente), pulando direto pra Visualização.
   initialQueue?: QueueEntry[];
   initialTemplate?: LabelTemplate;
+  initialPriceCompanyId?: string;
   // Chamado assim que o usuário dispara a impressão de verdade (antes do
   // diálogo de impressão do navegador) — usado pra marcar o pedido de
   // origem como concluído.
@@ -996,16 +1001,23 @@ export interface PrintQueueItem {
   qty: number;
   size: LabelSize;
   info?: LabelInfoConfig;
+  // Preço digitado à mão no "Editar etiqueta" — sem ele, o preço sai da
+  // empresa escolhida em price_company_id ao reabrir o pedido.
+  price_override?: number;
 }
 
 export interface PrintQueueSubmission {
   template: LabelTemplate;
   items: PrintQueueItem[];
+  // Empresa cujo preço vai nas etiquetas (ausente = padrão do módulo).
+  price_company_id?: string;
 }
 
 const emptyDraft = (): Draft => ({ qty: 1, size: 'full' });
 
-export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initialTemplate, onPrinted, requestId, onSaveQueue, onSendQueue, onProductUpdated }: LabelPrintModalProps) {
+interface PriceCompany { id: string; nome_fantasia: string; created_at: string | null }
+
+export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initialTemplate, initialPriceCompanyId, onPrinted, requestId, onSaveQueue, onSendQueue, onProductUpdated }: LabelPrintModalProps) {
   const [activeTab, setActiveTab] = useState<Tab>('selecao');
   const [template, setTemplate] = useState<LabelTemplate>('gondola');
   const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
@@ -1058,6 +1070,73 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     ...(productPatches[entry.product.id] ?? {}),
   }), [productsById, productPatches]);
 
+  // Preço da empresa — o catálogo é o mesmo pra todas as lojas, mas o preço é
+  // de cada uma: a empresa padrão (a mais antiga) fica em products.price e as
+  // demais em product_company_stock (sem linha = R$ 0,00). O preço é buscado no
+  // banco pros itens da fila, sem depender da lista de produtos da tela (que
+  // pode estar na visão de outra loja pelo seletor do cabeçalho).
+  const { company: scopeCompany } = useCompanyScope();
+  const [priceCompanies, setPriceCompanies] = useState<PriceCompany[]>([]);
+  const [priceCompanyId, setPriceCompanyId] = useState('');
+  const [companyPrices, setCompanyPrices] = useState<{ companyId: string; prices: Map<string, number> } | null>(null);
+  const [loadingPrices, setLoadingPrices] = useState(false);
+  useEffect(() => {
+    if (!isOpen) return;
+    let alive = true;
+    supabase.from('companies').select('id, nome_fantasia, created_at').order('nome_fantasia').then(({ data }) => {
+      if (alive && data) setPriceCompanies(data as PriceCompany[]);
+    });
+    return () => { alive = false; };
+  }, [isOpen]);
+  const primaryPriceCompanyId = useMemo(
+    () => priceCompanies.slice().sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))[0]?.id || '',
+    [priceCompanies],
+  );
+  // Empresa inicial: a do pedido reaberto, senão a do seletor do cabeçalho, senão a padrão.
+  useEffect(() => {
+    if (!isOpen || priceCompanyId || priceCompanies.length === 0) return;
+    const has = (id?: string | null) => !!id && priceCompanies.some(c => c.id === id);
+    setPriceCompanyId(has(initialPriceCompanyId) ? initialPriceCompanyId! : has(scopeCompany?.id) ? scopeCompany!.id : primaryPriceCompanyId);
+  }, [isOpen, priceCompanyId, priceCompanies, initialPriceCompanyId, scopeCompany, primaryPriceCompanyId]);
+
+  const queueIdsKey = useMemo(() => Object.keys(queue).sort().join(','), [queue]);
+  useEffect(() => {
+    if (!isOpen || !priceCompanyId || !primaryPriceCompanyId) return;
+    const ids = queueIdsKey ? queueIdsKey.split(',') : [];
+    const isPrimary = priceCompanyId === primaryPriceCompanyId;
+    let alive = true;
+    setLoadingPrices(true);
+    (async () => {
+      const prices = new Map<string, number>();
+      for (let i = 0; i < ids.length; i += 200) {
+        const chunk = ids.slice(i, i + 200);
+        if (isPrimary) {
+          const { data } = await supabase.from('products').select('id, price').in('id', chunk);
+          (data ?? []).forEach((r: any) => prices.set(r.id, parseFloat(r.price) || 0));
+        } else {
+          const { data } = await supabase.from('product_company_stock').select('product_id, price').eq('company_id', priceCompanyId).in('product_id', chunk);
+          (data ?? []).forEach((r: any) => prices.set(r.product_id, parseFloat(r.price) || 0));
+          chunk.forEach(id => { if (!prices.has(id)) prices.set(id, 0); });
+        }
+      }
+      if (alive) { setCompanyPrices({ companyId: priceCompanyId, prices }); setLoadingPrices(false); }
+    })();
+    return () => { alive = false; };
+  }, [isOpen, priceCompanyId, primaryPriceCompanyId, queueIdsKey]);
+
+  // Preço da empresa escolhida pro item; enquanto carrega, o preço que veio
+  // com o produto. O preço editado à mão (lápis) continua valendo por cima.
+  const companyPriceFor = useCallback((entry: QueueEntry): number | undefined => {
+    if (!companyPrices || companyPrices.companyId !== priceCompanyId) return undefined;
+    return companyPrices.prices.get(entry.product.id);
+  }, [companyPrices, priceCompanyId]);
+  const baseLabelProduct = useCallback((entry: QueueEntry) => {
+    const price = companyPriceFor(entry);
+    return price === undefined ? entry.product : { ...entry.product, price };
+  }, [companyPriceFor]);
+  const labelProduct = useCallback((entry: QueueEntry) => ({ ...baseLabelProduct(entry), ...(entry.overrides ?? {}) }), [baseLabelProduct]);
+  const pricesReady = !loadingPrices && !!companyPrices && companyPrices.companyId === priceCompanyId;
+
   // Campos preenchidos que entram na etiqueta deste item (vazio = layout mínimo).
   const labelInfoFor = useCallback((entry: QueueEntry) => {
     if (!templateHasInfo(template, entry.size) || !hasLabelInfo(entry.info)) return [];
@@ -1072,13 +1151,13 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
   // Amostras pra prévia — usa o primeiro produto real de cada tamanho na fila,
   // caindo pra um exemplo genérico quando ainda não tem nada adicionado.
   const previewFullEntry = useMemo(() => queueList.find(([, e]) => e.size === 'full')?.[1], [queueList]);
-  const previewFull = previewFullEntry ? effectiveLabelProduct(previewFullEntry) : SAMPLE_FULL;
+  const previewFull = previewFullEntry ? labelProduct(previewFullEntry) : SAMPLE_FULL;
   const previewFullFields = previewFullEntry ? labelFieldsFor(previewFullEntry) : [];
   const previewHalfEntries = useMemo(() => queueList.filter(([, e]) => e.size === 'half').map(([, e]) => e), [queueList]);
-  const previewHalfA = previewHalfEntries[0] ? effectiveLabelProduct(previewHalfEntries[0]) : SAMPLE_HALF_A;
-  const previewHalfB = previewHalfEntries[1] ? effectiveLabelProduct(previewHalfEntries[1]) : SAMPLE_HALF_B;
+  const previewHalfA = previewHalfEntries[0] ? labelProduct(previewHalfEntries[0]) : SAMPLE_HALF_A;
+  const previewHalfB = previewHalfEntries[1] ? labelProduct(previewHalfEntries[1]) : SAMPLE_HALF_B;
   const previewHalfFields = previewHalfEntries.slice(0, 2).map(e => labelFieldsFor(e));
-  const previewTripleItems = useMemo(() => queueList.filter(([, e]) => e.size === 'triple').map(([, e]) => effectiveLabelProduct(e)), [queueList]);
+  const previewTripleItems = useMemo(() => queueList.filter(([, e]) => e.size === 'triple').map(([, e]) => labelProduct(e)), [queueList, labelProduct]);
   const previewTripleA = previewTripleItems[0] ?? SAMPLE_HALF_A;
   const previewTripleB = previewTripleItems[1] ?? SAMPLE_HALF_B;
   const previewTripleC = previewTripleItems[2] ?? SAMPLE_TRIPLE_C;
@@ -1092,7 +1171,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     }
     return units;
   }, [queueList]);
-  const previewRoloItems = previewRoloUnits.length > 0 ? previewRoloUnits.map(effectiveLabelProduct) : [SAMPLE_HALF_A, SAMPLE_HALF_B];
+  const previewRoloItems = previewRoloUnits.length > 0 ? previewRoloUnits.map(labelProduct) : [SAMPLE_HALF_A, SAMPLE_HALF_B];
   const previewRoloFields = previewRoloUnits.map(e => labelFieldsFor(e));
 
   const searchResults = useMemo(() => {
@@ -1181,13 +1260,15 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     setEditingId(null);
     setInfoId(null);
     setProductPatches({});
+    setPriceCompanyId('');
+    setCompanyPrices(null);
     onClose();
   };
 
   const buildQueueSubmission = (): PrintQueueSubmission => ({
     template,
     items: queueList.map(([, entry]) => {
-      const effective = effectiveLabelProduct(entry);
+      const effective = labelProduct(entry);
       return {
         product_id: entry.product.id,
         name: effective.name || '—',
@@ -1197,8 +1278,10 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
         qty: entry.qty,
         size: entry.size,
         ...(hasLabelInfo(entry.info) ? { info: entry.info } : {}),
+        ...(entry.overrides?.price !== undefined ? { price_override: entry.overrides.price } : {}),
       };
     }),
+    ...(priceCompanyId ? { price_company_id: priceCompanyId } : {}),
   });
 
   const [savingQueue, setSavingQueue] = useState(false);
@@ -1293,12 +1376,12 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     const fullUnits: any[] = [];
     const halfUnits: any[] = [];
     queueList.forEach(([, entry]) => {
-      const product = effectiveLabelProduct(entry);
+      const product = labelProduct(entry);
       for (let i = 0; i < entry.qty; i++) (entry.size === 'half' && !is70 ? halfUnits : fullUnits).push(product);
     });
 
     const pages: string[] = fullUnits.map(product =>
-      `<div class="elgin-label">${buildCellHtml(product, fullLayout, 0)}</div>`
+      `<div class="elgin-label">${buildCellHtml(product, fullLayout, is70 ? GONDOLA70_PRINT_OFFSET_X_MM : 0)}</div>`
     );
     for (let i = 0; i < halfUnits.length; i += 2) {
       const left = halfUnits[i];
@@ -1358,7 +1441,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     const halfUnits: Unit[] = [];
     const tripleUnits: any[] = [];
     queueList.forEach(([, entry]) => {
-      const product = effectiveLabelProduct(entry);
+      const product = labelProduct(entry);
       const fields = labelFieldsFor(entry);
       for (let i = 0; i < entry.qty; i++) {
         if (entry.size === 'triple') tripleUnits.push(product);
@@ -1425,7 +1508,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
 
     const units: { product: any; fields: { label: string; value: string }[] }[] = [];
     queueList.forEach(([, entry]) => {
-      const product = effectiveLabelProduct(entry);
+      const product = labelProduct(entry);
       const fields = labelFieldsFor(entry);
       for (let i = 0; i < entry.qty; i++) units.push({ product, fields });
     });
@@ -1519,7 +1602,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                       <span className={sectionTitleCls}>Adicionar à fila</span>
                     </div>
                     <div className="p-2.5 flex flex-col gap-2.5">
-                      <div className="grid grid-cols-1 sm:grid-cols-[1fr_1.6fr] gap-2.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1.4fr] gap-2.5">
                         {/* Modelo de etiqueta — dropdown mostrando só o nome */}
                         <div className="min-w-0">
                           <span className={labelCls}>Modelo de etiqueta</span>
@@ -1545,6 +1628,25 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                                 </motion.div>
                               )}
                             </AnimatePresence>
+                          </div>
+                        </div>
+
+                        {/* Empresa cujo preço vai nas etiquetas */}
+                        <div className="min-w-0">
+                          <span className={labelCls}>Preço da empresa</span>
+                          <div className="relative">
+                            <select
+                              value={priceCompanyId}
+                              onChange={e => setPriceCompanyId(e.target.value)}
+                              disabled={priceCompanies.length === 0}
+                              className={cn(inputCls, 'appearance-none pr-8 truncate cursor-pointer')}
+                            >
+                              {priceCompanies.length === 0 && <option value="">Carregando…</option>}
+                              {priceCompanies.map(c => (
+                                <option key={c.id} value={c.id}>{c.nome_fantasia}</option>
+                              ))}
+                            </select>
+                            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface/45 pointer-events-none" />
                           </div>
                         </div>
 
@@ -1682,7 +1784,10 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                     <div className={sectionHeadCls}>
                       <Eye size={12} strokeWidth={2.4} className="text-[#D81E1E] shrink-0" />
                       <span className={sectionTitleCls}>Prévia</span>
-                      <span className={sectionCountCls}>{TEMPLATE_LABELS[template]}</span>
+                      <span className={sectionCountCls}>
+                        {TEMPLATE_LABELS[template]}
+                        {priceCompanies.find(c => c.id === priceCompanyId) ? ` · preço ${priceCompanies.find(c => c.id === priceCompanyId)!.nome_fantasia}` : ''}
+                      </span>
                     </div>
                     <div className="p-2.5">
                       {template === 'gondola' ? (
@@ -1753,7 +1858,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                       <div className="flex flex-col">
                         {queueList.map(([id, entry], idx) => {
                           const edited = !!entry.overrides;
-                          const effective = effectiveLabelProduct(entry);
+                          const effective = labelProduct(entry);
                           const infoAvailable = templateHasInfo(template, entry.size);
                           const infoOn = infoAvailable && hasLabelInfo(entry.info);
                           const infoRows = infoOn ? labelInfoFor(entry) : [];
@@ -1922,18 +2027,18 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
               <button
                 type="button"
                 onClick={() => (template === 'gondola' || template === 'gondola70x30' ? printElgin() : template === 'produto40x20' ? printRolo40x20() : printProduto())}
-                disabled={totalLabels === 0}
+                disabled={totalLabels === 0 || (!!priceCompanyId && !pricesReady)}
                 className={btnPrimaryCls}
               >
                 <Printer size={14} strokeWidth={2.6} />
-                {`Imprimir ${totalLabels} etiqueta${totalLabels !== 1 ? 's' : ''}`}
+                {priceCompanyId && !pricesReady && totalLabels > 0 ? 'Carregando preços…' : `Imprimir ${totalLabels} etiqueta${totalLabels !== 1 ? 's' : ''}`}
               </button>
             </div>
           </motion.div>
 
           <LabelEditModal
             isOpen={!!editingEntry}
-            product={editingEntry?.product}
+            product={editingEntry ? baseLabelProduct(editingEntry) : undefined}
             overrides={editingEntry?.overrides}
             onSave={overrides => { if (editingId) setEntryOverrides(editingId, overrides); }}
             onRestore={() => { if (editingId) setEntryOverrides(editingId, {}); }}
@@ -1943,7 +2048,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
           <LabelInfoModal
             isOpen={!!infoEntry}
             product={infoEntry ? cadastroProduct(infoEntry) : null}
-            subtitle={infoEntry ? `${effectiveLabelProduct(infoEntry).name} · ${template === 'produto40x20' ? '40×20' : infoEntry.size === 'half' ? 'Metade' : 'Inteira'} ×${infoEntry.qty}` : undefined}
+            subtitle={infoEntry ? `${labelProduct(infoEntry).name} · ${template === 'produto40x20' ? '40×20' : infoEntry.size === 'half' ? 'Metade' : 'Inteira'} ×${infoEntry.qty}` : undefined}
             config={infoEntry?.info}
             manufacturers={manufacturers}
             onManufacturerSaved={upsertManufacturer}

@@ -33,7 +33,8 @@ import { ProductCard } from '@/components/ProductCard';
 interface PrintQueuePreload {
   requestId: string;
   template: 'gondola' | 'gondola70x30' | 'produto' | 'produto40x20';
-  queue: { product: any; qty: number; size: 'full' | 'half' | 'triple'; info?: LabelInfoConfig }[];
+  priceCompanyId?: string;
+  queue: { product: any; qty: number; size: 'full' | 'half' | 'triple'; info?: LabelInfoConfig; overrides?: { price?: number } }[];
 }
 
 interface InventoryManagerProps {
@@ -710,6 +711,7 @@ export function InventoryManager({
         products={products}
         initialQueue={labelModalPreload?.queue}
         initialTemplate={labelModalPreload?.template}
+        initialPriceCompanyId={labelModalPreload?.priceCompanyId}
         onPrinted={labelModalPreload ? () => { onPrintQueuePrinted?.(labelModalPreload.requestId); setLabelModalPreload(null); } : undefined}
         requestId={labelModalPreload?.requestId}
         onSaveQueue={onPrintQueueSaved}

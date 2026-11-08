@@ -551,7 +551,8 @@ export default function Page() {
   const [printQueuePreload, setPrintQueuePreload] = useState<{
     requestId: string;
     template: 'gondola' | 'gondola70x30' | 'produto' | 'produto40x20';
-    queue: { product: any; qty: number; size: 'full' | 'half' | 'triple'; info?: LabelInfoConfig }[];
+    priceCompanyId?: string;
+    queue: { product: any; qty: number; size: 'full' | 'half' | 'triple'; info?: LabelInfoConfig; overrides?: { price?: number } }[];
   } | null>(null);
   const [bulkDrafts, setBulkDrafts] = useState<any[]>([]);
   const [showBulkDraftReviewModal, setShowBulkDraftReviewModal] = useState(false);
@@ -1837,6 +1838,7 @@ export default function Page() {
         is_print_queue: true,
         template: payload.template,
         items: payload.items,
+        ...(payload.price_company_id ? { price_company_id: payload.price_company_id } : {}),
         count: payload.items.reduce((acc, item) => acc + item.qty, 0),
       }),
       status: 'pending',
@@ -1862,6 +1864,7 @@ export default function Page() {
           is_print_queue: true,
           template: payload.template,
           items: payload.items,
+          ...(payload.price_company_id ? { price_company_id: payload.price_company_id } : {}),
           count: payload.items.reduce((acc, item) => acc + item.qty, 0),
         }),
       })
@@ -6619,11 +6622,13 @@ export default function Page() {
                       setPrintQueuePreload({
                         requestId: request.id,
                         template: changes.template || 'gondola',
+                        priceCompanyId: changes.price_company_id || undefined,
                         queue: (changes.items || []).map((item: any) => ({
                           product: { id: item.product_id, name: item.name, sku: item.sku, ean: item.ean, price: item.price },
                           qty: item.qty,
                           size: item.size,
                           info: item.info,
+                          ...(typeof item.price_override === 'number' ? { overrides: { price: item.price_override } } : {}),
                         })),
                       });
                       setActiveTab('Inventory');
