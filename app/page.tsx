@@ -895,8 +895,8 @@ export default function Page() {
   // Aberto pelo ícone de observação da tabela → o Cadastro Rápido já abre com o painel aberto.
   const [quickEditOpenObs, setQuickEditOpenObs] = useState(false);
   const quickEditBaseRef = useRef<{ idx: number; origQty: number; notePrice: number; mult: number } | null>(null);
-  // Etiqueta aberta pelo Cadastro Rápido — fila com o produto do item e o preço de venda da nota.
-  const [noteLabelPreload, setNoteLabelPreload] = useState<{ queue: QueueEntry[]; priceCompanyId?: string } | null>(null);
+  // Etiqueta aberta pelo Cadastro Rápido (item da nota) ou pelo Editar Produto — fila de 1 produto já pronta.
+  const [quickLabelPreload, setQuickLabelPreload] = useState<{ queue: QueueEntry[]; priceCompanyId?: string } | null>(null);
   const viewingReviewNoteId = viewingReviewNote?.id;
   useEffect(() => { setQuickEditIdx(null); quickEditBaseRef.current = null; }, [viewingReviewNoteId]);
   const [distribModalDraft, setDistribModalDraft] = useState<Record<string, string>>({});
@@ -1922,7 +1922,7 @@ export default function Page() {
         product_id: null,
         requested_changes: JSON.stringify({
           is_print_queue: true,
-          template: 'gondola',
+          template: 'gondola70x30',
           items: [newItem],
           count: 1,
         }),
@@ -6291,6 +6291,17 @@ export default function Page() {
     setManualStockHistory(data || []);
   };
 
+  // Botão "Etiqueta" do Editar Produto: abre o módulo de etiquetas com o produto como está
+  // na tela (nome/SKU/EAN digitados) e o preço da loja selecionada no modal.
+  const openEditProductLabel = () => {
+    if (!editingProduct) return;
+    const price = Number(editingProduct.price) || 0;
+    setQuickLabelPreload({
+      queue: [{ product: { ...editingProduct, ean: editingProduct.ean || null }, qty: 1, size: 'full', overrides: price > 0 ? { price } : undefined }],
+      priceCompanyId: editProductCompanyId || undefined,
+    });
+  };
+
   const openEditModal = (product: any, tab: 'dados' | 'mae' | 'historico' = 'dados') => {
     setEditingProduct({
       ...product,
@@ -6752,6 +6763,15 @@ export default function Page() {
       {/* Bottom navigation — mobile only */}
       <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
+      {/* Etiqueta rápida — aberta pelo Cadastro Rápido da nota ou pelo Editar Produto */}
+      <LabelPrintModal
+        isOpen={!!quickLabelPreload}
+        onClose={() => setQuickLabelPreload(null)}
+        products={products}
+        initialQueue={quickLabelPreload?.queue}
+        initialPriceCompanyId={quickLabelPreload?.priceCompanyId}
+      />
+
       {/* Edit Product Modal */}
       <AnimatePresence>
         {showEditModal && editingProduct && (
@@ -6777,7 +6797,16 @@ export default function Page() {
               >
                 <Pencil size={15} />
               </button>
-              <h2 className="text-[15px] font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight truncate px-3">Editar Produto</h2>
+              <h2 className="flex-1 text-center text-[15px] font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight truncate px-3">Editar Produto</h2>
+              <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={openEditProductLabel}
+                title="Imprimir etiqueta"
+                className="w-[38px] h-[38px] rounded-full flex items-center justify-center shrink-0 bg-black/[0.06] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/[0.08] text-[#1A1A0E] dark:text-[#F2F0E3] active:scale-95 transition-transform"
+              >
+                <Printer size={16} />
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -6788,6 +6817,7 @@ export default function Page() {
               >
                 <X size={17} />
               </button>
+              </div>
             </div>
 
             {/* Tabs — pill */}
@@ -7449,6 +7479,15 @@ export default function Page() {
                   <Package size={15} strokeWidth={2.3} />
                 </div>
                 <h2 className="flex-1 min-w-0 truncate text-[15px] font-black text-[#1A1A0E] dark:text-[#F2F0E3]">Editar Produto</h2>
+                <button
+                  type="button"
+                  onClick={openEditProductLabel}
+                  title="Imprimir etiqueta deste produto (preço da loja selecionada)"
+                  className="h-[30px] px-2.5 inline-flex items-center gap-1.5 shrink-0 border border-black/[0.14] dark:border-white/[0.10] text-[12px] font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3] hover:bg-[#FFE500] hover:border-[#D4C000] dark:hover:bg-[#FFE500] dark:hover:text-[#1A1A0E] active:scale-[0.97] transition-all duration-[130ms]"
+                >
+                  <Printer size={14} strokeWidth={2.4} />
+                  Etiqueta
+                </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -13580,7 +13619,7 @@ export default function Page() {
                 ].filter(Boolean).join(' · ') || viewingReviewNote.fileName || 'Nota';
                 return (
                   <QuickEditItemModal
-                    suspended={linkingItemIdx !== null || multiLinkItemIdx !== null || distribModalIdx !== null || quickCreateConfirmIdx !== null || showEditModal || !!noteLabelPreload}
+                    suspended={linkingItemIdx !== null || multiLinkItemIdx !== null || distribModalIdx !== null || quickCreateConfirmIdx !== null || showEditModal || !!quickLabelPreload}
                     index={idx}
                     total={viewingReviewNote.items.length}
                     subtitle={subtitle}
@@ -13660,7 +13699,7 @@ export default function Page() {
                             ean: itemEan || null,
                             price: sellPrice,
                           };
-                      setNoteLabelPreload({
+                      setQuickLabelPreload({
                         queue: [{ product: base, qty: 1, size: 'full', overrides: sellPrice > 0 ? { price: sellPrice } : undefined }],
                         priceCompanyId: viewingPriceCompanyId || viewingReviewNote.companyId || undefined,
                       });
@@ -13670,14 +13709,6 @@ export default function Page() {
                   />
                 );
               })()}
-
-              <LabelPrintModal
-                isOpen={!!noteLabelPreload}
-                onClose={() => setNoteLabelPreload(null)}
-                products={products}
-                initialQueue={noteLabelPreload?.queue}
-                initialPriceCompanyId={noteLabelPreload?.priceCompanyId}
-              />
 
               {distribModalIdx !== null && viewingReviewNote && (() => {
                 const idx = distribModalIdx;

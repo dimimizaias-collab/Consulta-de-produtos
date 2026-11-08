@@ -52,7 +52,7 @@ const emptyDraft = (): Draft => ({ qty: 1, size: 'full' });
 
 export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: FilaImpressaoModalProps) {
   const [activeTab, setActiveTab] = useState<Tab>('selecao');
-  const [template, setTemplate] = useState<LabelTemplate>('gondola');
+  const [template, setTemplate] = useState<LabelTemplate>('gondola70x30');
   const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [queue, setQueue] = useState<Record<string, QueueEntry>>({});
@@ -146,7 +146,7 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
 
   const handleClose = () => {
     setActiveTab('selecao');
-    setTemplate('gondola');
+    setTemplate('gondola70x30');
     setTemplateMenuOpen(false);
     setSearch('');
     setQueue({});

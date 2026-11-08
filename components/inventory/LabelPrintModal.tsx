@@ -925,8 +925,8 @@ export const TEMPLATE_LABELS: Record<LabelTemplate, string> = {
 
 // Ordem e selo de cada modelo no seletor (compartilhado com a Fila de Impressão).
 export const TEMPLATE_OPTIONS: { id: LabelTemplate; badge?: string }[] = [
+  { id: 'gondola70x30', badge: 'Elgin · 70×30mm · padrão' },
   { id: 'gondola' },
-  { id: 'gondola70x30', badge: 'Elgin · 70×30mm' },
   { id: 'produto', badge: 'Adesiva 40×40mm' },
   { id: 'produto40x20', badge: 'Elgin · 2 colunas' },
 ];
@@ -1019,7 +1019,7 @@ interface PriceCompany { id: string; nome_fantasia: string; created_at: string |
 
 export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initialTemplate, initialPriceCompanyId, onPrinted, requestId, onSaveQueue, onSendQueue, onProductUpdated }: LabelPrintModalProps) {
   const [activeTab, setActiveTab] = useState<Tab>('selecao');
-  const [template, setTemplate] = useState<LabelTemplate>('gondola');
+  const [template, setTemplate] = useState<LabelTemplate>('gondola70x30');
   const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [queue, setQueue] = useState<Record<string, QueueEntry>>({});
@@ -1252,7 +1252,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
 
   const handleClose = () => {
     setActiveTab('selecao');
-    setTemplate('gondola');
+    setTemplate('gondola70x30');
     setTemplateMenuOpen(false);
     setSearch('');
     setQueue({});
