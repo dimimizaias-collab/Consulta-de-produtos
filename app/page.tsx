@@ -1176,6 +1176,14 @@ export default function Page() {
   const [editProductCostPriceDisplay, setEditProductCostPriceDisplay] = useState('');
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [editingProductExtraEans, setEditingProductExtraEans] = useState<EanCodeEntry[]>([]);
+  const [editingEanCopied, setEditingEanCopied] = useState(false);
+  const copyEditingEan = () => {
+    const value = (editingProduct?.ean || '').trim();
+    if (!value) return;
+    navigator.clipboard.writeText(value);
+    setEditingEanCopied(true);
+    setTimeout(() => setEditingEanCopied(false), 1500);
+  };
   // Aba "Editar Produto": Dados x Histórico em Notas. EANs-alvo do histórico são "congelados" ao
   // abrir o modal (não acompanham edições ao vivo do campo EAN) para não confundir o que já foi
   // gravado nas notas com o que o usuário está digitando agora.
@@ -7041,6 +7049,15 @@ export default function Page() {
                                 className={cn(inputCls, 'flex-1 min-w-0')}
                                 placeholder="Código de barras..."
                               />
+                              <button
+                                type="button"
+                                disabled={!(editingProduct.ean || '').trim()}
+                                onClick={copyEditingEan}
+                                title="Copiar código de barras"
+                                className="w-10 h-10 rounded-lg flex items-center justify-center transition-all shrink-0 border bg-primary/10 border-primary/20 text-primary hover:bg-primary/15 disabled:opacity-30 disabled:cursor-not-allowed"
+                              >
+                                {editingEanCopied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
+                              </button>
                               <EanCodesEditor entries={editingProductExtraEans} onChange={setEditingProductExtraEans} />
                             </div>
                           </div>
@@ -7572,6 +7589,15 @@ export default function Page() {
                           className={cn(PM_FIELD, 'flex-1 min-w-0 font-mono font-medium')}
                           placeholder="789…"
                         />
+                        <button
+                          type="button"
+                          disabled={!(editingProduct.ean || '').trim()}
+                          onClick={copyEditingEan}
+                          title="Copiar código de barras"
+                          className={PM_SQ_BTN}
+                        >
+                          {editingEanCopied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                        </button>
                         <EanCodesEditor entries={editingProductExtraEans} onChange={setEditingProductExtraEans} />
                       </div>
                     </div>
