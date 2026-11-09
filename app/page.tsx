@@ -6471,9 +6471,10 @@ export default function Page() {
 
   // Empresa padrão do formulário de Novo Produto — produto ainda não existe, então a troca
   // de empresa só mexe em estado local (nada é persistido até o "Adicionar Produto").
+  // Com outra loja selecionada em "Visualizar dados de", o formulário já abre nela.
   useEffect(() => {
-    if (showAddModal && primaryCompanyId && !newProductCompanyId) setNewProductCompanyId(primaryCompanyId);
-  }, [showAddModal, primaryCompanyId, newProductCompanyId]);
+    if (showAddModal && primaryCompanyId && !newProductCompanyId) setNewProductCompanyId(scopeStockCompanyId || primaryCompanyId);
+  }, [showAddModal, primaryCompanyId, newProductCompanyId, scopeStockCompanyId]);
 
   const handleNewProductCompanyChange = (nextCompanyId: string) => {
     if (!nextCompanyId || nextCompanyId === newProductCompanyId) return;
