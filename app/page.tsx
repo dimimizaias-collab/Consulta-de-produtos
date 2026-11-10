@@ -645,7 +645,9 @@ export default function Page() {
   // estoque print layout picker
   type EstoquePreset = 'financeiro' | 'estoque' | 'personalizado';
   const [showEstoqueLayoutPicker, setShowEstoqueLayoutPicker] = useState(false);
-  const [estoquePickerArgs, setEstoquePickerArgs] = useState<{ items: any[]; adj?: any; meta?: any } | null>(null);
+  const [estoquePickerArgs, setEstoquePickerArgs] = useState<{ items: any[]; visibleItems?: any[]; visibleAdj?: any; adj?: any; meta?: any } | null>(null);
+  // Quando a tabela da nota está filtrada: exportar só os itens visíveis (padrão) ou todos.
+  const [estoqueOnlyVisible, setEstoqueOnlyVisible] = useState(true);
   const [estoquePreset, setEstoquePreset] = useState<EstoquePreset>('financeiro');
   const [estoqueCustomCols, setEstoqueCustomCols] = useState<string[]>([]);
 
@@ -5620,6 +5622,14 @@ export default function Page() {
       const v = normalizeSearch(getReviewColText(k, it, i));
       return v.includes(term) || v.replace(/\./g, ',').includes(term);
     });
+  };
+  // Linha aparece na tabela da nota? Soma os filtros por coluna (estilo Excel) com a busca rápida.
+  // Usada pela própria tabela e pelo "Baixar para Estoque", para exportar só o que está na tela.
+  const isReviewItemVisible = (it: any, i: number): boolean => {
+    const hasColFilters = reviewFilterActive && Object.values(reviewColumnFilters).some(sel => sel.size > 0);
+    return (!hasColFilters || Object.entries(reviewColumnFilters).every(([key, sel]) =>
+      sel.size === 0 || sel.has(getReviewColText(key, it, i))
+    )) && matchesNoteQuickSearch(it, i);
   };
   const getExtraPriceTimestamp = (companyId: string, idx: number, item: any): string | null =>
     viewingNoteExtraPricing[companyId]?.priceTimestamps[idx] ?? item.pricingByCompany?.[companyId]?.precoAt ?? null;
@@ -10828,15 +10838,24 @@ export default function Page() {
                         </button>
                         <button
                           onClick={() => {
+                            const allItems = viewingReviewNote.items.map((item: any, idx: number) => ({
+                              ...item,
+                              qty: viewingNoteQtys[idx] ?? item.qty,
+                              unit: viewingNoteUnits[idx] ?? item.unit,
+                              multiplier: viewingNoteMultipliers[idx] ?? item.multiplier,
+                              distribuicao: getDistribTotal(idx, item) || null,
+                              discrepancy: getItemDiscrepancy(idx, item),
+                            }));
+                            // Tabela filtrada → o seletor oferece exportar só as linhas visíveis.
+                            const visibleIdx = allItems.map((_: any, idx: number) => idx).filter((idx: number) => isReviewItemVisible(viewingReviewNote.items[idx], idx));
+                            const isFiltered = visibleIdx.length < allItems.length;
+                            setEstoqueOnlyVisible(true);
                             setEstoquePickerArgs({
-                              items: viewingReviewNote.items.map((item: any, idx: number) => ({
-                                ...item,
-                                qty: viewingNoteQtys[idx] ?? item.qty,
-                                unit: viewingNoteUnits[idx] ?? item.unit,
-                                multiplier: viewingNoteMultipliers[idx] ?? item.multiplier,
-                                distribuicao: getDistribTotal(idx, item) || null,
-                                discrepancy: getItemDiscrepancy(idx, item),
-                              })),
+                              items: allItems,
+                              visibleItems: isFiltered ? visibleIdx.map((idx: number) => allItems[idx]) : undefined,
+                              // Descontos/acréscimos individuais são indexados pela posição na nota —
+                              // realinha com a lista reduzida para cada item manter o seu valor.
+                              visibleAdj: isFiltered ? adjColumns.map(c => ({ ...c, items: visibleIdx.map((idx: number) => c.items[idx]) })) : undefined,
                               adj: adjColumns,
                               meta: { supplierName: viewingReviewNote.supplierName, noteNumber: viewingReviewNote.noteNumber, accessKey: viewingReviewNote.accessKey },
                             });
@@ -11970,14 +11989,9 @@ export default function Page() {
                         if (ev) _tbEanDupCounts[ev] = (_tbEanDupCounts[ev] || 0) + 1;
                       });
                       const _getVal = getReviewColText;
-                      const _hasActiveFilters = reviewFilterActive && Object.values(reviewColumnFilters).some(s => s.size > 0);
                       const _filtered = _allItems
                         .map((item: any, origIdx: number) => ({ item, origIdx }))
-                        .filter(({ item, origIdx }) =>
-                          (!_hasActiveFilters || Object.entries(reviewColumnFilters).every(([key, sel]) =>
-                            sel.size === 0 || sel.has(_getVal(key, item, origIdx))
-                          )) && matchesNoteQuickSearch(item, origIdx)
-                        );
+                        .filter(({ item, origIdx }) => isReviewItemVisible(item, origIdx));
                       if (_filtered.length === 0 && noteQuickSearch.trim()) {
                         return (
                           <tr>
@@ -15566,6 +15580,39 @@ export default function Page() {
                   );
                 })()}
 
+                {/* Itens: só os filtrados na tabela ou a nota inteira */}
+                {estoquePickerArgs?.visibleItems && (
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-wider text-white/35 mb-2">Itens</p>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {[
+                        { only: true, label: 'Só os filtrados', count: estoquePickerArgs.visibleItems.length, desc: 'Itens visíveis na tabela' },
+                        { only: false, label: 'Nota inteira', count: estoquePickerArgs.items.length, desc: 'Ignora os filtros' },
+                      ].map(opt => {
+                        const active = estoqueOnlyVisible === opt.only;
+                        return (
+                          <button
+                            key={String(opt.only)}
+                            onClick={() => setEstoqueOnlyVisible(opt.only)}
+                            className={cn(
+                              "text-left px-3 py-2.5 rounded-xl border transition-all",
+                              active
+                                ? "bg-primary/10 border-primary/40"
+                                : "bg-white/[0.03] border-white/[0.07] hover:bg-white/[0.06] hover:border-white/[0.12]"
+                            )}
+                            style={{ transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
+                          >
+                            <p className={cn("text-sm font-black", active ? "text-primary" : "text-[#f2f0e3]")}>
+                              {opt.label} <span className="font-mono text-xs opacity-70">({opt.count})</span>
+                            </p>
+                            <p className="text-[10px] text-white/40">{opt.desc}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Footer actions */}
                 <div className="flex gap-2 pt-1">
                   <button
@@ -15578,9 +15625,10 @@ export default function Page() {
                   <button
                     onClick={() => {
                       if (!estoquePickerArgs) return;
+                      const useVisible = !!estoquePickerArgs.visibleItems && estoqueOnlyVisible;
                       exportEstoqueToA4PDF(
-                        estoquePickerArgs.items,
-                        estoquePickerArgs.adj,
+                        useVisible ? estoquePickerArgs.visibleItems! : estoquePickerArgs.items,
+                        useVisible ? estoquePickerArgs.visibleAdj : estoquePickerArgs.adj,
                         estoquePickerArgs.meta,
                         { preset: estoquePreset, customCols: estoqueCustomCols }
                       );
