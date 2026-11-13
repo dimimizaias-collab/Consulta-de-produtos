@@ -15,7 +15,7 @@ import { ProductAlterationModal } from '@/components/requests/ProductAlterationM
 import { LogisticsCenter, ReviewNote, getNoteStatus, STATUS_META, StatusIcon, noteHasUnpricedLinkedItems, type NoteStatus } from '@/components/requests/LogisticsCenter';
 import { ReceivedDateField } from '@/components/requests/ReceivedDateField';
 import { QuickEditItemModal, observationReasonLabel } from '@/components/requests/QuickEditItemModal';
-import { LabelPrintModal, type QueueEntry } from '@/components/inventory/LabelPrintModal';
+import { LabelPrintModal, type QueueEntry, type LabelTemplate } from '@/components/inventory/LabelPrintModal';
 // Pedidos de Compra — DESATIVADO da navegação (ver components/Sidebar.tsx). Import e componente mantidos para reativação futura.
 import { PurchaseOrderManager } from '@/components/orders/PurchaseOrderManager';
 import { SettingsPage } from '@/components/settings/SettingsPage';
@@ -898,7 +898,10 @@ export default function Page() {
   const [quickEditOpenObs, setQuickEditOpenObs] = useState(false);
   const quickEditBaseRef = useRef<{ idx: number; origQty: number; notePrice: number; mult: number } | null>(null);
   // Etiqueta aberta pelo Cadastro Rápido (item da nota) ou pelo Editar Produto — fila de 1 produto já pronta.
-  const [quickLabelPreload, setQuickLabelPreload] = useState<{ queue: QueueEntry[]; priceCompanyId?: string } | null>(null);
+  const [quickLabelPreload, setQuickLabelPreload] = useState<{ queue: QueueEntry[]; priceCompanyId?: string; template?: LabelTemplate } | null>(null);
+  // Etiquetas de Gôndola em lote a partir da nota (botão em Exportar).
+  const [noteLabelPicker, setNoteLabelPicker] = useState<Set<number> | null>(null);
+  const [noteLabelSearch, setNoteLabelSearch] = useState('');
   const viewingReviewNoteId = viewingReviewNote?.id;
   useEffect(() => { setQuickEditIdx(null); quickEditBaseRef.current = null; }, [viewingReviewNoteId]);
   const [distribModalDraft, setDistribModalDraft] = useState<Record<string, string>>({});
@@ -6339,6 +6342,40 @@ export default function Page() {
     });
   };
 
+  // Item da nota → entrada da fila de etiquetas. Produto vinculado usa o cadastro dele;
+  // sem vínculo, os dados do item na nota. O preço de venda digitado na nota (da empresa
+  // em "Precificar para") vale por cima do preço do cadastro.
+  const buildNoteItemLabelEntry = (idx: number): QueueEntry | null => {
+    const item = viewingReviewNote?.items?.[idx];
+    if (!item) return null;
+    const sellPrice = Number(viewingPriceCompanyId
+      ? (getExtraSellPrice(viewingPriceCompanyId, idx, item) ?? 0)
+      : (viewingNoteSellPrices[idx] ?? item.product_price ?? 0)) || 0;
+    const itemEan = String(viewingNoteEans[idx] ?? item.ean ?? '');
+    const linked = item.product_id ? products.find((p: any) => p.id === item.product_id) : null;
+    const base = linked
+      ? { ...linked, ean: linked.ean || itemEan || null }
+      : {
+          id: `00000000-0000-4000-8000-${String(idx).padStart(12, '0')}`,
+          name: item.original_description || item.name || 'Produto',
+          sku: item.supplier_code || null,
+          ean: itemEan || null,
+          price: sellPrice,
+        };
+    return { product: base, qty: 1, size: 'full', overrides: sellPrice > 0 ? { price: sellPrice } : undefined };
+  };
+
+  const printNoteLabels = (indices: number[]) => {
+    const queue = indices.map(buildNoteItemLabelEntry).filter((e): e is QueueEntry => !!e);
+    if (queue.length === 0) return;
+    setNoteLabelPicker(null);
+    setQuickLabelPreload({
+      queue,
+      template: 'gondola70x30',
+      priceCompanyId: viewingPriceCompanyId || viewingReviewNote?.companyId || undefined,
+    });
+  };
+
   const openEditModal = (product: any, tab: 'dados' | 'mae' | 'historico' = 'dados') => {
     setEditingProduct({
       ...product,
@@ -6807,8 +6844,159 @@ export default function Page() {
         onClose={() => setQuickLabelPreload(null)}
         products={products}
         initialQueue={quickLabelPreload?.queue}
+        initialTemplate={quickLabelPreload?.template}
         initialPriceCompanyId={quickLabelPreload?.priceCompanyId}
       />
+
+      {/* Etiquetas de Gôndola da nota — escolher itens ou imprimir todos */}
+      <AnimatePresence>
+        {noteLabelPicker && viewingReviewNote && (() => {
+          const items: any[] = viewingReviewNote.items || [];
+          const q = noteLabelSearch.trim().toLowerCase();
+          const allRows = items
+            .map((item, idx) => {
+              const entry = buildNoteItemLabelEntry(idx);
+              const p = entry?.product;
+              const name = String(p?.name || item.original_description || item.name || 'Produto');
+              const code = String(p?.sku || item.supplier_code || '');
+              const ean = String(p?.ean || '');
+              const price = Number(entry?.overrides?.price ?? p?.price) || 0;
+              return { idx, name, code, ean, price, linked: !!item.product_id };
+            });
+          const rows = allRows.filter(r => !q || `${r.name} ${r.code} ${r.ean}`.toLowerCase().includes(q));
+          const sel = noteLabelPicker;
+          const allShownSelected = rows.length > 0 && rows.every(r => sel.has(r.idx));
+          const toggle = (idx: number) => setNoteLabelPicker(prev => {
+            const next = new Set(prev || []);
+            if (next.has(idx)) next.delete(idx); else next.add(idx);
+            return next;
+          });
+          const toggleAllShown = () => setNoteLabelPicker(prev => {
+            const next = new Set(prev || []);
+            rows.forEach(r => { if (allShownSelected) next.delete(r.idx); else next.add(r.idx); });
+            return next;
+          });
+          const noPrice = allRows.filter(r => sel.has(r.idx) && !(r.price > 0)).length;
+          return (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.16 }}
+              className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+              onClick={() => setNoteLabelPicker(null)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 10 }}
+                transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                className="w-full max-w-xl max-h-[85vh] flex flex-col rounded-2xl overflow-hidden shadow-2xl bg-[#FBF8EE] dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.09]"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="px-5 py-4 flex items-start justify-between gap-3 border-b border-[#E0D8BF] dark:border-white/[0.07] bg-[#F3EDDA] dark:bg-[#252520]">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0">
+                      <Tag size={17} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10.5px] font-black uppercase tracking-wider text-on-surface/40">Etiqueta de Gôndola · 70x30</p>
+                      <p className="text-[15px] font-black text-on-surface truncate">
+                        {[viewingReviewNote.supplierName, viewingReviewNote.noteNumber ? `NF ${viewingReviewNote.noteNumber}` : null].filter(Boolean).join(' · ') || 'Itens da nota'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setNoteLabelPicker(null)}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface/40 hover:text-on-surface/80 hover:bg-on-surface/[0.07] transition-colors shrink-0"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+
+                <div className="px-5 pt-4 pb-3 flex items-center gap-2">
+                  <div className="flex-1 flex items-center gap-2 h-9 px-3 rounded-xl bg-white dark:bg-white/[0.04] border border-[#E0D8BF] dark:border-white/[0.09]">
+                    <Search size={14} className="text-on-surface/35 shrink-0" />
+                    <input
+                      autoFocus
+                      value={noteLabelSearch}
+                      onChange={e => setNoteLabelSearch(e.target.value)}
+                      placeholder="Buscar por nome, código ou EAN..."
+                      className="flex-1 min-w-0 bg-transparent outline-none text-[13px] text-on-surface placeholder:text-on-surface/35"
+                    />
+                  </div>
+                  <button
+                    onClick={toggleAllShown}
+                    disabled={rows.length === 0}
+                    className="h-9 px-3 rounded-xl text-[12px] font-bold border border-[#E0D8BF] dark:border-white/[0.09] text-on-surface/70 hover:bg-on-surface/[0.05] disabled:opacity-40 whitespace-nowrap transition-colors"
+                  >
+                    {allShownSelected ? 'Desmarcar' : 'Marcar'} {q ? 'filtrados' : 'todos'}
+                  </button>
+                </div>
+
+                <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-2">
+                  {rows.length === 0 ? (
+                    <p className="text-center text-[13px] text-on-surface/40 py-10">Nenhum item encontrado.</p>
+                  ) : rows.map(r => {
+                    const checked = sel.has(r.idx);
+                    return (
+                      <button
+                        key={r.idx}
+                        onClick={() => toggle(r.idx)}
+                        className={cn(
+                          'w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-left transition-colors',
+                          checked ? 'bg-amber-500/[0.10]' : 'hover:bg-on-surface/[0.04]',
+                        )}
+                      >
+                        <span className={cn(
+                          'w-[18px] h-[18px] rounded-md border flex items-center justify-center shrink-0 transition-colors',
+                          checked ? 'bg-amber-500 border-amber-500 text-white' : 'border-on-surface/25',
+                        )}>
+                          {checked && <Check size={12} strokeWidth={3} />}
+                        </span>
+                        <span className="text-[11px] font-bold text-on-surface/35 w-5 text-right shrink-0">{r.idx + 1}</span>
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-[12.5px] font-bold text-on-surface truncate">{r.name}</span>
+                          <span className="block text-[11px] text-on-surface/45 truncate">
+                            {[r.code, r.ean].filter(Boolean).join(' · ') || '—'}
+                            {!r.linked && <span className="ml-1.5 text-amber-600 dark:text-amber-400 font-semibold">· sem vínculo</span>}
+                          </span>
+                        </span>
+                        <span className={cn('text-[12.5px] font-black tabular-nums shrink-0', r.price > 0 ? 'text-on-surface' : 'text-red-500')}>
+                          {r.price > 0 ? `R$ ${r.price.toFixed(2).replace('.', ',')}` : 'Sem preço'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="px-5 py-3.5 flex flex-wrap items-center justify-between gap-2 border-t border-[#E0D8BF] dark:border-white/[0.07] bg-[#F3EDDA] dark:bg-[#252520]">
+                  <span className="text-[12px] text-on-surface/55">
+                    <b className="text-on-surface">{sel.size}</b> de {items.length} selecionado(s)
+                    {noPrice > 0 && <span className="text-red-500 font-semibold"> · {noPrice} sem preço</span>}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => printNoteLabels(items.map((_, i) => i))}
+                      disabled={items.length === 0}
+                      className="h-9 px-3.5 rounded-xl text-[12.5px] font-bold border border-[#E0D8BF] dark:border-white/[0.12] text-on-surface/80 hover:bg-on-surface/[0.06] disabled:opacity-40 transition-colors"
+                    >
+                      Imprimir todos ({items.length})
+                    </button>
+                    <button
+                      onClick={() => printNoteLabels([...sel].sort((a, b) => a - b))}
+                      disabled={sel.size === 0}
+                      className="h-9 px-3.5 rounded-xl text-[12.5px] font-black bg-[#D81E1E] text-white hover:bg-[#c01a1a] active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100 flex items-center gap-1.5 transition-all"
+                    >
+                      <Printer size={14} /> Imprimir selecionados
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
 
       {/* Edit Product Modal */}
       <AnimatePresence>
@@ -10866,6 +11054,16 @@ export default function Page() {
                         >
                           <Download size={15} />
                         </button>
+                        <button
+                          onClick={() => {
+                            setNoteLabelSearch('');
+                            setNoteLabelPicker(new Set());
+                          }}
+                          title="Imprimir Etiquetas de Gôndola"
+                          className={cn(toolBtn, 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 hover:bg-amber-500/[0.18]')}
+                        >
+                          <Tag size={14} />
+                        </button>
                         {xmlBtn}
                       </>)}
                       {/* Precificar para outra empresa — troca Preço Venda/Markup/Ok/Revisão da tabela
@@ -13748,19 +13946,9 @@ export default function Page() {
                     onSelectProduct={p => handleQuickEditSelectProduct(idx, p)}
                     onEditProduct={() => { if (linked) openEditModal(linked); }}
                     onPrintLabel={() => {
-                      // Produto vinculado → cadastro dele; sem vínculo → dados do item na nota.
-                      // O preço de venda digitado na nota vale por cima do preço da empresa.
-                      const base = linked
-                        ? { ...linked, ean: linked.ean || itemEan || null }
-                        : {
-                            id: `00000000-0000-4000-8000-${String(idx).padStart(12, '0')}`,
-                            name: item.original_description || item.name || 'Produto',
-                            sku: item.supplier_code || null,
-                            ean: itemEan || null,
-                            price: sellPrice,
-                          };
-                      setQuickLabelPreload({
-                        queue: [{ product: base, qty: 1, size: 'full', overrides: sellPrice > 0 ? { price: sellPrice } : undefined }],
+                      const entry = buildNoteItemLabelEntry(idx);
+                      if (entry) setQuickLabelPreload({
+                        queue: [entry],
                         priceCompanyId: viewingPriceCompanyId || viewingReviewNote.companyId || undefined,
                       });
                     }}
