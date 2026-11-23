@@ -553,7 +553,7 @@ export default function Page() {
     requestId: string;
     template: 'gondola' | 'gondola70x30' | 'produto' | 'produto40x20';
     priceCompanyId?: string;
-    queue: { product: any; qty: number; size: 'full' | 'half' | 'triple'; info?: LabelInfoConfig; overrides?: { price?: number } }[];
+    queue: { product: any; qty: number; size: 'full' | 'half' | 'triple'; info?: LabelInfoConfig; overrides?: { price?: number; price_unit?: string } }[];
   } | null>(null);
   const [bulkDrafts, setBulkDrafts] = useState<any[]>([]);
   const [showBulkDraftReviewModal, setShowBulkDraftReviewModal] = useState(false);
@@ -6717,7 +6717,12 @@ export default function Page() {
                           qty: item.qty,
                           size: item.size,
                           info: item.info,
-                          ...(typeof item.price_override === 'number' ? { overrides: { price: item.price_override } } : {}),
+                          ...((typeof item.price_override === 'number' || item.price_unit) ? {
+                            overrides: {
+                              ...(typeof item.price_override === 'number' ? { price: item.price_override } : {}),
+                              ...(item.price_unit ? { price_unit: String(item.price_unit) } : {}),
+                            },
+                          } : {}),
                         })),
                       });
                       setActiveTab('Inventory');

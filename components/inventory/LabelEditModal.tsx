@@ -24,6 +24,14 @@ interface LabelEditModalProps {
   onClose: () => void;
 }
 
+// Sugestões rápidas de unidade de medida do preço (texto livre também vale).
+const PRICE_UNIT_OPTIONS = ['unidade', 'metro', 'kg', 'litro', 'pacote', 'caixa', 'par', 'm²'];
+
+// "/metro" ou " metro " → "metro": a barra já é colocada na etiqueta.
+export function normalizePriceUnit(text: string | undefined | null): string {
+  return (text ?? '').replace(/^[\s/]+/, '').trim();
+}
+
 function formatPriceInput(value: number | undefined | null): string {
   if (value === undefined || value === null || Number.isNaN(value)) return '';
   return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -41,6 +49,7 @@ export function LabelEditModal({ isOpen, product, overrides, onSave, onRestore, 
   const [sku, setSku] = useState('');
   const [ean, setEan] = useState('');
   const [priceText, setPriceText] = useState('');
+  const [priceUnit, setPriceUnit] = useState('');
 
   // Recarrega os campos com os valores efetivos (override, se houver, senão
   // o do produto) toda vez que a janela abre pra um item novo.
@@ -50,6 +59,7 @@ export function LabelEditModal({ isOpen, product, overrides, onSave, onRestore, 
     setSku(overrides?.sku ?? product.sku ?? '');
     setEan(overrides?.ean ?? product.ean ?? '');
     setPriceText(formatPriceInput(overrides?.price ?? product.price));
+    setPriceUnit(overrides?.price_unit ?? '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, product?.id]);
 
@@ -64,7 +74,8 @@ export function LabelEditModal({ isOpen, product, overrides, onSave, onRestore, 
   const skuEdited = sku !== baseSku;
   const eanEdited = ean !== baseEan;
   const priceEdited = priceText !== basePriceText;
-  const hasAnyEdit = nameEdited || skuEdited || eanEdited || priceEdited;
+  const unitEdited = normalizePriceUnit(priceUnit) !== '';
+  const hasAnyEdit = nameEdited || skuEdited || eanEdited || priceEdited || unitEdited;
 
   const fieldCls = (edited: boolean) => cn(inputCls, edited && '!border-[#D81E1E]/55');
 
@@ -77,6 +88,8 @@ export function LabelEditModal({ isOpen, product, overrides, onSave, onRestore, 
       const parsed = parsePriceInput(priceText);
       if (parsed !== undefined) nextOverrides.price = parsed;
     }
+    const unit = normalizePriceUnit(priceUnit);
+    if (unit) nextOverrides.price_unit = unit;
     onSave(nextOverrides);
     onClose();
   };
@@ -156,6 +169,45 @@ export function LabelEditModal({ isOpen, product, overrides, onSave, onRestore, 
                         />
                       </div>
                     </div>
+                  </div>
+
+                  <div className="min-w-0">
+                    <label className={labelCls}>Unidade de medida do preço</label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px] font-bold text-on-surface/45 pointer-events-none">/</span>
+                      <input
+                        value={priceUnit}
+                        onChange={e => setPriceUnit(e.target.value)}
+                        placeholder="Sem unidade"
+                        maxLength={14}
+                        className={cn(fieldCls(unitEdited), 'pl-6')}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {PRICE_UNIT_OPTIONS.map(opt => {
+                        const active = normalizePriceUnit(priceUnit).toLowerCase() === opt.toLowerCase();
+                        return (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => setPriceUnit(active ? '' : opt)}
+                            className={cn(
+                              'h-[22px] px-2 border text-[10.5px] font-bold transition-colors',
+                              active
+                                ? 'border-[#D81E1E] bg-[#D81E1E]/10 text-[#D81E1E]'
+                                : 'border-[#E0D8BF] dark:border-white/[0.10] text-on-surface/60 hover:bg-[#FFF8D0] dark:hover:bg-[#FFE500]/[0.08]',
+                            )}
+                          >
+                            {opt}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[10px] font-semibold text-on-surface/40 mt-1">
+                      {normalizePriceUnit(priceUnit)
+                        ? <>Na etiqueta de gôndola: <b className="text-on-surface/60">R$ {priceText || '0,00'} / {normalizePriceUnit(priceUnit)}</b></>
+                        : 'Opcional — sai ao lado do preço na etiqueta de gôndola (ex.: R$ 35,00 / metro).'}
+                    </p>
                   </div>
 
                   <div className="min-w-0">

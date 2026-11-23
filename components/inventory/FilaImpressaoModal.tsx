@@ -172,6 +172,7 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
             price: effective.price ?? null,
             qty: entry.qty,
             size: entry.size,
+            ...(entry.overrides?.price_unit ? { price_unit: entry.overrides.price_unit } : {}),
           };
         }),
       });

@@ -220,6 +220,28 @@ function measureTextWidth(text: string, fontSize: number, weight: number | strin
   return ctx.measureText(text).width;
 }
 
+// Preço + unidade de medida ("35,00 / metro") dentro da caixa do preço: a
+// unidade sai menor, na mesma linha de base do número, e o número encolhe só
+// o necessário pra caber junto com ela. Sem unidade = mesmo cálculo de antes.
+const PRICE_UNIT_RATIO = 0.3;      // altura da fonte da unidade ÷ altura da caixa
+const PRICE_UNIT_MAX_W = 0.45;     // a unidade nunca passa de 45% da largura
+const PRICE_UNIT_GAP_EM = 0.3;     // respiro entre o número e a unidade
+interface PriceFit { precoSize: number; unitText: string; unitSize: number; unitGap: number }
+function fitPriceWithUnit(priceText: string, unit: string | undefined, w: number, h: number, family: string): PriceFit {
+  const clean = (unit ?? '').replace(/^[\s/]+/, '').trim();
+  if (!clean) return { precoSize: fitFontSize(priceText, w, h, 800, family), unitText: '', unitSize: 0, unitGap: 0 };
+  const unitText = `/ ${clean}`;
+  let unitSize = h * PRICE_UNIT_RATIO;
+  let unitW = measureTextWidth(unitText, unitSize, 800, family) / FIT_SAFETY;
+  if (unitW > w * PRICE_UNIT_MAX_W) {
+    unitSize *= (w * PRICE_UNIT_MAX_W) / unitW;
+    unitW = w * PRICE_UNIT_MAX_W;
+  }
+  const unitGap = unitSize * PRICE_UNIT_GAP_EM;
+  const precoSize = fitFontSize(priceText, Math.max(1, w - unitW - unitGap), h, 800, family);
+  return { precoSize, unitText, unitSize, unitGap };
+}
+
 // Quebra o texto em até `maxLines` linhas medindo a largura real (canvas),
 // e não com -webkit-line-clamp — o line-clamp calcula sua própria altura de
 // recorte a partir da line-height renderizada, que na impressão real pode
@@ -397,7 +419,8 @@ function LabelPreviewCell({ product, layout, offsetXMm, frameW = ELGIN_LABEL_W, 
   const shifted = liftHalfLayout(layout, shiftLayoutDown(layout, nomeFit.extraH), nomeFit.twoLines);
   const refSize = fitFontSize(refText, shifted.ref.w * PREVIEW_PX_PER_MM, shifted.ref.h * PREVIEW_PX_PER_MM, 900, "'DM Mono', monospace");
   const rsSize = fitFontSize('R$', shifted.rs.w * PREVIEW_PX_PER_MM, shifted.rs.h * PREVIEW_PX_PER_MM, 800, 'DM Sans, sans-serif');
-  const precoSize = fitFontSize(priceText, shifted.preco.w * PREVIEW_PX_PER_MM, shifted.preco.h * PREVIEW_PX_PER_MM, 800, 'DM Sans, sans-serif');
+  const priceFit = fitPriceWithUnit(priceText, product.price_unit, shifted.preco.w * PREVIEW_PX_PER_MM, shifted.preco.h * PREVIEW_PX_PER_MM, 'DM Sans, sans-serif');
+  const precoSize = priceFit.precoSize;
   const bcNumSize = code ? fitFontSize(code, shifted.barcode.w * PREVIEW_PX_PER_MM, shifted.barcode.h * (layout.bcNumRatio ?? 0.3) * PREVIEW_PX_PER_MM, 700, "'DM Mono', monospace") : 0;
   const dataSize = fitFontSize(dataText, shifted.data.w * PREVIEW_PX_PER_MM, shifted.data.h * PREVIEW_PX_PER_MM, 400, 'DM Sans, sans-serif');
 
@@ -426,7 +449,12 @@ function LabelPreviewCell({ product, layout, offsetXMm, frameW = ELGIN_LABEL_W, 
       </div>
       <div style={box(shifted.rs, { fontSize: rsSize, fontWeight: 800, color: '#141400', whiteSpace: 'nowrap', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end' })}>R$</div>
       <div style={box(shifted.preco, { fontSize: precoSize, fontWeight: 800, color: '#141400', lineHeight: 0.85, whiteSpace: 'nowrap', overflow: 'visible', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' })}>
-        {priceText}
+        {priceFit.unitText ? (
+          <span style={{ display: 'inline-flex', alignItems: 'baseline' }}>
+            <span>{priceText}</span>
+            <span style={{ fontSize: priceFit.unitSize, marginLeft: priceFit.unitGap, lineHeight: 1 }}>{priceFit.unitText}</span>
+          </span>
+        ) : priceText}
       </div>
       <div style={box(shifted.data, { fontSize: dataSize, color: '#3c3c3c', whiteSpace: 'nowrap', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' })}>
         {dataText}
@@ -853,6 +881,10 @@ export interface LabelOverrides {
   sku?: string;
   ean?: string;
   price?: number;
+  // Unidade de medida do preço ("metro", "unidade", "kg"...) — sai ao lado do
+  // preço na Etiqueta de Gôndola: "35,00 / metro". Chave própria (não "unit")
+  // pra nunca pegar a medida da nota que alguns produtos carregam.
+  price_unit?: string;
 }
 
 export interface QueueEntry {
@@ -1004,6 +1036,8 @@ export interface PrintQueueItem {
   // Preço digitado à mão no "Editar etiqueta" — sem ele, o preço sai da
   // empresa escolhida em price_company_id ao reabrir o pedido.
   price_override?: number;
+  // Unidade de medida do preço digitada no "Editar etiqueta" ("metro"...).
+  price_unit?: string;
 }
 
 export interface PrintQueueSubmission {
@@ -1279,6 +1313,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
         size: entry.size,
         ...(hasLabelInfo(entry.info) ? { info: entry.info } : {}),
         ...(entry.overrides?.price !== undefined ? { price_override: entry.overrides.price } : {}),
+        ...(entry.overrides?.price_unit ? { price_unit: entry.overrides.price_unit } : {}),
       };
     }),
     ...(priceCompanyId ? { price_company_id: priceCompanyId } : {}),
@@ -1340,7 +1375,11 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     const nomeWrapStyle = nomeFit.twoLines ? 'white-space: pre-line;' : '';
     const refSize = fitFontSize(refText, shifted.ref.w, shifted.ref.h, 900, "'Courier New', monospace");
     const rsSize = fitFontSize('R$', shifted.rs.w, shifted.rs.h, 800, 'Arial, Helvetica, sans-serif');
-    const precoSize = fitFontSize(priceText, shifted.preco.w, shifted.preco.h, 800, 'Arial, Helvetica, sans-serif');
+    const priceFit = fitPriceWithUnit(priceText, product.price_unit, shifted.preco.w, shifted.preco.h, 'Arial, Helvetica, sans-serif');
+    const precoSize = priceFit.precoSize;
+    const precoHtml = priceFit.unitText
+      ? `<span class="preco-wrap"><span>${escapeHtml(priceText)}</span><span class="preco-un" style="font-size:${priceFit.unitSize.toFixed(2)}mm; margin-left:${priceFit.unitGap.toFixed(2)}mm;">${escapeHtml(priceFit.unitText)}</span></span>`
+      : escapeHtml(priceText);
     const bcNumSize = code ? fitFontSize(code, shifted.barcode.w, shifted.barcode.h * (layout.bcNumRatio ?? 0.3), 700, "'Courier New', monospace") : 0;
     const dataSize = fitFontSize(dataText, shifted.data.w, shifted.data.h, 400, 'Arial, Helvetica, sans-serif');
 
@@ -1352,7 +1391,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
         ${code ? `<div class="bc-num" style="font-size:${bcNumSize.toFixed(2)}mm;">${escapeHtml(code)}</div>` : ''}
       </div>
       <div class="cell-el rs" style="${boxStyle(shifted.rs)} font-size:${rsSize.toFixed(2)}mm;">R$</div>
-      <div class="cell-el preco" style="${boxStyle(shifted.preco)} font-size:${precoSize.toFixed(2)}mm;">${escapeHtml(priceText)}</div>
+      <div class="cell-el preco" style="${boxStyle(shifted.preco)} font-size:${precoSize.toFixed(2)}mm;">${precoHtml}</div>
       <div class="cell-el data" style="${boxStyle(shifted.data)} font-size:${dataSize.toFixed(2)}mm;">${escapeHtml(dataText)}</div>
     `;
   };
@@ -1410,6 +1449,8 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
         .cell-el.ref { font-family: 'Courier New', monospace; font-weight: 900; color: #3c3c3c; }
         .cell-el.rs { display: flex; align-items: flex-start; justify-content: flex-end; }
         .cell-el.preco { font-weight: 800; line-height: 0.85; overflow: visible; display: flex; align-items: center; justify-content: flex-end; }
+        .preco-wrap { display: inline-flex; align-items: baseline; }
+        .preco-un { line-height: 1; }
         .cell-el.barcode { display: flex; flex-direction: column; white-space: normal; }
         .bc-img { flex: 1 1 auto; width: 100%; min-height: 0; object-fit: fill; }
         .bc-num { font-family: 'Courier New', monospace; font-weight: 700; color: #3c3c3c; text-align: center; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

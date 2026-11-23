@@ -34,7 +34,7 @@ interface PrintQueuePreload {
   requestId: string;
   template: 'gondola' | 'gondola70x30' | 'produto' | 'produto40x20';
   priceCompanyId?: string;
-  queue: { product: any; qty: number; size: 'full' | 'half' | 'triple'; info?: LabelInfoConfig; overrides?: { price?: number } }[];
+  queue: { product: any; qty: number; size: 'full' | 'half' | 'triple'; info?: LabelInfoConfig; overrides?: { price?: number; price_unit?: string } }[];
 }
 
 interface InventoryManagerProps {
